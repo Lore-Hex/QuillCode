@@ -21,12 +21,14 @@ enum AgentResearchCheckpointGate {
     static func earlyDelegationCorrection(
         path: String?,
         proposedToolName: String,
+        proposedCall: ToolCall? = nil,
         canDelegate: Bool,
         canWriteFiles: Bool,
         hasDelegatedResearch: Bool,
         correctionCounts: [String: Int]
     ) -> Correction? {
-        guard isParallelizableResearchCollectionTool(proposedToolName),
+        guard proposedCall.map(isParallelizableResearchCollectionCall)
+                ?? isParallelizableResearchCollectionTool(proposedToolName),
               canDelegate,
               canWriteFiles,
               !hasDelegatedResearch,
@@ -51,11 +53,13 @@ enum AgentResearchCheckpointGate {
     static func correction(
         path: String?,
         proposedToolName: String? = nil,
+        proposedCall: ToolCall? = nil,
         proposedToolRisk: ToolRiskClass?,
         canWriteFiles: Bool,
         correctionCounts: [String: Int]
     ) -> Correction? {
         guard proposedToolRisk == .read
+                || proposedCall.map(isResearchCollectionCall) == true
                 || proposedToolName.map(isResearchCollectionTool) == true,
               canWriteFiles,
               let path,
@@ -78,11 +82,13 @@ enum AgentResearchCheckpointGate {
     static func exhaustionCorrection(
         path: String?,
         proposedToolName: String,
+        proposedCall: ToolCall? = nil,
         canWriteFiles: Bool,
         userMessage: String,
         correctionCounts: [String: Int]
     ) -> Correction? {
-        guard isResearchCollectionTool(proposedToolName),
+        guard proposedCall.map(isResearchCollectionCall)
+                ?? isResearchCollectionTool(proposedToolName),
               canWriteFiles,
               let path,
               correctionCounts[path, default: 0] < correctionLimitPerPath
@@ -113,6 +119,15 @@ enum AgentResearchCheckpointGate {
             || name == ToolDefinition.subagentsRun.name
     }
 
+    static func isResearchCollectionCall(_ call: ToolCall) -> Bool {
+        isDirectResearchCollectionCall(call)
+            || call.name == ToolDefinition.subagentsRun.name
+    }
+
+    static func isDirectResearchCollectionCall(_ call: ToolCall) -> Bool {
+        isDirectResearchCollectionTool(call.name) || isShellResearchCollectionCall(call)
+    }
+
     static func isDirectResearchCollectionTool(_ name: String) -> Bool {
         [
             ToolDefinition.webSearch.name,
@@ -125,6 +140,30 @@ enum AgentResearchCheckpointGate {
 
     static func isParallelizableResearchCollectionTool(_ name: String) -> Bool {
         name == ToolDefinition.webSearch.name || name == ToolDefinition.webFetch.name
+    }
+
+    static func isParallelizableResearchCollectionCall(_ call: ToolCall) -> Bool {
+        isParallelizableResearchCollectionTool(call.name)
+    }
+
+    /// Shell is intentionally advertised as a general mutation tool, but agents also use it as a
+    /// second browser via curl/wget and then repeatedly parse the downloaded page. Those calls must
+    /// consume the same bounded research budget as host.web.fetch or they can bypass every durable
+    /// checkpoint and spend the run's finalization reserve re-fetching evidence already in context.
+    private static func isShellResearchCollectionCall(_ call: ToolCall) -> Bool {
+        guard call.name == ToolDefinition.shellRun.name,
+              let arguments = try? ToolArguments(call.argumentsJSON),
+              let command = arguments.string("cmd")?.lowercased()
+        else { return false }
+
+        let markers = [
+            "curl ",
+            "wget ",
+            "http://",
+            "https://",
+            "downloads/",
+        ]
+        return markers.contains(where: command.contains)
     }
 
     static func continuationCorrection(
@@ -156,12 +195,14 @@ enum AgentResearchCheckpointGate {
     static func finalizationCorrection(
         path: String?,
         proposedToolName: String? = nil,
+        proposedCall: ToolCall? = nil,
         proposedToolRisk: ToolRiskClass?,
         canWriteFiles: Bool,
         userMessage: String,
         correctionCounts: [String: Int]
     ) -> Correction? {
         guard proposedToolRisk == .read
+                || proposedCall.map(isResearchCollectionCall) == true
                 || proposedToolName.map(isResearchCollectionTool) == true,
               canWriteFiles,
               let path,

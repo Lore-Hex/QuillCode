@@ -72,6 +72,48 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
         ))
     }
 
+    func testShellWebFetchAndDownloadedPageParsingCountAsDirectResearch() {
+        let curl = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "curl -s https://example.gov/data -o downloads/data.html",
+            ])
+        )
+        let parse = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "sed -n '1,80p' downloads/data.html",
+            ])
+        )
+        let localRead = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "cat inputs/records.csv"])
+        )
+
+        XCTAssertTrue(AgentResearchCheckpointGate.isDirectResearchCollectionCall(curl))
+        XCTAssertTrue(AgentResearchCheckpointGate.isDirectResearchCollectionCall(parse))
+        XCTAssertFalse(AgentResearchCheckpointGate.isDirectResearchCollectionCall(localRead))
+    }
+
+    func testCheckpointInterruptsShellResearchDespiteDestructiveToolRisk() throws {
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "grep -n Annual downloads/official-series.html",
+            ])
+        )
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.correction(
+            path: "outputs/report.md",
+            proposedToolName: call.name,
+            proposedCall: call,
+            proposedToolRisk: .destructive,
+            canWriteFiles: true,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertEqual(correction.path, "outputs/report.md")
+    }
+
     func testRequiresExactDraftBeforeAnotherReadOnlyAction() throws {
         let correction = try XCTUnwrap(AgentResearchCheckpointGate.correction(
             path: "outputs/revenue.html",

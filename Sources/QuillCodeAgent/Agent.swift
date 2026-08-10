@@ -778,11 +778,12 @@ public struct AgentRunner: Sendable {
                 if case .tool(let proposedCall) = resolvedAction,
                    let path = runLoop.exhaustedResearchBudgetPath(
                     maximumResearchWeight: AgentResearchCheckpointGate.maximumPostDraftResearchWeight
-                   ), AgentResearchCheckpointGate.isResearchCollectionTool(proposedCall.name) {
+                   ), AgentResearchCheckpointGate.isResearchCollectionCall(proposedCall) {
                     runLoop.requireResearchRefresh(at: path)
                     if let correction = AgentResearchCheckpointGate.exhaustionCorrection(
                         path: path,
                         proposedToolName: proposedCall.name,
+                        proposedCall: proposedCall,
                         canWriteFiles: tools.contains(where: {
                             $0.name == ToolDefinition.fileWrite.name
                         }),
@@ -1627,6 +1628,7 @@ public struct AgentRunner: Sendable {
                                 AgentResearchCheckpointGate.minimumDirectResearchBeforeDelegation
                         ),
                         proposedToolName: activeCall.name,
+                        proposedCall: activeCall,
                         canDelegate: tools.contains(where: {
                             $0.name == ToolDefinition.subagentsRun.name
                         }),
@@ -1657,6 +1659,7 @@ public struct AgentRunner: Sendable {
                                 AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
                         ),
                         proposedToolName: activeCall.name,
+                        proposedCall: activeCall,
                         proposedToolRisk: tools.first(where: {
                             $0.name == activeCall.name
                         })?.risk,
@@ -1710,6 +1713,7 @@ public struct AgentRunner: Sendable {
                                 AgentResearchCheckpointGate.minimumPreDraftResearchWeight
                         ),
                         proposedToolName: activeCall.name,
+                        proposedCall: activeCall,
                         proposedToolRisk: tools.first(where: {
                             $0.name == activeCall.name
                         })?.risk,

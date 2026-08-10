@@ -355,6 +355,34 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testShellBrowsingConsumesResearchBudgetAndRetainsLatestEvidence() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: "Research and write outputs/report.md.")
+
+        for index in 0..<AgentResearchCheckpointGate.minimumPreDraftResearchWeight {
+            let call = ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "curl -s https://example.gov/series/\(index)",
+                ])
+            )
+            _ = state.recordCompletedStep(
+                completed(call: call, stdout: "official row \(index): 333.952"),
+                workspaceRoot: root
+            ) { _ in "shell-research-\(index)" }
+        }
+
+        XCTAssertEqual(
+            state.pendingResearchCheckpointPath(
+                minimumResearchWeight: AgentResearchCheckpointGate.minimumPreDraftResearchWeight
+            ),
+            "outputs/report.md"
+        )
+        XCTAssertTrue(state.latestResearchEvidenceReceipt?.contains("official row 7") == true)
+        XCTAssertTrue(state.latestResearchEvidenceReceipt?.contains("host.shell.run") == true)
+        XCTAssertTrue(state.didFetchSuccessfully)
+    }
+
     func testDelegatedResearchContributesToPreDraftCheckpoint() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

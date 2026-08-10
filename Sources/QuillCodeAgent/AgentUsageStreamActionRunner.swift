@@ -23,7 +23,7 @@ extension AgentRunner {
         let reasoningLimit: Int? = switch reasoningBudgetPhase {
         case .startup, .checkpoint:
             preActionReasoningCharacterLimit
-        case .synthesis:
+        case .synthesis, .boundedFinalization:
             interActionReasoningCharacterLimit
         case .correction:
             preActionReasoningCharacterLimit.map {
@@ -31,8 +31,6 @@ extension AgentRunner {
                     ? min($0, AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit)
                     : min($0, Self.correctiveActionReasoningCharacterLimit)
             }
-        case .boundedFinalization:
-            nil
         }
         if let reasoningLimit {
             stream = AgentPreActionReasoningBudget.enforcing(

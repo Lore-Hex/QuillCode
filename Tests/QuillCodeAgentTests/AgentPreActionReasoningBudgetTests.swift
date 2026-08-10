@@ -338,11 +338,16 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
-    func testBoundedFinalizationCorrectionReliesOnTurnDeadlinePastDeepSeekCharacterLimit() async throws {
-        let state = UsageStreamSequenceState([[
-            .reasoning(String(repeating: "grounded synthesis ", count: 800)),
-            .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"complete"}}"#),
-        ]])
+    func testBoundedFinalizationCapsDeepSeekReasoningAndRecoversFileWrite() async throws {
+        let state = UsageStreamSequenceState([
+            [
+                .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"ignored"}}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"complete"}}"#),
+            ],
+        ])
         let runner = AgentRunner(
             llm: UsageStreamSequenceClient(state: state),
             turnDeadlineSeconds: AgentRunner.boundedRunFinalizationTurnDeadlineSeconds
@@ -372,12 +377,11 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             JSONSerialization.jsonObject(with: argumentsData) as? [String: String]
         )
         XCTAssertEqual(arguments["path"], "outputs/report.md")
-        XCTAssertGreaterThan(
-            String(repeating: "grounded synthesis ", count: 800).count,
-            AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
-        )
+        XCTAssertTrue(thread.events.contains {
+            $0.summary.contains("pre-action reasoning budget")
+        })
         let requestCount = await state.requestCount()
-        XCTAssertEqual(requestCount, 1)
+        XCTAssertEqual(requestCount, 2)
     }
 
     func testBoundedRunAutomaticallyUsesDeadlineBoundFinalizationReasoning() async throws {
@@ -385,6 +389,9 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         let state = UsageStreamSequenceState([
             [
                 .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"ignored"}}"#),
+            ],
+            [
                 .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Verified evidence synthesized."}}"#),
             ],
             [
@@ -421,11 +428,11 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("reserved finalization window")
         })
-        XCTAssertFalse(result.thread.events.contains {
+        XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("pre-action reasoning budget")
         })
         let requestCount = await state.requestCount()
-        XCTAssertEqual(requestCount, 3)
+        XCTAssertEqual(requestCount, 4)
     }
 
     func testBoundedAuditUsesCorrectiveReasoningFuseAndPreservesValidatorInstruction() async throws {
@@ -433,6 +440,9 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         let state = UsageStreamSequenceState([
             [
                 .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"ignored"}}"#),
+            ],
+            [
                 .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Verified evidence synthesized."}}"#),
             ],
             [
@@ -474,7 +484,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             $0.summary.contains("pre-action reasoning budget")
         })
         let requestCount = await state.requestCount()
-        XCTAssertEqual(requestCount, 5)
+        XCTAssertEqual(requestCount, 6)
     }
 
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
@@ -530,6 +540,14 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
                 configured: AgentRunner.defaultPreActionReasoningCharacterLimit,
                 modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
                 phase: .correction
+            ),
+            AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
+        )
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: AgentRunner.defaultInterActionReasoningCharacterLimit,
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+                phase: .boundedFinalization
             ),
             AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
         )

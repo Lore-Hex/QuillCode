@@ -597,7 +597,9 @@ struct AgentRunLoopState: Sendable {
                 writtenWorkspacePaths.insert(artifact)
             }
         }
-        let isResearchObservation = AgentResearchCheckpointGate.isDirectResearchCollectionTool(name)
+        let isResearchObservation = AgentResearchCheckpointGate.isDirectResearchCollectionCall(
+            completion.call
+        )
             || name == ToolDefinition.subagentsRun.name
         if isResearchObservation {
             // Delegated results are new research observations just like fetched pages. If they
@@ -605,7 +607,7 @@ struct AgentRunLoopState: Sendable {
             // This is especially important when one worker returns usable evidence alongside a
             // partial/failed worker: the parent should preserve what it learned, not silently bless
             // the pre-delegation draft.
-            if AgentResearchCheckpointGate.isDirectResearchCollectionTool(name),
+            if AgentResearchCheckpointGate.isDirectResearchCollectionCall(completion.call),
                name != ToolDefinition.webSearch.name {
                 didFetchSuccessfully = true
             }
@@ -681,7 +683,7 @@ struct AgentRunLoopState: Sendable {
         _ completion: AgentToolStepCompletion
     ) {
         let researchWeight: Int
-        if AgentResearchCheckpointGate.isDirectResearchCollectionTool(completion.call.name) {
+        if AgentResearchCheckpointGate.isDirectResearchCollectionCall(completion.call) {
             // Failed requests consume the same wall-clock/context reserve and establish an evidence
             // gap the deliverable should disposition, so direct attempts count regardless of result.
             researchWeight = 1
@@ -703,19 +705,14 @@ struct AgentRunLoopState: Sendable {
         }
 
         guard completion.result.ok else { return }
-        switch completion.call.name {
-        case ToolDefinition.webSearch.name,
-             ToolDefinition.webFetch.name,
-             ToolDefinition.browserOpen.name,
-             ToolDefinition.browserInspect.name,
-             ToolDefinition.browserScript.name:
+        if AgentResearchCheckpointGate.isDirectResearchCollectionCall(completion.call) {
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 successfulResearchStepsAfterCheckpoint += 1
             }
             resumedResearchCheckpointWorkspacePaths.formUnion(
                 pendingResearchContinuationWorkspacePaths
             )
-        case ToolDefinition.subagentsRun.name:
+        } else if completion.call.name == ToolDefinition.subagentsRun.name {
             successfulDelegatedResearchBatchCount += 1
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 // A delegated batch is the last broad research action after a checkpoint. It may
@@ -748,7 +745,8 @@ struct AgentRunLoopState: Sendable {
                     )
                 }
             }
-        case ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name:
+        } else if completion.call.name == ToolDefinition.fileWrite.name
+                    || completion.call.name == ToolDefinition.chartRender.name {
             if let path = AgentArtifactVerificationGate.pathArgument(from: completion.call),
                let deliverablePath = namedTextDeliverableWorkspacePaths.first(where: {
                    AgentArtifactVerificationGate.pathsMatch($0, path)
@@ -776,8 +774,6 @@ struct AgentRunLoopState: Sendable {
                     )
                 }
             }
-        default:
-            break
         }
     }
 

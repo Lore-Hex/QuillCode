@@ -49,10 +49,8 @@ enum AgentPreActionReasoningBudget {
         let providerLimit = switch phase {
         case .startup, .checkpoint:
             deepSeekV4Flash0731CharacterLimit
-        case .synthesis, .correction:
+        case .synthesis, .correction, .boundedFinalization:
             deepSeekV4Flash0731SynthesisCharacterLimit
-        case .boundedFinalization:
-            configured
         }
         return min(configured, providerLimit)
     }
