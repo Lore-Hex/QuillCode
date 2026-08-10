@@ -49,4 +49,21 @@ final class WebFetchMarkdownFocusTests: XCTestCase {
         XCTAssertTrue(result.text.contains("Quarterly revenue evidence row"))
         XCTAssertTrue(result.text.contains("non-matching lines omitted"))
     }
+
+    func testMatchingTableRowsRetainHeaderAndSeparator() {
+        let text = (["# CPI series"] + (1...100).map { "Disclosure line \($0)" } + [
+            "| Year | Jan | Feb | Dec | HALF1 | HALF2 |",
+            "| --- | --- | --- | --- | --- | --- |",
+            "| 2023 | 299.170 | 300.840 | 306.746 | 302.408 | 306.996 |",
+            "| 2024 | 308.417 | 310.326 | 315.605 | 312.145 | 315.233 |",
+        ]).joined(separator: "\n")
+
+        let result = WebFetchMarkdownFocus.select(text, query: "2023 2024 CPI")
+
+        XCTAssertTrue(result.focused)
+        XCTAssertTrue(result.text.contains("| Year | Jan | Feb | Dec | HALF1 | HALF2 |"))
+        XCTAssertTrue(result.text.contains("| --- | --- | --- | --- | --- | --- |"))
+        XCTAssertTrue(result.text.contains("| 2023 | 299.170"))
+        XCTAssertTrue(result.text.contains("| 2024 | 308.417"))
+    }
 }

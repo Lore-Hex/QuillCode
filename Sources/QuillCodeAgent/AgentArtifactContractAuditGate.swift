@@ -18,6 +18,8 @@ enum AgentArtifactContractAuditGate {
         half-period, subtotal, latest-period, partial-period, or adjacent column as an annual or \
         full-period aggregate. If a requested aggregate is absent, recompute it from the applicable \
         underlying observations and disclose the observation count and any missing periods. A \
+        requested annual aggregate that is absent must be calculated from the eligible monthly \
+        columns; HALF1, HALF2, H1, and H2 columns are never annual values. A \
         validator must derive source aggregates from those underlying observations independently of \
         the artifact and must locate intended table fields by their headers, not by taking the first \
         similar number or currency value from a row. For a latest-period claim, pair the ordered \

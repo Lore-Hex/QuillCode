@@ -112,6 +112,7 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
 
         XCTAssertTrue(correction.prompt.contains("align every value with its exact source header"))
         XCTAssertTrue(correction.prompt.contains("Never relabel a half-period"))
+        XCTAssertTrue(correction.prompt.contains("HALF1, HALF2, H1, and H2 columns are never annual values"))
         XCTAssertTrue(correction.prompt.contains("underlying observations independently"))
         XCTAssertTrue(correction.prompt.contains("locate intended table fields by their headers"))
         XCTAssertTrue(correction.prompt.contains("rightmost non-missing eligible period"))

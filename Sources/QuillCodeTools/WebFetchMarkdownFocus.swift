@@ -32,6 +32,9 @@ public enum WebFetchMarkdownFocus {
         for (index, _) in scored.sorted(by: { lhs, rhs in
             lhs.1 == rhs.1 ? lhs.0 < rhs.0 : lhs.1 > rhs.1
         }) {
+            for headerIndex in tableHeaderIndices(containing: index, lines: lines) {
+                selected.insert(headerIndex)
+            }
             for candidate in max(0, index - 2)...min(lines.count - 1, index + 2) {
                 selected.insert(candidate)
             }
@@ -49,6 +52,23 @@ public enum WebFetchMarkdownFocus {
             previous = index
         }
         return (output.joined(separator: "\n"), true)
+    }
+
+    /// A table row without its headers is unsafe evidence: adjacent subtotal or half-period
+    /// columns can otherwise be mistaken for the requested measure. Preserve the first two
+    /// rows of the containing Markdown table (normally its header and separator).
+    private static func tableHeaderIndices(containing index: Int, lines: [String]) -> [Int] {
+        guard lines.indices.contains(index), isMarkdownTableLine(lines[index]) else { return [] }
+        var start = index
+        while start > 0, isMarkdownTableLine(lines[start - 1]) {
+            start -= 1
+        }
+        return Array(start...min(start + 1, index))
+    }
+
+    private static func isMarkdownTableLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.hasPrefix("|") && trimmed.hasSuffix("|")
     }
 
     private static func words(in text: String) -> Set<String> {
