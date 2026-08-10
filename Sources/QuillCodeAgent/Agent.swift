@@ -830,6 +830,32 @@ public struct AgentRunner: Sendable {
                    runLoop.boundedRunFinalizationPhase(at: path) == .audit,
                    !isControlledBoundedRunFinalizationAction,
                    case .tool(let proposedCall) = resolvedAction {
+                    let isValidatorProposal = AgentBoundedRunFinalizationGate
+                        .validatorHelperExecutionCall(
+                            after: proposedCall,
+                            deliverablePath: path
+                        ) != nil
+                        || !AgentArtifactContractAuditGate.auditedPaths(
+                            for: proposedCall,
+                            among: [AgentArtifactVerificationGate.normalizedPath(path)]
+                        ).isEmpty
+                    if isValidatorProposal,
+                       let issue = runLoop.authoritativeEvidenceContradiction(at: path) {
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .evidenceContradictionCorrectionPrompt(
+                                path: path,
+                                issue: issue,
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                            )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: rejected validation of source-contradictory "
+                                + "artifact ./\(path): \(issue)"
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
                     let missingInputs = AgentBoundedRunFinalizationGate
                         .missingRequiredStructuredInputBindings(
                             in: proposedCall,
@@ -841,7 +867,8 @@ public struct AgentRunner: Sendable {
                             .validatorInputBindingCorrectionPrompt(
                                 path: path,
                                 missingInputPaths: missingInputs,
-                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                proposedCall: proposedCall
                             )
                         next.events.append(.init(
                             kind: .notice,

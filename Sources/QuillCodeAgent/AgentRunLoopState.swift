@@ -164,6 +164,19 @@ struct AgentRunLoopState: Sendable {
         })
     }
 
+    func authoritativeEvidenceContradiction(at path: String) -> String? {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+        guard let artifact = latestWrittenTextContents.first(where: { storedPath, _ in
+            AgentArtifactVerificationGate.pathsMatch(storedPath, normalizedPath)
+        })?.value,
+        let evidenceReceipt = latestResearchEvidenceReceipt
+        else { return nil }
+        return AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        )
+    }
+
     func repeatedCompletion(for call: ToolCall) -> AgentToolStepCompletion? {
         guard let lastExecutedCall,
               lastExecutedCall.name == call.name,

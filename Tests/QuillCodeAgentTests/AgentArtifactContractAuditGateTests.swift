@@ -47,6 +47,77 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testRejectsLatestPeriodClaimPairedWithAdjacentSourceValue() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | 330.724 |
+        """
+        let artifact = """
+        The latest published monthly benchmark is June 2026, index 326.785.
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("Jun 2026"))
+        XCTAssertTrue(issue.contains("326.785"))
+        XCTAssertTrue(issue.contains("333.952"))
+    }
+
+    func testAllowsLatestPeriodClaimPairedBySourceHeader() {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | 330.724 |
+        """
+        let artifact = "The latest published monthly benchmark is June 2026, index 333.952."
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
+    func testAllowsUnrelatedMetricFromSameMonthAndYear() {
+        let evidence = """
+        | Year | May | Jun | HALF1 |
+        | --- | --- | --- | --- |
+        | 2026 | 335.123 | 333.952 | 334.538 |
+        """
+        let artifact = "The company reported June 2026 revenue of 326.785 million."
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
+    func testRejectsIncorrectExplicitMeanBeforeValidatorExecution() throws {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 +
+        323.976 + 324.800 + 324.122 + 324.054) / 11 = 322.3075
+        """
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+        XCTAssertTrue(issue.contains("321.943000"))
+        XCTAssertTrue(issue.contains("322.3075"))
+    }
+
+    func testAllowsCorrectExplicitMean() {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 +
+        323.976 + 324.800 + 324.122 + 324.054) / 11 = 321.943
+        """
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)

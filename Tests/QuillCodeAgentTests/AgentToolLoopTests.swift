@@ -69,6 +69,30 @@ final class AgentToolLoopTests: XCTestCase {
         )
     }
 
+    func testValidatorBindingCorrectionIncludesRejectedProposalAndAcceptedReaderShape() {
+        let proposed = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate-report.py",
+                "content": "assert '4200000' in open('outputs/report.md').read()",
+            ])
+        )
+
+        let prompt = AgentBoundedRunFinalizationGate.validatorInputBindingCorrectionPrompt(
+            path: "outputs/report.md",
+            missingInputPaths: ["inputs/records.csv"],
+            evidenceReceipt: nil,
+            proposedCall: proposed
+        )
+
+        XCTAssertTrue(prompt.contains("rejected actions are not part of the durable tool transcript"))
+        XCTAssertTrue(prompt.contains("outputs/validate-report.py"))
+        XCTAssertTrue(prompt.contains("assert '4200000'"))
+        XCTAssertTrue(prompt.contains("open(\"inputs/records.csv\""))
+        XCTAssertTrue(prompt.contains("csv.DictReader"))
+        XCTAssertTrue(prompt.contains("never use /tmp"))
+    }
+
     func testAgentUsesPlanUpdateToolWhenAvailable() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(
@@ -415,6 +439,84 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("rejected a non-finalization action")
         })
+    }
+
+    func testBoundedFinalizationRejectsValidatorUntilSourceContradictionIsRewritten() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/series"])
+        )
+        let incorrectWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "The latest monthly benchmark is June 2026, index 326.785.",
+            ])
+        )
+        let prematureValidator = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate_report.py",
+                "content": "assert '326.785' in open('outputs/report.md').read()",
+            ])
+        )
+        let correctedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "The latest monthly benchmark is June 2026, index 333.952.",
+            ])
+        )
+        let acceptedValidator = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate_report.py",
+                "content": "assert '333.952' in open('outputs/report.md').read()\nprint('PASS')",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(fetch), .tool(incorrectWrite), .tool(prematureValidator),
+                .tool(correctedWrite), .tool(acceptedValidator),
+            ]),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    return ToolResult(ok: true, stdout: """
+                    | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
+                    | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+                    | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | 330.724 |
+                    """)
+                }
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 12,
+            boundedRunFinalizationAfterSeconds: 0.05
+        )
+
+        let result = try await runner.send(
+            "Research the official table, write outputs/report.md, run a deterministic validator "
+                + "against every row, read the saved output back, and report completion.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let diagnostics = result.thread.events.map(\.summary).joined(separator: "\n")
+        let validatorCount = await validatorCapture.count
+        XCTAssertEqual(validatorCount, 1, diagnostics)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "The latest monthly benchmark is June 2026, index 333.952.",
+            diagnostics
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected validation of source-contradictory artifact")
+        }, diagnostics)
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
     }
 
     func testBoundedRunFinalizationRejectsValidatorThatOnlyCommentsRequiredCSV() async throws {

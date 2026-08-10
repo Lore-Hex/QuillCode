@@ -885,6 +885,44 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.researchPressureWeightBeforeDraft, 1)
     }
 
+    func testRunLoopRejectsValidationWhenDraftContradictsRetainedPeriodTable() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research and write outputs/report.md with a deterministic validator."
+        )
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        let table = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | 330.724 |
+        """
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: table),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "The latest monthly benchmark is June 2026, index 326.785.",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let issue = try XCTUnwrap(
+            state.authoritativeEvidenceContradiction(at: "./outputs/report.md")
+        )
+        XCTAssertTrue(issue.contains("Jun 2026"))
+        XCTAssertTrue(issue.contains("333.952"))
+    }
+
     func testEmptyVisibleBrowserExtractionDoesNotReplaceUsefulReceipt() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(

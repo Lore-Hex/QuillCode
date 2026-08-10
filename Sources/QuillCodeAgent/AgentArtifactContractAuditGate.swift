@@ -146,6 +146,16 @@ enum AgentArtifactContractAuditGate {
         artifact: String,
         evidenceReceipt: String
     ) -> String? {
+        if let issue = explicitArithmeticContradiction(in: artifact) {
+            return issue
+        }
+        if let issue = latestPeriodContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        ) {
+            return issue
+        }
+
         let evidenceValues = decimalObservations(in: evidenceReceipt)
         guard evidenceValues.count >= 4,
               structuredObservationLineCount(in: evidenceReceipt) >= 2,
@@ -158,6 +168,162 @@ enum AgentArtifactContractAuditGate {
         return "The validator passed an artifact that says source values were unavailable, "
             + "but retained structured evidence contains numeric observations including "
             + "\(examples). Reconcile the artifact and validate the requested calculations."
+    }
+
+    private static func explicitArithmeticContradiction(in artifact: String) -> String? {
+        let pattern = #"\((\s*\d{1,8}(?:\.\d+)?(?:\s*\+\s*\d{1,8}(?:\.\d+)?){2,}\s*)\)\s*(?:/|÷)\s*(\d+)\s*=\s*(\d{1,8}(?:\.\d+)?)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(artifact.startIndex..., in: artifact)
+        for match in regex.matches(in: artifact, range: range) {
+            guard let termsRange = Range(match.range(at: 1), in: artifact),
+                  let divisorRange = Range(match.range(at: 2), in: artifact),
+                  let claimRange = Range(match.range(at: 3), in: artifact),
+                  let divisor = Double(artifact[divisorRange]),
+                  divisor != 0,
+                  let claimed = Double(artifact[claimRange])
+            else { continue }
+
+            let terms = artifact[termsRange].split(separator: "+").compactMap { term in
+                Double(term.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            guard terms.count >= 3 else { continue }
+            let expected = terms.reduce(0, +) / divisor
+            let claim = String(artifact[claimRange])
+            let precision = claim.split(separator: ".", maxSplits: 1)
+                .dropFirst().first?.count ?? 0
+            let tolerance = max(0.000_000_5, 1.5 * pow(10, -Double(precision)))
+            guard abs(expected - claimed) > tolerance else { continue }
+            return String(
+                format: "The artifact's explicit sum/division equation evaluates to %.6f, not %@. "
+                    + "Recompute the aggregate and every downstream value from it.",
+                expected,
+                claim
+            )
+        }
+        return nil
+    }
+
+    private struct PeriodObservation {
+        var rowLabel: String
+        var periodLabel: String
+        var value: String
+    }
+
+    private static func latestPeriodContradiction(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> String? {
+        for observation in latestPeriodObservations(in: evidenceReceipt) {
+            let row = NSRegularExpression.escapedPattern(for: observation.rowLabel)
+            let period = orderedPeriodPattern(for: observation.periodLabel)
+            let metric = "(?:index|benchmark|observation|value)"
+            let patterns = [
+                "(?is)\\b\(period)\\s+\(row)\\b[^\\n]{0,80}?\\b\(metric)\\b[^\\n]{0,40}?\\b(\\d{1,8}\\.\\d+)\\b",
+                "(?is)\\b\(row)\\b[^\\n]{0,80}?\\b\(period)\\b[^\\n]{0,80}?\\b\(metric)\\b[^\\n]{0,40}?\\b(\\d{1,8}\\.\\d+)\\b",
+                "(?is)\\b\(row)\\b[^\\n]{0,120}?\\blatest(?:\\s+published)?(?:\\s+eligible)?(?:\\s+monthly)?(?:\\s+(?:period|month|quarter|observation|index|benchmark))?\\b[^\\n]{0,100}?\\b(\\d{1,8}\\.\\d+)\\b",
+            ]
+            for pattern in patterns {
+                guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+                let range = NSRange(artifact.startIndex..., in: artifact)
+                for match in regex.matches(in: artifact, range: range) {
+                    guard let valueRange = Range(match.range(at: 1), in: artifact) else { continue }
+                    let claimed = String(artifact[valueRange])
+                    guard !decimalValuesMatch(claimed, observation.value) else { continue }
+                    return "The artifact pairs \(observation.periodLabel) "
+                        + "\(observation.rowLabel) with \(claimed), but the retained source table "
+                        + "pairs that exact header and row with \(observation.value). The latest "
+                        + "eligible period must be selected by header/value position."
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func latestPeriodObservations(in text: String) -> [PeriodObservation] {
+        let lines = text.components(separatedBy: .newlines)
+        var found: [PeriodObservation] = []
+        for (index, line) in lines.enumerated() {
+            let headers = pipeCells(line)
+            guard headers.count >= 3,
+                  ["year", "date", "period"].contains(headers[0].lowercased())
+            else { continue }
+
+            let eligible = headers.indices.dropFirst().filter {
+                isOrderedPeriodHeader(headers[$0])
+            }
+            guard !eligible.isEmpty else { continue }
+            for rowLine in lines.dropFirst(index + 1) {
+                let cells = pipeCells(rowLine)
+                if cells.isEmpty { break }
+                if isMarkdownSeparatorRow(cells) { continue }
+                guard cells.count >= headers.count,
+                      cells[0].range(of: #"^\d{4}$"#, options: .regularExpression) != nil
+                else {
+                    if rowLine.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("|") {
+                        continue
+                    }
+                    break
+                }
+                guard let valueIndex = eligible.reversed().first(where: {
+                    decimalValue(cells[$0]) != nil
+                }) else { continue }
+                found.append(.init(
+                    rowLabel: cells[0],
+                    periodLabel: headers[valueIndex],
+                    value: cells[valueIndex]
+                ))
+            }
+        }
+        return found
+    }
+
+    private static func pipeCells(_ line: String) -> [String] {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("|"), trimmed.contains("|") else { return [] }
+        var body = trimmed
+        if body.hasPrefix("|") { body.removeFirst() }
+        if body.hasSuffix("|") { body.removeLast() }
+        return body.split(separator: "|", omittingEmptySubsequences: false).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    private static func isMarkdownSeparatorRow(_ cells: [String]) -> Bool {
+        !cells.isEmpty && cells.allSatisfy { cell in
+            let compact = cell.replacingOccurrences(of: ":", with: "")
+            return !compact.isEmpty && compact.allSatisfy { $0 == "-" }
+        }
+    }
+
+    private static func isOrderedPeriodHeader(_ raw: String) -> Bool {
+        let header = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return orderedPeriodAliases.contains { $0.contains(header) }
+    }
+
+    private static func orderedPeriodPattern(for raw: String) -> String {
+        let header = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let aliases = orderedPeriodAliases.first { $0.contains(header) } ?? [header]
+        return "(?:" + aliases.map(NSRegularExpression.escapedPattern(for:))
+            .joined(separator: "|") + ")"
+    }
+
+    private static let orderedPeriodAliases = [
+        ["jan", "january"], ["feb", "february"], ["mar", "march"],
+        ["apr", "april"], ["may"], ["jun", "june"], ["jul", "july"],
+        ["aug", "august"], ["sep", "sept", "september"], ["oct", "october"],
+        ["nov", "november"], ["dec", "december"], ["q1"], ["q2"], ["q3"], ["q4"],
+    ]
+
+    private static func decimalValue(_ raw: String) -> Double? {
+        Double(raw.replacingOccurrences(of: ",", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private static func decimalValuesMatch(_ left: String, _ right: String) -> Bool {
+        guard let lhs = decimalValue(left), let rhs = decimalValue(right) else {
+            return left == right
+        }
+        return abs(lhs - rhs) < 0.000_000_5
     }
 
     private static func isValidatorCommand(_ command: String) -> Bool {
