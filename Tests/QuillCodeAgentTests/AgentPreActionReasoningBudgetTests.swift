@@ -231,7 +231,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
                 .text(#"{"type":"say","text":"too late"}"#),
             ],
             [
-                .reasoning(String(repeating: "still planning ", count: 600)),
+                .reasoning(String(repeating: "still planning ", count: 900)),
                 .text(#"{"type":"say","text":"still too late"}"#),
             ],
             [
@@ -308,6 +308,31 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 5)
     }
 
+    func testNonDeepSeekCorrectiveAttemptAllowsGroundedReasoningBeforeAction() async throws {
+        let state = UsageStreamSequenceState([[
+            .reasoning(String(repeating: "grounded analysis ", count: 450)),
+            .text(#"{"type":"say","text":"Correction complete."}"#),
+        ]])
+        let runner = AgentRunner(llm: UsageStreamSequenceClient(state: state))
+        var thread = ChatThread(
+            title: "fallback correction",
+            model: TrustedRouterDefaults.safetyPrimaryCatalogModel
+        )
+
+        let action = try await runner.nextAction(
+            thread: &thread,
+            userMessage: "Complete the researched deliverable.",
+            tools: [ToolDefinition.fileWrite],
+            workspaceRoot: FileManager.default.temporaryDirectory,
+            onProgress: nil,
+            injectedCorrection: "Use the retained evidence and emit the next action."
+        )
+
+        XCTAssertEqual(action, .say("Correction complete."))
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 1)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
@@ -319,7 +344,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         )
         XCTAssertNil(AgentRunner(preActionReasoningCharacterLimit: nil).preActionReasoningCharacterLimit)
         XCTAssertNil(AgentRunner(interActionReasoningCharacterLimit: nil).interActionReasoningCharacterLimit)
-        XCTAssertEqual(AgentRunner.correctiveActionReasoningCharacterLimit, 6_000)
+        XCTAssertEqual(AgentRunner.correctiveActionReasoningCharacterLimit, 12_000)
     }
 
     func testDeepSeekV4FlashUsesProviderSafeReasoningLimit() {

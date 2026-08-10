@@ -23,11 +23,10 @@ public struct AgentRunner: Sendable {
     /// produced a workspace mutation. Large grounded deliverables need more room than startup
     /// routing; the bound still prevents an inter-action reasoner spiral.
     public static let defaultInterActionReasoningCharacterLimit = 16_000
-    /// Corrective samples must converge faster than the sample they replace; otherwise recovery
-    /// can consume the remaining turn deadline by repeating the same reasoning spiral. Six thousand
-    /// characters still bounds recovery tightly while leaving reasoning routes enough room to turn
-    /// a complex research correction into a concrete action.
-    public static let correctiveActionReasoningCharacterLimit = 6_000
+    /// Corrective samples must remain bounded, but complex fallback reasoners need enough room to
+    /// turn retained research evidence into a concrete action. The resolver's two-attempt recovery
+    /// budget and per-turn deadline still prevent an unbounded correction spiral.
+    public static let correctiveActionReasoningCharacterLimit = 12_000
     static let fallbackSwitchNotice = "Self-healing: the model kept returning empty responses; "
         + "switching to the fallback model for this step."
     static let reasoningFallbackSwitchNotice = "Self-healing: the model repeatedly exhausted its "
