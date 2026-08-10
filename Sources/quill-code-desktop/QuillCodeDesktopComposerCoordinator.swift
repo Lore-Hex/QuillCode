@@ -22,6 +22,7 @@ struct QuillCodeDesktopComposerCoordinator {
         }
 
         draft = ""
+        model.setDraft("")
         let root = model.activeWorkspaceRoot ?? fallbackWorkspaceRoot
         guard model.runBrowserSessionSlashCommand(slashTarget.target, originalPrompt: prompt, workspaceRoot: root) else {
             refresh()
@@ -54,6 +55,7 @@ struct QuillCodeDesktopComposerCoordinator {
         if WorkspaceConfidentialSlash.isConfidentialCommand(prompt) {
             if model.composer.attachments.isEmpty {
                 draft = ""
+                model.setDraft("")
                 model.newConfidentialChat()
             } else {
                 model.setLastError("Remove the attached image to start a confidential chat: attachments aren't available in confidential chats.")
@@ -68,6 +70,7 @@ struct QuillCodeDesktopComposerCoordinator {
         if model.composer.attachments.isEmpty,
            let sideSlash = WorkspaceSideConversationSlash.parse(prompt) {
             draft = ""
+            model.setDraft("")
             guard let sideThreadID = model.startSideConversation(prompt: sideSlash.prompt) else {
                 refresh()
                 return
@@ -95,6 +98,7 @@ struct QuillCodeDesktopComposerCoordinator {
         if tasks.isSendRunning(threadID: selectedThreadID) || model.isAgentRunActive(for: selectedThreadID) {
             model.enqueueFollowUp(prompt)
             draft = ""
+            model.setDraft("")
             refresh()
             return
         }

@@ -128,6 +128,12 @@
 
 ## Latest Quality Pass
 
+- Unsent composer text now uses a private, owner-bound, size-limited checkpoint after a short typing
+  debounce, with immediate app-deactivation and quit flushes. The live model updates synchronously so
+  unrelated background surface refreshes cannot erase typing during that delay. New chats gain one
+  durable baseline before sidecar-only updates; relaunch restores pending first messages and per-chat
+  drafts, tombstones prevent sent text from returning, oversized records fall back to the established
+  full-thread snapshot, and confidential/side drafts never reach disk.
 - Packaged macOS launches now register an atomic, cross-process-locked, privacy-safe launch sentinel
   before workspace construction, mark Ready only after the first native root view appears, and clear
   only a matching launch on graceful termination. A fresh dead-process marker produces one native

@@ -8,7 +8,14 @@ import QuillCodeTools
 @MainActor
 final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
-    @Published var draft: String
+    @Published var draft: String {
+        didSet {
+            guard !isComposerDraftBindingSideEffectsSuppressed else { return }
+            let ownerThreadID = model.selectedThread?.id
+            composerDraftCheckpointCoordinator.schedule(draft: draft, model: model)
+            model.updateLiveComposerDraft(draft, ownerThreadID: ownerThreadID)
+        }
+    }
     @Published var terminalDraft: String
     @Published var browserAddressDraft: String
     @Published var isCommandPalettePresented = false
@@ -38,6 +45,8 @@ final class QuillCodeDesktopController: ObservableObject {
     let sshHostDiscovery: SSHHostDiscovery
     let sshRemoteProjectProbe: SSHRemoteProjectProbe
     let composerCoordinator: QuillCodeDesktopComposerCoordinator
+    let composerDraftCheckpointCoordinator: QuillCodeDesktopComposerDraftCheckpointCoordinator
+    var isComposerDraftBindingSideEffectsSuppressed = false
     let copyCoordinator: QuillCodeDesktopCopyCoordinator
     let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
     let projectAccessCoordinator: QuillCodeDesktopProjectAccessCoordinator
@@ -64,6 +73,8 @@ final class QuillCodeDesktopController: ObservableObject {
         automationNotifier: any QuillCodeAutomationNotifying = DesktopAutomationNotifierFactory.platformDefault(),
         sshHostDiscovery: SSHHostDiscovery = SSHHostDiscovery(),
         sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe(),
+        composerDraftCheckpointCoordinator: QuillCodeDesktopComposerDraftCheckpointCoordinator =
+            QuillCodeDesktopComposerDraftCheckpointCoordinator(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
@@ -91,6 +102,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.sshHostDiscovery = sshHostDiscovery
         self.sshRemoteProjectProbe = sshRemoteProjectProbe
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
+        self.composerDraftCheckpointCoordinator = composerDraftCheckpointCoordinator
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
         self.projectAccessCoordinator = QuillCodeDesktopProjectAccessCoordinator()
@@ -201,6 +213,7 @@ final class QuillCodeDesktopController: ObservableObject {
     /// Starts services that belong to the application process rather than any SwiftUI scene. The
     /// ordinary app entry point calls this once; the owned controllers keep repeat calls idempotent.
     func startApplicationServices() {
+        composerDraftCheckpointCoordinator.startLifecycleFlushes(model: model)
         installApprovalNotificationHandling()
         installationLocationController.startIfNeeded()
         updateController.startAutomaticChecks()

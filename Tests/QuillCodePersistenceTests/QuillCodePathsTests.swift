@@ -22,6 +22,7 @@ final class QuillCodePathsTests: PersistenceTestCase {
 
         for directory in [
             paths.threadsDirectory,
+            paths.composerDraftsDirectory,
             paths.subagentThreadsDirectory,
             paths.subagentApprovalPayloadsDirectory,
             paths.attachmentsDirectory,
@@ -37,6 +38,7 @@ final class QuillCodePathsTests: PersistenceTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory))
             XCTAssertTrue(isDirectory.boolValue)
         }
+        XCTAssertEqual(try posixPermissions(at: paths.composerDraftsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.subagentApprovalPayloadsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.pluginDataDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.importsDirectory), 0o700)

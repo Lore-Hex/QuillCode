@@ -16,6 +16,9 @@ BROWSER_WORKFLOW_MANIFEST="$SMOKE_ROOT/packaged-browser-workflow.json"
 COMPUTER_USE_MANIFEST="$SMOKE_ROOT/packaged-computer-use.json"
 COMPUTER_USE_ACTION_MANIFEST="$SMOKE_ROOT/packaged-computer-use-action.json"
 PERFORMANCE_MANIFEST="$SMOKE_ROOT/packaged-performance.json"
+COMPOSER_DRAFT_CRASH_STATE_ROOT="$SMOKE_ROOT/composer-draft-crash-state"
+COMPOSER_DRAFT_CRASH_WRITE_LOG="$SMOKE_ROOT/composer-draft-crash-write.log"
+COMPOSER_DRAFT_CRASH_VERIFY_LOG="$SMOKE_ROOT/composer-draft-crash-verify.log"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
@@ -69,6 +72,12 @@ cleanup() {
     if [[ -e "$PERFORMANCE_MANIFEST" ]]; then
       cp "$PERFORMANCE_MANIFEST" "$ARTIFACT_DIR/packaged-performance.json"
     fi
+    if [[ -e "$COMPOSER_DRAFT_CRASH_WRITE_LOG" ]]; then
+      cp "$COMPOSER_DRAFT_CRASH_WRITE_LOG" "$ARTIFACT_DIR/composer-draft-crash-write.log"
+    fi
+    if [[ -e "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" ]]; then
+      cp "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" "$ARTIFACT_DIR/composer-draft-crash-verify.log"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -94,6 +103,8 @@ cleanup() {
       printf 'computer_use_manifest=packaged-computer-use.json\n'
       printf 'computer_use_action_manifest=packaged-computer-use-action.json\n'
       printf 'performance_manifest=packaged-performance.json\n'
+      printf 'composer_draft_crash_write=composer-draft-crash-write.log\n'
+      printf 'composer_draft_crash_verify=composer-draft-crash-verify.log\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -175,6 +186,43 @@ assert_plist_value QuillCodeUpdateChannel tester
 assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
 assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
 assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+
+echo "==> Running packaged composer draft SIGKILL recovery smoke"
+"$APP_EXECUTABLE" \
+  --composer-draft-crash-smoke \
+  --composer-draft-crash-phase write \
+  --composer-draft-crash-state-root "$COMPOSER_DRAFT_CRASH_STATE_ROOT" \
+  >"$COMPOSER_DRAFT_CRASH_WRITE_LOG" 2>&1 &
+COMPOSER_DRAFT_CRASH_PID="$!"
+set +e
+wait_for_smoke_process \
+  "$COMPOSER_DRAFT_CRASH_PID" \
+  15 \
+  "Packaged composer draft SIGKILL writer"
+COMPOSER_DRAFT_CRASH_STATUS="$?"
+set -e
+if [[ "$COMPOSER_DRAFT_CRASH_STATUS" -ne 137 ]]; then
+  echo "Packaged composer draft writer expected SIGKILL status 137 but found $COMPOSER_DRAFT_CRASH_STATUS." >&2
+  cat "$COMPOSER_DRAFT_CRASH_WRITE_LOG" >&2
+  exit 1
+fi
+
+(
+  "$APP_EXECUTABLE" \
+    --composer-draft-crash-smoke \
+    --composer-draft-crash-phase verify \
+    --composer-draft-crash-state-root "$COMPOSER_DRAFT_CRASH_STATE_ROOT" \
+    >"$COMPOSER_DRAFT_CRASH_VERIFY_LOG" 2>&1
+) &
+COMPOSER_DRAFT_VERIFY_PID="$!"
+if ! wait_for_smoke_process \
+  "$COMPOSER_DRAFT_VERIFY_PID" \
+  15 \
+  "Packaged composer draft recovery verifier"
+then
+  cat "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" >&2
+  exit 1
+fi
 
 QUILLCODE_DESKTOP_EXECUTABLE="$APP_EXECUTABLE" \
 QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app" \

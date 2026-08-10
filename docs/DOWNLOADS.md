@@ -84,6 +84,14 @@ architecture, and macOS version. They do not include project paths, filenames, p
 tool output, account details, or credentials. Live-process, stale, future-dated, unsafe, and graceful
 termination records are ignored to avoid false crash notices.
 
+Ordinary composer typing uses a private per-chat checkpoint after a 350-millisecond quiet interval.
+Leaving Quill Cowork or quitting flushes pending text immediately. The checkpoint is a bounded small
+record rather than a rewrite of the chat transcript, so long conversations do not turn autosave into
+typing or memory pressure. A delayed checkpoint carries the chat identity from the keystroke boundary
+and is rejected after a selection change, while a durable tombstone prevents sent or cleared text from
+returning after relaunch. A first message without a chat owner has its own pending record and moves to
+the created chat on send. Confidential and side-conversation drafts remain memory-only.
+
 ## Build Cadence
 
 The tester release is refreshed:

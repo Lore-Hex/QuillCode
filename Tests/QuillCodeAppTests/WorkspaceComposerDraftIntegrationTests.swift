@@ -118,6 +118,142 @@ final class WorkspaceComposerDraftIntegrationTests: XCTestCase {
         XCTAssertEqual(second.composer.draft, "continue the partial plan")
     }
 
+    func testLightweightCheckpointRestoresWithoutRewritingTranscript() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root.appendingPathComponent("threads"))
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        let thread = ChatThread(title: "Checkpointed draft")
+        try threadStore.save(thread)
+        let first = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+
+        first.setDraft("continue after a crash")
+
+        XCTAssertNil(try threadStore.load(thread.id).composerDraft)
+        XCTAssertEqual(try checkpointStore.load(for: thread.id)?.draft, "continue after a crash")
+        let second = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: try threadStore.list(),
+                selectedThreadID: thread.id
+            ),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+        XCTAssertEqual(second.composer.draft, "continue after a crash")
+        XCTAssertEqual(second.root.threads.first?.composerDraft, "continue after a crash")
+    }
+
+    func testCheckpointTombstonePreventsStaleThreadDraftFromResurrecting() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root.appendingPathComponent("threads"))
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        let thread = ChatThread(title: "Stale snapshot", composerDraft: "already sent")
+        try threadStore.save(thread)
+        try checkpointStore.save(nil, for: thread.id)
+
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+
+        XCTAssertEqual(model.composer.draft, "")
+        XCTAssertNil(model.root.threads.first?.composerDraft)
+    }
+
+    func testPendingFirstMessageRestoresAndMovesToCreatedThread() throws {
+        let root = try makeTempDirectory()
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        try checkpointStore.save("first unsent message", for: nil)
+        let model = QuillCodeWorkspaceModel(composerDraftStore: checkpointStore)
+
+        XCTAssertEqual(model.composer.draft, "first unsent message")
+        let threadID = try XCTUnwrap(model.prepareComposerSubmissionThread())
+
+        XCTAssertEqual(model.composer.draft, "first unsent message")
+        XCTAssertEqual(try checkpointStore.load(for: threadID)?.draft, "first unsent message")
+        XCTAssertNil(try checkpointStore.load(for: nil))
+    }
+
+    func testConfidentialDraftNeverCreatesCheckpoint() throws {
+        let root = try makeTempDirectory()
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        let model = QuillCodeWorkspaceModel(composerDraftStore: checkpointStore)
+        let threadID = model.newConfidentialChat()
+
+        model.setDraft("private unsent text")
+
+        XCTAssertEqual(model.composer.draft, "private unsent text")
+        XCTAssertNil(try checkpointStore.load(for: threadID))
+        XCTAssertNil(try checkpointStore.load(for: nil))
+    }
+
+    func testOversizedCheckpointFallsBackWithoutLeavingStaleDraft() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root.appendingPathComponent("threads"))
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        let thread = ChatThread(title: "Large draft")
+        try threadStore.save(thread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+        model.setDraft("old checkpoint")
+        let oversized = String(
+            repeating: "x",
+            count: ComposerDraftCheckpointStore.maximumDraftBytes + 1
+        )
+
+        model.setDraft(oversized)
+
+        XCTAssertNil(try checkpointStore.load(for: thread.id))
+        XCTAssertEqual(try threadStore.load(thread.id).composerDraft, oversized)
+        let reloaded = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: try threadStore.list(),
+                selectedThreadID: thread.id
+            ),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+        XCTAssertEqual(reloaded.composer.draft, oversized)
+    }
+
+    func testDeletingThreadRemovesItsCheckpoint() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root.appendingPathComponent("threads"))
+        let checkpointStore = ComposerDraftCheckpointStore(
+            directory: root.appendingPathComponent("composer-drafts")
+        )
+        let thread = ChatThread(title: "Delete checkpoint")
+        try threadStore.save(thread)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            threadStore: threadStore,
+            composerDraftStore: checkpointStore
+        )
+        model.setDraft("remove with chat")
+
+        XCTAssertTrue(model.deleteThread(thread.id))
+
+        XCTAssertNil(try checkpointStore.load(for: thread.id))
+        XCTAssertFalse(threadStore.contains(thread.id))
+    }
+
     func testSentDraftIsClearedFromPersistentThread() async throws {
         let root = try makeQuillCodeTestDirectory()
         let store = try JSONThreadStore(directory: makeTempDirectory())
