@@ -14,6 +14,7 @@ struct QuillCodeDesktopApp: App {
 
     init() {
         _ = QuillCodeDesktopLaunchClock.appEntryUptime
+        QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
         if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }
@@ -189,7 +190,6 @@ struct QuillCodeDesktopRootView: View {
                     }
             }
             .task {
-                QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
                 controller.installationLocationController.startIfNeeded()
                 controller.updateController.startAutomaticChecks()
             }
