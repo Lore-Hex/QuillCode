@@ -3,7 +3,7 @@
 [![CI](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml)
 [![Download Builds](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml)
 
-**A 100% Swift coding agent and AI coworker, built for Swift developers.**
+**A 100% Swift coding agent and AI coworker for real project work.**
 
 [Download for Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) · [Download for Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
@@ -11,10 +11,9 @@
 
 Quill Cowork combines project-aware chat, local tools, Git workflows, Computer Use, automations,
 plugins, and a full workspace terminal in one SwiftUI desktop app. The desktop app and agent runtime
-are written entirely in Swift, with no Electron or web-app shell. Swift developers can inspect,
-extend, profile, and contribute to the same strongly typed code that ships to users. Bounded
-background work, persistent local state, and a verified updater with automatic rollback are built
-into that Swift architecture.
+are written entirely in Swift, with no Electron or web-app shell. Bounded background work,
+persistent local state, and a verified updater with automatic rollback are built into that Swift
+architecture.
 
 ## What You Can Do
 
