@@ -395,6 +395,7 @@ enum WorkspaceSubagentTerminalStatus {
         let unfinishedStateMarkers = [
             "starting research", "not yet obtained", "not yet confirmed",
             "not fully complete", "i need to gather", "i need to verify", "now i need ",
+            "partial evidence", "so far",
         ]
         if unfinishedStateMarkers.contains(where: text.contains) {
             return true

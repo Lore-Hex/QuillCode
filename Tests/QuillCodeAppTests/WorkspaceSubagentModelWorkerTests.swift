@@ -248,6 +248,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "The previous attempts failed because the focused-evidence fetches kept truncating before the",
             "COMPLETE: Need the four Q figures. One Q4 FY2026 figure found: $205.6M. Need to fetch remaining quarters.",
             "The prior source repeated the same result. I'll switch to a different source: TipRanks for historical quarterly values.",
+            "I have partial evidence so far. Key findings: Columbus Foundation Core Support Grants are ",
         ]
 
         for stall in stalls {
