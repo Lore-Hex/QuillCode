@@ -520,6 +520,20 @@ def task_table(row, reference="", item_index=1, count=40):
             ),
         ]
 
+    if row["id"] == 121:
+        return [
+            ("region", "currency", "month", "local_revenue"),
+            ("DACH", "EUR", "2026-05", 128500),
+            ("UK and Ireland", "GBP", "2026-05", 112750),
+            ("Japan", "JPY", "2026-05", 18400000),
+            ("DACH", "EUR", "2026-06", 134200),
+            ("UK and Ireland", "GBP", "2026-06", 118900),
+            ("Japan", "JPY", "2026-06", 19150000),
+            ("DACH", "EUR", "2026-07", 139750),
+            ("UK and Ireland", "GBP", "2026-07", 121400),
+            ("Japan", "JPY", "2026-07", 20300000),
+        ]
+
     if "kpi-dashboard" in reference.casefold():
         return [
             ("Metric", "Q2", "Q3", "Owner"),
@@ -1296,6 +1310,13 @@ automation is visible in Quill Cowork's persisted automation state.
             "include a concrete subject, greeting, body, call to action, and closing in every "
             "email. Personalize each first paragraph from that prospect's `booth-notes` value. "
             "Do not provide reusable templates or substitution tokens. "
+        )
+    elif row["id"] == 121:
+        task_specific_instruction = (
+            "Treat each monthly closing FX rate as USD per one unit of local currency, using "
+            "the final published business-day observation in that calendar month. Show the "
+            "observation date, currency, source URL, rate, local amount, conversion formula, and "
+            "converted USD amount. Apply the rate at row level before calculating any totals. "
         )
     elif row["id"] == 117:
         task_specific_instruction = (

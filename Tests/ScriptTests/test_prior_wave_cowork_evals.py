@@ -271,6 +271,29 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("18 emails total", prompt)
         self.assertIn("Do not provide reusable templates", prompt)
 
+    def test_currency_normalization_fixture_defines_month_and_currency(self):
+        row = self.rows[120]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            with (workspace / "inputs" / "revenue_by_region.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                revenue = list(csv.DictReader(source))
+
+        self.assertEqual(
+            set(revenue[0]),
+            {"region", "currency", "month", "local_revenue"},
+        )
+        self.assertEqual({item["currency"] for item in revenue}, {"EUR", "GBP", "JPY"})
+        self.assertEqual({item["month"] for item in revenue}, {"2026-05", "2026-06", "2026-07"})
+        self.assertTrue(all(int(item["local_revenue"]) > 0 for item in revenue))
+
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("USD per one unit of local currency", prompt)
+        self.assertIn("final published business-day observation", prompt)
+        self.assertIn("Apply the rate at row level", prompt)
+
     def test_competitor_revenue_fixture_and_prompt_define_a_solvable_chart(self):
         row = self.rows[116]
         with tempfile.TemporaryDirectory() as temporary:
