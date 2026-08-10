@@ -89,11 +89,13 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             mcpToolDefinitions: [mcpTool],
             mcpToolExecutionOverride: nil,
             sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            boundedRunFinalizationAfterSecondsOverride: 420,
             workspaceRoot: workspaceRoot
         ).makeSession(prompt: "hello", thread: thread)
 
         XCTAssertEqual(session.threadID, thread.id)
         XCTAssertEqual(session.workspaceRoot, workspaceRoot)
+        XCTAssertEqual(session.runner.boundedRunFinalizationAfterSeconds, 420)
         XCTAssertEqual(session.runner.baseToolDefinitions.map(\.name), ToolRouter.definitions.map(\.name))
         XCTAssertEqual(session.runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,

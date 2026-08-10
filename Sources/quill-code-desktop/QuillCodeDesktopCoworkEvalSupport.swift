@@ -34,6 +34,14 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         ))
     }
 
+    var boundedRunFinalizationAfterSeconds: TimeInterval {
+        let reserve = min(
+            Self.synthesisReserveSeconds,
+            max(1, timeoutSeconds - Self.minimumDelegationBudgetSeconds)
+        )
+        return TimeInterval(max(0, timeoutSeconds - reserve))
+    }
+
     init?(arguments: [String]) {
         guard arguments.contains("--cowork-eval") else { return nil }
 
@@ -94,6 +102,8 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
             workspaceRoot: workspace
         )
         controller.model.subagentDelegationBudgetOverride = subagentDelegationBudget
+        controller.model.boundedRunFinalizationAfterSecondsOverride =
+            boundedRunFinalizationAfterSeconds
         return controller
     }
 

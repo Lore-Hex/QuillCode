@@ -114,6 +114,9 @@ public final class QuillCodeWorkspaceModel {
     /// Optional hard delegation limit for bounded hosts such as automations and desktop evaluations.
     /// Interactive app runs leave this nil and use the normal long-research allowance.
     public var subagentDelegationBudgetOverride: Duration?
+    /// Bounded hosts can reserve the end of a run for named-deliverable synthesis. Interactive
+    /// desktop sessions leave this nil and continue until the user stops them.
+    public var boundedRunFinalizationAfterSecondsOverride: TimeInterval?
     var resolvingSubagentApprovals: Set<String> = []
     /// The edit session for app/UI-initiated tool runs (`runToolCall`): review-pane opens,
     /// slash commands, diagnostic applies. Deliberately SEPARATE from every chat thread's
@@ -226,6 +229,7 @@ public final class QuillCodeWorkspaceModel {
         self.runner = runner
         self.subagentSchedulerOverride = nil
         self.subagentDelegationBudgetOverride = nil
+        self.boundedRunFinalizationAfterSecondsOverride = nil
         self.contextSummaryGenerator = contextSummaryGenerator
         let threadPersistenceIssueTracker = WorkspaceThreadPersistenceIssueTracker()
         self.threadPersistenceIssueTracker = threadPersistenceIssueTracker

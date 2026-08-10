@@ -230,6 +230,22 @@ struct AgentRunLoopState: Sendable {
         }
     }
 
+    func pendingBoundedRunFinalizationPath() -> String? {
+        namedTextDeliverableWorkspacePaths.sorted().first(where: {
+            needsBoundedRunFinalization(at: $0)
+        })
+    }
+
+    func needsBoundedRunFinalization(at path: String) -> Bool {
+        let wasWritten = writtenWorkspacePaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
+        let isStale = researchStaleWorkspacePaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
+        return !wasWritten || isStale
+    }
+
     /// Once research lands after a draft, the next model turn is grounded synthesis rather than
     /// tight post-write verification. The wider synthesis budget remains active only until the
     /// artifact is rewritten, which resets the per-draft research pressure.

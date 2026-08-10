@@ -31,6 +31,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let subagentApprovalPayloadStore: SubagentApprovalPayloadStore?
     private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
     private let subagentDelegationBudgetOverride: Duration?
+    private let boundedRunFinalizationAfterSecondsOverride: TimeInterval?
     private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
     private let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     private let hooks: [ProjectPluginHook]
@@ -58,6 +59,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
         subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
         subagentDelegationBudgetOverride: Duration? = nil,
+        boundedRunFinalizationAfterSecondsOverride: TimeInterval? = nil,
         subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
         sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(),
         hooks: [ProjectPluginHook]? = nil,
@@ -90,6 +92,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
         self.subagentSchedulerOverride = subagentSchedulerOverride
         self.subagentDelegationBudgetOverride = subagentDelegationBudgetOverride
+        self.boundedRunFinalizationAfterSecondsOverride =
+            boundedRunFinalizationAfterSecondsOverride
         self.subagentRunRecordSink = subagentRunRecordSink
         self.sessionStartHookCoordinator = sessionStartHookCoordinator
         self.hooks = hooks ?? selectedProject?.pluginHooks ?? []
@@ -202,6 +206,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             allowsSubagents: allowsSubagents,
             threadIsConfidential: threadIsConfidential
         ).configuredRunner(from: baseRunner, modelID: modelID)
+        runner.boundedRunFinalizationAfterSeconds =
+            boundedRunFinalizationAfterSecondsOverride
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
         // language server persists across sends; nil (feature off / remote project) leaves the runner

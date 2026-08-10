@@ -143,6 +143,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         ]))
 
         XCTAssertEqual(request.subagentDelegationBudget, .seconds(420))
+        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 420)
     }
 
     func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
@@ -199,6 +200,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(
             controller.model.subagentDelegationBudgetOverride,
             request.subagentDelegationBudget
+        )
+        XCTAssertEqual(
+            controller.model.boundedRunFinalizationAfterSecondsOverride,
+            request.boundedRunFinalizationAfterSeconds
         )
     }
 

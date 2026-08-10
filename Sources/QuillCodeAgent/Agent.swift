@@ -23,6 +23,9 @@ public struct AgentRunner: Sendable {
     /// produced a workspace mutation. Large grounded deliverables need more room than startup
     /// routing; the bound still prevents an inter-action reasoner spiral.
     public static let defaultInterActionReasoningCharacterLimit = 16_000
+    /// Once a bounded host enters finalization, individual model turns must leave enough of the
+    /// remaining wall-clock reserve for the artifact write and mandatory readback.
+    public static let boundedRunFinalizationTurnDeadlineSeconds: TimeInterval = 60
     /// Corrective samples must remain bounded, but complex fallback reasoners need enough room to
     /// turn retained research evidence into a concrete action. The resolver's two-attempt recovery
     /// budget and per-turn deadline still prevent an unbounded correction spiral.
@@ -120,6 +123,9 @@ public struct AgentRunner: Sendable {
     /// Maximum streamed reasoning characters between source-gathering actions and the run's first
     /// successful workspace mutation. nil disables the synthesis-phase guard.
     public var interActionReasoningCharacterLimit: Int?
+    /// Elapsed wall-clock time after which a host-bounded run must stop collecting evidence and
+    /// write its named deliverable. nil keeps ordinary interactive desktop runs unbounded.
+    public var boundedRunFinalizationAfterSeconds: TimeInterval?
     /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
@@ -162,6 +168,7 @@ public struct AgentRunner: Sendable {
         turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
         preActionReasoningCharacterLimit: Int? = AgentRunner.defaultPreActionReasoningCharacterLimit,
         interActionReasoningCharacterLimit: Int? = AgentRunner.defaultInterActionReasoningCharacterLimit,
+        boundedRunFinalizationAfterSeconds: TimeInterval? = nil,
         fallbackLLM: LLMClient? = nil,
         emptyResponseRetrySleeper: any RetrySleeper = SystemRetrySleeper()
     ) {
@@ -191,6 +198,7 @@ public struct AgentRunner: Sendable {
         self.turnDeadlineSeconds = turnDeadlineSeconds
         self.preActionReasoningCharacterLimit = preActionReasoningCharacterLimit
         self.interActionReasoningCharacterLimit = interActionReasoningCharacterLimit
+        self.boundedRunFinalizationAfterSeconds = boundedRunFinalizationAfterSeconds
         self.fallbackLLM = fallbackLLM
         self.emptyResponseRetrySleeper = emptyResponseRetrySleeper
     }
@@ -223,6 +231,9 @@ public struct AgentRunner: Sendable {
             // keeps the displaced route as a standby. The thread still preserves the selected model.
             var actionRunner = self
             var runLoop = AgentRunLoopState()
+            let runStartedAt = Date()
+            var hasEnteredBoundedRunFinalization = false
+            var boundedRunFinalizationPath: String?
             var hasEmittedModelAction = false
             var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
@@ -321,6 +332,35 @@ public struct AgentRunner: Sendable {
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
             actionLoop: for _ in 0..<limit {
+                if let path = boundedRunFinalizationPath,
+                   !runLoop.needsBoundedRunFinalization(at: path) {
+                    boundedRunFinalizationPath = nil
+                }
+                if !hasEnteredBoundedRunFinalization,
+                   AgentBoundedRunFinalizationGate.shouldEnter(
+                    elapsedSeconds: Date().timeIntervalSince(runStartedAt),
+                    finalizationAfterSeconds: boundedRunFinalizationAfterSeconds
+                   ), tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }),
+                   let path = runLoop.pendingBoundedRunFinalizationPath() {
+                    hasEnteredBoundedRunFinalization = true
+                    boundedRunFinalizationPath = path
+                    actionRunner.turnDeadlineSeconds = min(
+                        actionRunner.turnDeadlineSeconds
+                            ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
+                        Self.boundedRunFinalizationTurnDeadlineSeconds
+                    )
+                    pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
+                        path: path,
+                        userMessage: userMessage
+                    )
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: entered the bounded run's reserved finalization "
+                            + "window and required ./\(path) before more research."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
                 if repeatNudge != nil, !correctiveTurnBudget.beginCorrectiveTurn() {
@@ -595,6 +635,25 @@ public struct AgentRunner: Sendable {
                     ))
                     next.updatedAt = Date()
                     await onProgress?(next)
+                }
+                if let path = boundedRunFinalizationPath,
+                   runLoop.needsBoundedRunFinalization(at: path),
+                   !AgentBoundedRunFinalizationGate.allows(
+                    resolvedAction,
+                    deliverablePath: path
+                   ) {
+                    pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
+                        path: path,
+                        userMessage: userMessage
+                    )
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: rejected a non-deliverable action during bounded "
+                            + "finalization; ./\(path) must be written first."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
                 }
                 if case .tool(let proposedCall) = resolvedAction,
                    proposedCall.name == ToolDefinition.subagentsRun.name,

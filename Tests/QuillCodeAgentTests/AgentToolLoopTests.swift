@@ -166,6 +166,57 @@ final class AgentToolLoopTests: XCTestCase {
         )
     }
 
+    func testBoundedRunFinalizationRejectsHelperWriteUntilNamedDeliverableExists() async throws {
+        let root = try makeTempDirectory()
+        let helperWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/helper.csv",
+                "content": "intermediate,data\n",
+            ])
+        )
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Final report\n\nVerified evidence synthesized.\n",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(helperWrite), .tool(deliverableWrite), .tool(read),
+                .say("Completed the final report."),
+            ]),
+            maxToolSteps: 8,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md and read it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("outputs/helper.csv").path
+        ))
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "# Final report\n\nVerified evidence synthesized.\n"
+        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed the final report.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("reserved finalization window")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected a non-deliverable action")
+        })
+    }
+
     func testAgentRedirectsFourthSerialResearchCallIntoEarlyDelegation() async throws {
         let root = try makeTempDirectory()
         let directCapture = ToolCallCapture()
