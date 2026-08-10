@@ -293,6 +293,40 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testLatestSuccessfulResearchEvidenceReceiptIsBoundedAndSurvivesWrites() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research official figures and write outputs/report.md."
+        )
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        let evidence = "official figure: 333.952\n" + String(repeating: "x", count: 15_000)
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: evidence),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nDraft.\n",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let receipt = try? XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt?.contains("Successful host.web.fetch observation") == true)
+        XCTAssertTrue(receipt?.contains("official figure: 333.952") == true)
+        XCTAssertTrue(receipt?.contains("middle of evidence receipt omitted") == true)
+        XCTAssertLessThanOrEqual(receipt?.count ?? .max, 12_100)
+    }
+
     func testForcedResearchCheckpointRequiresWebWorkAndFinalRewrite() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

@@ -15,6 +15,10 @@ struct AgentRunLoopState: Sendable {
     /// gate; `writtenWorkspacePaths` limits deliverable scanning to files this run itself wrote.
     private(set) var groundedURLs: Set<String> = []
     private(set) var didFetchSuccessfully = false
+    /// The most recent successful live/delegated research output is retained as a bounded,
+    /// read-only receipt. Corrective synthesis and validation prompts can surface the exact
+    /// evidence again after long transcripts have diluted the original tool observation.
+    private(set) var latestResearchEvidenceReceipt: String?
     private(set) var writtenWorkspacePaths: Set<String> = []
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
@@ -515,6 +519,10 @@ struct AgentRunLoopState: Sendable {
             if name == "host.web.fetch" {
                 didFetchSuccessfully = true
             }
+            latestResearchEvidenceReceipt = Self.researchEvidenceReceipt(
+                toolName: name,
+                output: completion.result.stdout
+            ) ?? latestResearchEvidenceReceipt
             for path in namedTextDeliverableWorkspacePaths where
                 writtenWorkspacePaths.contains(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, path)
@@ -550,6 +558,23 @@ struct AgentRunLoopState: Sendable {
         researchStaleWorkspacePaths = Set(researchStaleWorkspacePaths.filter {
             !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
         })
+    }
+
+    private static func researchEvidenceReceipt(toolName: String, output: String) -> String? {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let maximumCharacters = 12_000
+        let bounded: String
+        if trimmed.count <= maximumCharacters {
+            bounded = trimmed
+        } else {
+            let half = maximumCharacters / 2
+            bounded = String(trimmed.prefix(half))
+                + "\n[...middle of evidence receipt omitted...]\n"
+                + String(trimmed.suffix(half))
+        }
+        return "Successful \(toolName) observation:\n\(bounded)"
     }
 
     private mutating func recordResearchCheckpointProgress(

@@ -166,6 +166,7 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         ])
         let runner = AgentRunner(
             llm: RecordingClient(state: state),
+            additionalToolDefinitions: [.webFetch],
             toolExecutionOverride: { call, _ in
                 guard call.name == ToolDefinition.shellRun.name else { return nil }
                 return ToolResult(ok: true, stdout: "PASS")
@@ -262,6 +263,94 @@ final class AgentCorrectionEscalationTests: XCTestCase {
             $0.contains("limits facts to supplied sources")
         })
         XCTAssertFalse(sourceAuditPrompt.contains("Do not call another tool"))
+    }
+
+    func testContractAuditCorrectionPreservesResearchEvidenceAndEscalatesToToolAction() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("contract-evidence-escalation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let reportPath = "outputs/report.md"
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/official-series"])
+        )
+        let incorrectWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": reportPath,
+                "content": "# Report\n\nThe 2026 figure is unavailable.\n",
+            ])
+        )
+        let correctedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": reportPath,
+                "content": "# Report\n\nThe official June 2026 figure is 333.952.\n",
+            ])
+        )
+        let validator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c 'assert \"333.952\" in open(\"outputs/report.md\").read()' "
+                    + "outputs/report.md # validate",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": reportPath])
+        )
+        let state = PromptRecorder([
+            .tool(fetch),
+            .tool(incorrectWrite),
+            .say("The report is complete."),
+            .say("Validation is unnecessary."),
+            .say("The saved report already answers the request."),
+            .tool(correctedWrite),
+            .tool(validator),
+            .tool(read),
+            .say("Completed and verified outputs/report.md."),
+        ])
+        let runner = AgentRunner(
+            llm: RecordingClient(state: state),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    return ToolResult(
+                        ok: true,
+                        stdout: "Official series row: June 2026 | 333.952"
+                    )
+                }
+                if call.name == ToolDefinition.shellRun.name {
+                    return ToolResult(ok: true, stdout: "PASS: official value reconciled")
+                }
+                return nil
+            },
+            maxToolSteps: 14
+        )
+
+        let result = try await runner.send(
+            "Research the official figure, write outputs/report.md, run a deterministic validator "
+                + "against every row, read it back, and report completion.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let prompts = await state.recorded()
+        let auditPrompts = prompts.filter { $0.contains("Artifact contract audit required") }
+        let diagnostics = prompts.enumerated()
+            .map { "[\($0.offset)] \($0.element)" }
+            .joined(separator: "\n---\n")
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true, true, true, true], diagnostics)
+        XCTAssertEqual(auditPrompts.count, AgentCorrectiveTurnBudget.limit, diagnostics)
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.first).contains("June 2026 | 333.952"))
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("FINAL ATTEMPT (3 of 3)"))
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("one executable tool action"))
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent(reportPath)),
+            "# Report\n\nThe official June 2026 figure is 333.952.\n"
+        )
     }
 
     func testExhaustedPromisedWorkAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {

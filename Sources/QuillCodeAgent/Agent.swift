@@ -417,7 +417,16 @@ public struct AgentRunner: Sendable {
                         limit: AgentCorrectiveTurnBudget.limit
                     )
                 } else if let repeatNudge {
-                    repeatNudge
+                    AgentCorrectionEscalation.escalated(
+                        repeatNudge,
+                        attempt: correctiveTurnBudget.consecutiveTurns - 1,
+                        limit: AgentCorrectiveTurnBudget.limit,
+                        alternatives: [
+                            "emit exactly one executable tool action that directly performs the "
+                                + "requested correction; do not explain, summarize, or claim "
+                                + "completion",
+                        ]
+                    )
                 } else if hasEnteredBoundedRunFinalization {
                     boundedFinalizationPrompt
                 } else {
@@ -1040,7 +1049,8 @@ public struct AgentRunner: Sendable {
                    let correction = AgentArtifactContractAuditGate.correction(
                     path: path,
                     tools: tools,
-                    correctionCount: artifactContractAuditCorrectionCounts[path, default: 0]
+                    correctionCount: artifactContractAuditCorrectionCounts[path, default: 0],
+                    evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                    ) {
                     controlledSourceGroundingFinalization = nil
                     artifactContractAuditCorrectionCounts[path, default: 0] += 1
@@ -1404,7 +1414,8 @@ public struct AgentRunner: Sendable {
                             path: path,
                             tools: tools,
                             correctionCount:
-                                artifactContractAuditCorrectionCounts[path, default: 0]
+                                artifactContractAuditCorrectionCounts[path, default: 0],
+                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                            ) {
                             artifactContractAuditCorrectionCounts[path, default: 0] += 1
                             pendingRepeatNudge = correction.prompt
