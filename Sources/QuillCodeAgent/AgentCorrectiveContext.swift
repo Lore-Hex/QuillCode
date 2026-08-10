@@ -80,8 +80,8 @@ enum AgentCorrectiveContext {
     ) -> String {
         let parsed = messages.compactMap(successfulResearchEvidence)
         let prioritized = Array(
-            parsed.filter { $0.toolName == ToolDefinition.subagentsRun.name }.reversed()
-        ) + Array(parsed.filter { $0.toolName == ToolDefinition.webFetch.name }.reversed())
+            parsed.filter { $0.toolName == ToolDefinition.webFetch.name }.reversed()
+        ) + Array(parsed.filter { $0.toolName == ToolDefinition.subagentsRun.name }.reversed())
 
         var entries: [String] = []
         var retainedCharacters = 0
@@ -101,9 +101,10 @@ enum AgentCorrectiveContext {
         guard !entries.isEmpty else { return "" }
         return """
         Host-retained successful research evidence follows. This evidence predates the recent retry \
-        window but remains authoritative. Preserve its verified facts and exact source URLs during \
-        synthesis; do not replace a stronger grounded artifact with an incomplete one merely because \
-        later fetches failed.
+        window but remains authoritative. Direct host.web.fetch observations appear first and are \
+        authoritative over delegated summaries when they conflict. Preserve verified facts and exact \
+        source URLs during synthesis; do not replace a stronger grounded artifact with an incomplete \
+        one merely because later fetches failed.
 
         \(entries.joined(separator: "\n\n"))
         """

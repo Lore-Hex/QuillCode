@@ -709,8 +709,13 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertTrue(projectedText.contains("GitLab Q2 236000000"))
         XCTAssertTrue(projectedText.contains("monday.com Q1 revenue 351300000"))
         XCTAssertTrue(projectedText.contains("https://ir.monday.com/q1-results"))
+        XCTAssertTrue(projectedText.contains("authoritative over delegated summaries"))
         XCTAssertFalse(projectedText.contains("untrusted partial value"))
         XCTAssertEqual(projected.messages.last?.id, recent.last?.id)
+
+        let directRange = try XCTUnwrap(projectedText.range(of: "monday.com Q1 revenue"))
+        let delegatedRange = try XCTUnwrap(projectedText.range(of: "GitLab Q2"))
+        XCTAssertLessThan(directRange.lowerBound, delegatedRange.lowerBound)
     }
 
     func testCorrectiveContextPinsCompletedWorkerBeforeLongFailedWorkerOutput() throws {
