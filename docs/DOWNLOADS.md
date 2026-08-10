@@ -130,13 +130,18 @@ source commit, channel, feed URLs, minimum macOS version, and signing team to ag
 with the public manifest. A publication is not green until this consumer check passes.
 
 A separate native post-publication gate runs on Apple silicon and Intel macOS
-runners. Each downloads its matching public app archive, re-signs an isolated copy
-with its build number set one revision behind, and launches the packaged updater
-against the live feed. The gate requires the app
+runners. Before publication can begin, a read-only job captures the current public
+manifest and both architecture-specific updater archives, verifies their GitHub and
+manifest size/SHA-256 contracts, and stores them outside the release-asset input set.
+After publication, each native runner launches that untouched previous public app
+against the newly live feed. The gate requires the app
 to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
-then checks the activated version and source commit, code signature, launch
-handshake, and staging cleanup. This catches failures that manifest-only and
-unit-level updater checks cannot prove.
+then checks the exact source and target metadata, activated version and source
+commit, code signature, launch handshake, and staging cleanup. A channel with no
+previous release uses an explicitly recorded synthetic one-build-behind fallback;
+once a public source exists, metadata rewriting and re-signing are not allowed.
+This catches cross-version compatibility failures that a self-update of newly built
+code, manifest-only checks, and unit-level updater tests cannot prove.
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window

@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-09 Previous-Public-Build Updater Gate
+
+Overall grade after this slice: **A+ compatibility evidence, A+ publication ordering, A+ failure isolation**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Real upgrade coverage | A+ | Native arm64 and Intel gates consume the untouched app that users could already have installed, including its real embedded feed and source metadata, instead of modifying newly built code to update to itself. |
+| Capture integrity | A+ | Release and manifest contracts are decoded strictly; downloaded bytes must match bounded GitHub size/digest and manifest size/SHA-256 before a transactional directory swap exposes them. |
+| Publication ordering | A+ | New release publication depends on prior-source capture, and artifact assembly selects only packaging artifacts, so the snapshot is necessarily old and can never leak into the new release inventory. |
+| Failure isolation | A+ | Missing first releases produce one explicit fallback record; malformed metadata, corrupt bytes, unsafe inputs, command failures, and existing outputs fail closed and remove staging data. |
+| Architecture | A+ | Contract decoding, bounded hashing, GitHub operations, transaction orchestration, and the CLI entry point remain focused modules with deterministic stateful parity coverage. |
+
+Validation:
+
+- Focused capture, updater, and Download Builds parity suite: 12 tests, 0 failures
+- Authoritative full suite outside the managed macOS service sandbox: 5,761 tests,
+  5 skipped, 0 failures
+- Python compile validation, shell syntax validation, and workflow YAML parsing
+- Stateful fake-GitHub verification of exact capture, first-release fallback, same-size corruption,
+  cleanup, and mutation-free repository rejection
+- Read-only production captures matched public tester build 695 at exact commit `7e4347e4` and the
+  published arm64 and x86_64 archive sizes and SHA-256 digests
+- Deterministic grader: every new production and test module A+
+
 ## 2026-08-09 Transactional Tester Publication
 
 Overall grade after this slice: **A+ publication integrity, A+ recovery, A+ maintainability**.

@@ -41,6 +41,41 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/plan-download-build.sh
 
+  capture-updater-source:
+    needs: release-policy
+    if: needs.release-policy.outputs.build-required == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Capture previous public updater sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            RELEASE_CHANNEL="stable"
+          else
+            RELEASE_CHANNEL="tester"
+          fi
+          for architecture in arm64 x86_64; do
+            scripts/capture-public-updater-source.py \
+              --repo "$GITHUB_REPOSITORY" \
+              --channel "$RELEASE_CHANNEL" \
+              --arch "$architecture" \
+              --output-dir "$RUNNER_TEMP/prior-updater/$architecture" \
+              --allow-missing
+          done
+      - name: Upload previous public updater sources
+        uses: actions/upload-artifact@v7
+        with:
+          name: quillcode-prior-updater-sources
+          path: ${{ runner.temp }}/prior-updater
+          if-no-files-found: error
+          retention-days: 14
+
   macos:
     needs: release-policy
     if: needs.release-policy.outputs.build-required == 'true'
@@ -143,7 +178,7 @@ jobs:
           retention-days: 14
 
   publish:
-    needs: [macos, linux]
+    needs: [macos, linux, capture-updater-source]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -156,6 +191,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v8
         with:
+          pattern: quillcode-*-downloads*
           path: ${{ runner.temp }}/downloaded-artifacts
       - name: Prepare release assets
         run: |
@@ -313,12 +349,13 @@ jobs:
           --repo "$GITHUB_REPOSITORY"
 
   verify-updater:
-    needs: [publish, verify-published, promote-stable]
+    needs: [publish, verify-published, promote-stable, capture-updater-source]
     if: >-
       ${{
         always() &&
         needs.publish.result == 'success' &&
         needs.verify-published.result == 'success' &&
+        needs.capture-updater-source.result == 'success' &&
         (
           !(github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) ||
           needs.promote-stable.result == 'success'
@@ -339,6 +376,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Download previous public updater source
+        uses: actions/download-artifact@v8
+        with:
+          name: quillcode-prior-updater-sources
+          path: ${{ runner.temp }}/prior-updater
       - name: Verify native updater architecture
         run: |
           if [[ "$(uname -m)" != "${{ matrix.arch }}" ]]; then
@@ -367,15 +409,24 @@ jobs:
         env:
           QUILLCODE_UPDATER_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/updater-smoke-artifacts
         run: |
-          APP_ZIPS=("$RUNNER_TEMP"/public-updater/Quill-Cowork-macOS-${{ matrix.arch }}.zip)
-          MANIFESTS=("$RUNNER_TEMP"/public-updater/latest-*-build.json)
-          if [[ ${#APP_ZIPS[@]} -ne 1 || ${#MANIFESTS[@]} -ne 1 ]]; then
-            echo "Expected exactly one public app archive and one updater manifest." >&2
+          TARGET_APP_ZIPS=("$RUNNER_TEMP"/public-updater/Quill-Cowork-macOS-${{ matrix.arch }}.zip)
+          TARGET_MANIFESTS=("$RUNNER_TEMP"/public-updater/latest-*-build.json)
+          CAPTURE_DIR="$RUNNER_TEMP/prior-updater/${{ matrix.arch }}"
+          if [[ ${#TARGET_APP_ZIPS[@]} -ne 1 || ${#TARGET_MANIFESTS[@]} -ne 1 ||
+                ! -f "$CAPTURE_DIR/capture.json" ]]; then
+            echo "Expected one target app, target manifest, and prior-source capture." >&2
             exit 1
           fi
-          scripts/packaged-macos-updater-smoke.sh \
-            --app-zip "${APP_ZIPS[0]}" \
-            --manifest "${MANIFESTS[0]}"
+          UPDATER_ARGUMENTS=(--manifest "${TARGET_MANIFESTS[0]}")
+          if [[ "$(plutil -extract sourceAvailable raw "$CAPTURE_DIR/capture.json")" == "true" ]]; then
+            UPDATER_ARGUMENTS+=(
+              --app-zip "$CAPTURE_DIR/source-app.zip"
+              --source-manifest "$CAPTURE_DIR/source-manifest.json"
+            )
+          else
+            UPDATER_ARGUMENTS+=(--app-zip "${TARGET_APP_ZIPS[0]}")
+          fi
+          scripts/packaged-macos-updater-smoke.sh "${UPDATER_ARGUMENTS[@]}"
       - name: Upload updater smoke evidence
         if: always()
         uses: actions/upload-artifact@v7

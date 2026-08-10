@@ -299,7 +299,11 @@ Drive the QuillCode test harness with mock LLM:
 - Packaged performance smoke must run the reversible native Accessibility interaction sweep twice in every fresh process. It records initial-window, first-settled, and repeated-settled resident memory/thread snapshots, recomputes both signed deltas from raw values, and fails if any sample exceeds 256 MiB or 64 threads, first-pass retained growth exceeds 80 MiB, or the repeated pass adds more than 16 MiB or four threads.
 - Download publication must package arm64 on `macos-15` and x86_64 on `macos-15-intel`, first proving
   `uname -m` matches the matrix architecture. Each runner executes the packaged performance smoke;
-  each post-publication runner downloads only its exact ZIP and completes the real update/relaunch gate.
+  before publication, the workflow must capture and verify the prior public manifest plus both exact
+  architecture ZIPs outside the release-asset input set. Each post-publication runner must update the
+  untouched matching prior app through its live embedded feed and complete the real update/relaunch
+  gate. Synthetic metadata rewriting is permitted only when the capture explicitly proves that the
+  channel has no previous release.
 - Offline and public release verification must require one DMG, app ZIP, CLI archive, build-info file,
   and semantic performance report per macOS architecture. It must reject duplicate/missing assets,
   noncanonical updater ordering, legacy-field drift, and an x86_64 ZIP carrying an arm64 Mach-O header
@@ -359,7 +363,8 @@ Drive the QuillCode test harness with mock LLM:
 - Live TrustedRouter smoke is not required for normal PRs. Run `./scripts/real-world-smoke.sh` before releases, model-prompt changes, parser changes, runtime changes, or safety-review changes; use `QUILLCODE_REQUIRE_LIVE_SMOKE=1` when the live model path must be proven. Release-candidate runs should set `QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR` and preserve the resulting `real-world-smoke-manifest.json` with CI or release notes.
 - All unit tests pass on macOS and Linux before a stable release.
 - Native arm64 and x86_64 packaging, performance, semantic publication, and updater-relaunch jobs pass
-  before either tester or stable macOS assets are considered publishable.
+  before either tester or stable macOS assets are considered publishable. For every non-initial channel
+  release, both updater jobs must identify `previous-public-build` mode and the exact prior public build.
 - Native app smoke tests pass on packaged macOS and Linux builds.
 - No app target contains `#if linux`; CI enforces this.
 - `docs/CODEX_PARITY_MATRIX.md` marks each feature as implemented, deferred with reason, or not applicable.

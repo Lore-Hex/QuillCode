@@ -294,6 +294,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "if: needs.release-policy.outputs.build-required == 'true'",
             "persist-credentials: false",
             "needs: release-policy",
+            "capture-updater-source:",
+            "scripts/capture-public-updater-source.py",
+            "--output-dir \"$RUNNER_TEMP/prior-updater/$architecture\"",
+            "--allow-missing",
+            "name: quillcode-prior-updater-sources",
             "group: download-builds-${{ github.ref }}",
             "cancel-in-progress: false",
             "QUILLCODE_UPDATE_CHANNEL=stable",
@@ -316,6 +321,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--commit \"$GITHUB_SHA\"",
             "--output \"$RUNNER_TEMP/release-notes.md\"",
             "scripts/plan-download-publication.sh",
+            "needs: [macos, linux, capture-updater-source]",
+            "pattern: quillcode-*-downloads*",
             "published: ${{ steps.publication.outputs.publish-required }}",
             "if: steps.publication.outputs.publish-required == 'true'",
             "if: needs.publish.outputs.published == 'true'",
@@ -342,7 +349,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "promote-stable:",
             "Promote verified stable candidate",
             "--prerelease=false",
-            "needs: [publish, verify-published, promote-stable]",
+            "needs: [publish, verify-published, promote-stable, capture-updater-source]",
+            "needs.capture-updater-source.result == 'success'",
+            "Download previous public updater source",
+            "sourceAvailable raw",
+            "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
             "verify-stable-promotion:",
             "needs: [promote-stable, verify-updater]",
             "Verify promoted stable release",
@@ -370,12 +381,14 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
         let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
+        let sourceCaptureIndex = try XCTUnwrap(workflow.range(of: "  capture-updater-source:"))
         let freshnessIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-publication.sh"))
         let releaseMutationIndex = try XCTUnwrap(workflow.range(of: "scripts/publish-tester-release.py"))
         let publicVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-published:"))
         let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
         let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))
         let finalVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-stable-promotion:"))
+        XCTAssertLessThan(sourceCaptureIndex.lowerBound, publishIndex.lowerBound)
         XCTAssertLessThan(publishIndex.lowerBound, publicVerificationIndex.lowerBound)
         XCTAssertLessThan(freshnessIndex.lowerBound, releaseMutationIndex.lowerBound)
         XCTAssertLessThan(publicVerificationIndex.lowerBound, promotionIndex.lowerBound)
@@ -407,6 +420,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "returns the new release to draft",
             "previous stable feed",
             "avoids no-op build-number updates and unnecessary",
+            "untouched previous public app",
+            "synthetic one-build-behind fallback",
             "channel is `tester`",
             "channel is `stable`"
         ])
