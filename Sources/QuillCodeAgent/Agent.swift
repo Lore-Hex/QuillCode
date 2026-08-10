@@ -34,6 +34,9 @@ public struct AgentRunner: Sendable {
         + "switching to the fallback model for this step."
     static let reasoningFallbackSwitchNotice = "Self-healing: the model repeatedly exhausted its "
         + "reasoning budget without acting; switching to the fallback model for this step."
+    static let boundedFinalizationFallbackSwitchNotice = "Self-healing: the selected model rejected "
+        + "the required bounded-finalization action; switching closure to the fallback model and "
+        + "retaining the selected route as standby."
     static let promisedWorkCorrectionLimit = 2
     /// A long-running task can encounter passive or empty model turns after many different tools.
     /// Keep this budget scoped to the latest completed tool instead of consuming one allowance for
@@ -697,6 +700,18 @@ public struct AgentRunner: Sendable {
                         summary: "Self-healing: rejected a non-finalization action during the "
                             + "bounded run's closure window for ./\(path)."
                     ))
+                    if let fallback = actionRunner.fallbackLLM,
+                       !hasPromotedFallbackRoute {
+                        let displacedLLM = actionRunner.llm
+                        actionRunner.llm = fallback
+                        actionRunner.fallbackLLM = displacedLLM
+                        hasPromotedFallbackRoute = true
+                        correctiveTurnBudget.recordRoutePromotion()
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: Self.boundedFinalizationFallbackSwitchNotice
+                        ))
+                    }
                     next.updatedAt = Date()
                     await onProgress?(next)
                     continue actionLoop

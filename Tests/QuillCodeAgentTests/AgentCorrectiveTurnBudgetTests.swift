@@ -21,4 +21,17 @@ final class AgentCorrectiveTurnBudgetTests: XCTestCase {
         XCTAssertEqual(budget.consecutiveTurns, 0)
         XCTAssertTrue(budget.beginCorrectiveTurn())
     }
+
+    func testRoutePromotionGivesFallbackFreshCorrectionBudget() {
+        var budget = AgentCorrectiveTurnBudget()
+        XCTAssertTrue(budget.beginCorrectiveTurn())
+
+        budget.recordRoutePromotion()
+
+        XCTAssertEqual(budget.consecutiveTurns, 0)
+        for _ in 0..<AgentCorrectiveTurnBudget.limit {
+            XCTAssertTrue(budget.beginCorrectiveTurn())
+        }
+        XCTAssertFalse(budget.beginCorrectiveTurn())
+    }
 }

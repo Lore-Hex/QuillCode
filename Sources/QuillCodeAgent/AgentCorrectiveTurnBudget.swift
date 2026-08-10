@@ -12,4 +12,8 @@ struct AgentCorrectiveTurnBudget: Sendable, Equatable {
     mutating func recordExecutedTool() {
         consecutiveTurns = 0
     }
+
+    mutating func recordRoutePromotion() {
+        consecutiveTurns = 0
+    }
 }
