@@ -20,7 +20,7 @@ extension AgentRunner {
         if let deadline = turnDeadlineSeconds {
             stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
         }
-        let reasoningLimit = switch reasoningBudgetPhase {
+        let reasoningLimit: Int? = switch reasoningBudgetPhase {
         case .startup, .checkpoint:
             preActionReasoningCharacterLimit
         case .synthesis:
@@ -31,6 +31,8 @@ extension AgentRunner {
                     ? min($0, AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit)
                     : min($0, Self.correctiveActionReasoningCharacterLimit)
             }
+        case .boundedFinalization:
+            nil
         }
         if let reasoningLimit {
             stream = AgentPreActionReasoningBudget.enforcing(

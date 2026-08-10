@@ -382,7 +382,9 @@ public struct AgentRunner: Sendable {
                         stopReason: .flailDetected(reason: reason)
                     )
                 }
-                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
+                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if hasEnteredBoundedRunFinalization {
+                    .boundedFinalization
+                } else if !hasEmittedModelAction {
                     .startup
                 } else if runLoop.requiresGroundedSynthesisReasoningBudget() {
                     .synthesis

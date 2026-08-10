@@ -333,6 +333,96 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
+    func testBoundedFinalizationCorrectionReliesOnTurnDeadlinePastDeepSeekCharacterLimit() async throws {
+        let state = UsageStreamSequenceState([[
+            .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+            .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"complete"}}"#),
+        ]])
+        let runner = AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            turnDeadlineSeconds: AgentRunner.boundedRunFinalizationTurnDeadlineSeconds
+        )
+        var thread = ChatThread(
+            title: "bounded finalization",
+            model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+        )
+
+        let action = try await runner.nextAction(
+            thread: &thread,
+            userMessage: "Complete the researched deliverable.",
+            tools: [ToolDefinition.fileWrite],
+            workspaceRoot: FileManager.default.temporaryDirectory,
+            onProgress: nil,
+            injectedCorrection: "Write outputs/report.md from the retained evidence now.",
+            reasoningBudgetPhase: .boundedFinalization
+        )
+
+        guard case .tool(let call) = action else {
+            XCTFail("expected the finalization file-write action")
+            return
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let argumentsData = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: argumentsData) as? [String: String]
+        )
+        XCTAssertEqual(arguments["path"], "outputs/report.md")
+        XCTAssertGreaterThan(
+            String(repeating: "grounded synthesis ", count: 800).count,
+            AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
+        )
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 1)
+    }
+
+    func testBoundedRunAutomaticallyUsesDeadlineBoundFinalizationReasoning() async throws {
+        let root = try makeTempDirectory()
+        let state = UsageStreamSequenceState([
+            [
+                .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Verified evidence synthesized."}}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.file.read","arguments":{"path":"outputs/report.md"}}"#),
+            ],
+            [
+                .text(#"{"type":"say","text":"Completed and verified outputs/report.md."}"#),
+            ],
+        ])
+        let runner = AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            maxToolSteps: 6,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md from the retained evidence and read it back.",
+            in: ChatThread(
+                title: "bounded finalization",
+                mode: .auto,
+                model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "Verified evidence synthesized."
+        )
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified outputs/report.md."
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("reserved finalization window")
+        })
+        XCTAssertFalse(result.thread.events.contains {
+            $0.summary.contains("pre-action reasoning budget")
+        })
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 3)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
