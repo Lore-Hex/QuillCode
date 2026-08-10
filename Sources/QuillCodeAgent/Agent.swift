@@ -251,6 +251,9 @@ public struct AgentRunner: Sendable {
             /// A premature read of a task-named output is redirected once per path. A repeated
             /// attempt is allowed to execute normally so this guard can never create a loop.
             var preWriteVerificationNudgedPaths = Set<String>()
+            /// If corrective sampling cannot express a required read after a successful write,
+            /// execute that exact read once through the normal tool and safety path.
+            var forcedArtifactReadbackPaths = Set<String>()
             /// Unsafe shell paths get one preflight correction per exact call. A repeated proposal
             /// still reaches the approval gate, preserving its authority and bounded termination.
             var preflightCorrectedShellCalls = Set<ToolCallFingerprint>()
@@ -390,6 +393,24 @@ public struct AgentRunner: Sendable {
                 let isSemanticArtifactCorrection = repeatNudge != nil
                     && !isBoundedFinalizationCorrection
                 if repeatNudge != nil, !correctiveTurnBudget.beginCorrectiveTurn() {
+                    if !runLoop.hadDeniedStep,
+                       let readCall = AgentArtifactVerificationGate.requiredReadbackCall(
+                        userMessage: userMessage,
+                        tools: tools,
+                        unverifiedPaths: runLoop.pendingArtifactReadbackWorkspacePaths
+                       ), let path = AgentArtifactVerificationGate.pathArgument(from: readCall),
+                       forcedArtifactReadbackPaths.insert(path).inserted {
+                        pendingBoundedRunFinalizationAction = .tool(readCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: corrective sampling could not express the "
+                                + "required readback; advanced one exact read of ./\(path) through "
+                                + "the normal tool path."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
                     let reason = "the model did not produce an executable tool action after "
                         + "\(AgentCorrectiveTurnBudget.limit) consecutive corrective turns"
                     appendAssistantMessage(

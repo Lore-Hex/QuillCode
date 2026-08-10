@@ -15,7 +15,7 @@ enum AgentArtifactVerificationGate {
         let patterns = [
             #"(?is)\bafter\s+(?:writing|saving|creating|producing|generating)\b.{0,120}\bread\b.{0,80}\b(?:back|verify|confirm)\b"#,
             #"(?is)\bread\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b.{0,40}\b(?:back|verify|confirm)\b"#,
-            #"(?is)\bread\s+(?:it|that|this)\s+back\b"#,
+            #"(?is)\bread(?:ing)?\s+(?:it|that|this)\s+back\b"#,
             #"(?is)\bverify\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b"#,
         ]
         let range = NSRange(userMessage.startIndex..., in: userMessage)
@@ -56,14 +56,28 @@ enum AgentArtifactVerificationGate {
         unverifiedPaths: Set<String>
     ) -> AgentAction {
         guard case .say = action,
-              requiresReadback(in: userMessage),
+              let call = requiredReadbackCall(
+                userMessage: userMessage,
+                tools: tools,
+                unverifiedPaths: unverifiedPaths
+              )
+        else { return action }
+        return .tool(call)
+    }
+
+    static func requiredReadbackCall(
+        userMessage: String,
+        tools: [ToolDefinition],
+        unverifiedPaths: Set<String>
+    ) -> ToolCall? {
+        guard requiresReadback(in: userMessage),
               tools.contains(where: { $0.name == ToolDefinition.fileRead.name }),
               let path = unverifiedPaths.sorted().first
-        else { return action }
-        return .tool(ToolCall(
+        else { return nil }
+        return ToolCall(
             name: ToolDefinition.fileRead.name,
             argumentsJSON: ToolArguments.json(["path": path])
-        ))
+        )
     }
 
     static func pathArgument(from call: ToolCall) -> String? {

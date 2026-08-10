@@ -504,6 +504,53 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertTrue(finalizationContext.contains("https://example.com/evidence"))
     }
 
+    func testCorrectiveExhaustionForcesOnePendingArtifactReadback() async throws {
+        let root = try makeTempDirectory()
+        let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 12_000)
+        let state = ScriptedState([
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: #"{"path":"outputs/report.md","content":"Grounded final artifact."}"#
+            ))),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .success(.say("Completed and verified outputs/report.md.")),
+            .success(.say("Completed and verified outputs/report.md.")),
+            .success(.say("Completed and verified outputs/report.md.")),
+            .success(.say("Completed and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: state),
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md and verify it by reading it back.",
+            in: ChatThread(
+                title: "forced readback",
+                mode: .auto,
+                model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertEqual(result.toolResults.count, 2)
+        XCTAssertTrue(result.toolResults.last?.stdout.contains("Grounded final artifact.") == true)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified outputs/report.md."
+        )
+        XCTAssertEqual(result.thread.events.filter {
+            $0.summary.contains("advanced one exact read of ./outputs/report.md")
+        }.count, 1)
+        let requestCount = await state.recorded().count
+        XCTAssertLessThanOrEqual(requestCount, 9)
+    }
+
     func testBoundedAuditUsesCorrectiveReasoningFuseAndPreservesValidatorInstruction() async throws {
         let root = try makeTempDirectory()
         let state = UsageStreamSequenceState([

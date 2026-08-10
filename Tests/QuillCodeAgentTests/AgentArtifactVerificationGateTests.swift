@@ -18,6 +18,9 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         XCTAssertTrue(AgentArtifactVerificationGate.requiresReadback(
             in: "Run a deterministic validator against it, read it back, and report completion."
         ))
+        XCTAssertTrue(AgentArtifactVerificationGate.requiresReadback(
+            in: "Write outputs/report.md and verify it by reading it back."
+        ))
         XCTAssertFalse(AgentArtifactVerificationGate.requiresReadback(
             in: "Read inputs/report.md and summarize it."
         ))
