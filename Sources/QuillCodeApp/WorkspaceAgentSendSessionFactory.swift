@@ -30,6 +30,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let subagentThreadStore: SubagentThreadStore?
     private let subagentApprovalPayloadStore: SubagentApprovalPayloadStore?
     private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
+    private let subagentDelegationBudgetOverride: Duration?
     private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
     private let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     private let hooks: [ProjectPluginHook]
@@ -56,6 +57,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         subagentThreadStore: SubagentThreadStore? = nil,
         subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
         subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
+        subagentDelegationBudgetOverride: Duration? = nil,
         subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
         sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(),
         hooks: [ProjectPluginHook]? = nil,
@@ -87,6 +89,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.subagentThreadStore = subagentThreadStore
         self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
         self.subagentSchedulerOverride = subagentSchedulerOverride
+        self.subagentDelegationBudgetOverride = subagentDelegationBudgetOverride
         self.subagentRunRecordSink = subagentRunRecordSink
         self.sessionStartHookCoordinator = sessionStartHookCoordinator
         self.hooks = hooks ?? selectedProject?.pluginHooks ?? []
@@ -213,7 +216,9 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
                 threadStore: subagentThreadStore,
                 approvalPayloadStore: subagentApprovalPayloadStore,
                 schedulerOverride: subagentSchedulerOverride,
-                recordSink: subagentRunRecordSink
+                recordSink: subagentRunRecordSink,
+                delegationBudget: subagentDelegationBudgetOverride
+                    ?? WorkspaceSubagentRunToolExecutor.defaultDelegationBudget
             ).executionOverride
         } else {
             runner.threadToolExecutionOverride = nil

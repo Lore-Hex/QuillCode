@@ -98,6 +98,7 @@ extension QuillCodeWorkspaceModel {
             subagentThreadStore: subagentThreadStore,
             subagentApprovalPayloadStore: subagentApprovalPayloadStore,
             subagentSchedulerOverride: subagentSchedulerOverride,
+            subagentDelegationBudgetOverride: subagentDelegationBudgetOverride,
             subagentRunRecordSink: { [weak self] record, parentThreadID in
                 await self?.recordSubagentRun(record, threadID: parentThreadID)
             },

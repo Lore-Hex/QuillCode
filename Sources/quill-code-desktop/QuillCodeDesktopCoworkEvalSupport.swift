@@ -8,6 +8,9 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     static let defaultModelID = "deepseek/deepseek-v4-flash-0731"
     static let maximumTimeoutSeconds = 21_600
     static let maximumToolSteps = 4_096
+    static let maximumDelegationBudgetSeconds = 600
+    static let minimumDelegationBudgetSeconds = 60
+    static let synthesisReserveSeconds = 480
 
     var homePath: String
     var workspacePath: String
@@ -20,6 +23,16 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     var timeoutSeconds: Int
     var maxToolSteps: Int
     var runSpendFuseUSD: Double?
+
+    var subagentDelegationBudget: Duration {
+        .seconds(max(
+            Self.minimumDelegationBudgetSeconds,
+            min(
+                Self.maximumDelegationBudgetSeconds,
+                timeoutSeconds - Self.synthesisReserveSeconds
+            )
+        ))
+    }
 
     init?(arguments: [String]) {
         guard arguments.contains("--cowork-eval") else { return nil }
@@ -70,7 +83,7 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         config.runSpendFuseUSD = runSpendFuseUSD
         try? ConfigStore(fileURL: paths.configFile).save(config)
         let runtimeFactory = QuillCodeRuntimeFactory(paths: paths, environment: environment)
-        return QuillCodeDesktopController(
+        let controller = QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
             browserLiveDOMCapturer: nil,
             automationNotifier: QuillCodeDesktopCoworkEvalNotifier(),
@@ -80,6 +93,8 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
             ),
             workspaceRoot: workspace
         )
+        controller.model.subagentDelegationBudgetOverride = subagentDelegationBudget
+        return controller
     }
 
     private static func value(after flag: String, in arguments: [String]) -> String? {

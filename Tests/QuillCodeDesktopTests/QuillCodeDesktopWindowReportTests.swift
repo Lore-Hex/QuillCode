@@ -129,9 +129,20 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
         XCTAssertFalse(request.isConfidential)
         XCTAssertEqual(request.timeoutSeconds, 3_600)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(600))
         XCTAssertEqual(request.maxToolSteps, 512)
         XCTAssertNil(request.runSpendFuseUSD)
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
+    }
+
+    func testCoworkEvalReservesParentSynthesisTimeFromBoundedRun() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-timeout-seconds", "900",
+        ]))
+
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(420))
     }
 
     func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
@@ -185,6 +196,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(config.defaultModel, request.modelID)
         XCTAssertEqual(config.maxToolSteps, request.maxToolSteps)
         XCTAssertEqual(config.runSpendFuseUSD, request.runSpendFuseUSD)
+        XCTAssertEqual(
+            controller.model.subagentDelegationBudgetOverride,
+            request.subagentDelegationBudget
+        )
     }
 
     func testCoworkEvalWindowRetainsOnePhysicalFallbackWindow() async throws {
