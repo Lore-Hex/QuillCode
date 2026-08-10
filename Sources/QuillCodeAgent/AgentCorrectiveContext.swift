@@ -10,6 +10,7 @@ enum AgentCorrectiveContext {
     static let minimumRecentMessageCount = 4
     static let maximumResearchEvidenceCharacters = 48_000
     static let maximumResearchEvidenceEntryCharacters = 16_000
+    static let maximumRequiredInputEvidenceCharacters = 24_000
 
     private struct ResearchEvidence {
         var toolName: String
@@ -73,6 +74,14 @@ enum AgentCorrectiveContext {
         let evidence = pinnedResearchEvidence(
             from: olderMessages + retainedDelegatedMessages
         )
+        let requiredInputEvidence = pinnedRequiredInputEvidence(
+            from: olderMessages,
+            requiredPaths: Set(
+                originalRequest.map {
+                    AgentExplicitSourceReadRecovery.requiredInputPaths(in: $0.content)
+                } ?? []
+            )
+        )
 
         var projected = thread
         var messages = Array(leadingSystem)
@@ -80,12 +89,68 @@ enum AgentCorrectiveContext {
            !retainedReversed.contains(where: { $0.id == originalRequest.id }) {
             messages.append(originalRequest)
         }
+        if !requiredInputEvidence.isEmpty {
+            messages.append(.init(role: .user, content: requiredInputEvidence))
+        }
         if !evidence.isEmpty {
             messages.append(.init(role: .user, content: evidence))
         }
         messages.append(contentsOf: retainedReversed.reversed())
         projected.messages = messages
         return projected
+    }
+
+    private static func pinnedRequiredInputEvidence(
+        from messages: [ChatMessage],
+        requiredPaths: Set<String>
+    ) -> String {
+        guard !requiredPaths.isEmpty else { return "" }
+        var receiptsByKey: [String: String] = [:]
+        for message in messages where message.role == .tool {
+            guard let data = message.content.data(using: .utf8),
+                  let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let toolCall = payload["toolCall"] as? [String: Any],
+                  let toolName = toolCall["name"] as? String,
+                  toolName == ToolDefinition.fileRead.name
+                    || toolName == ToolDefinition.fileReadMany.name,
+                  let result = payload["result"] as? [String: Any],
+                  result["ok"] as? Bool == true,
+                  let stdout = result["stdout"] as? String,
+                  !stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let argumentsJSON = toolCall["argumentsJSON"] as? String,
+                  let arguments = try? ToolArguments(argumentsJSON)
+            else { continue }
+
+            let paths: [String]
+            if toolName == ToolDefinition.fileRead.name,
+               let path = arguments.string("path") {
+                paths = [path]
+            } else {
+                paths = arguments.stringArray("paths") ?? []
+            }
+            let matched = paths.map(AgentArtifactVerificationGate.normalizedPath).filter { path in
+                requiredPaths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, path)
+                })
+            }
+            guard !matched.isEmpty else { continue }
+            let key = matched.sorted().joined(separator: " | ")
+            receiptsByKey[key] = "[required input read: \(key)]\n" + boundedExcerpt(
+                stdout,
+                maximumCharacters: maximumResearchEvidenceEntryCharacters
+            )
+        }
+        guard !receiptsByKey.isEmpty else { return "" }
+        let evidence = receiptsByKey.sorted(by: { $0.key < $1.key })
+            .map(\.value)
+            .joined(separator: "\n\n")
+        return """
+        Host-retained required local input evidence follows. These are exact successful file-read \
+        results and remain authoritative over model recollection, drafts, delegated summaries, and \
+        hard-coded validator expectations.
+
+        \(boundedExcerpt(evidence, maximumCharacters: maximumRequiredInputEvidenceCharacters))
+        """
     }
 
     private static func pinnedResearchEvidence(

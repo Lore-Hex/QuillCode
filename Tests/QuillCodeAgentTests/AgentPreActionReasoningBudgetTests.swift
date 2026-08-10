@@ -500,7 +500,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             .map(\.content)
             .joined(separator: "\n")
         XCTAssertTrue(finalizationContext.contains("outputs/report.md"))
-        XCTAssertTrue(finalizationContext.contains("Host-retained successful research evidence"))
+        XCTAssertTrue(finalizationContext.contains("Host-retained authoritative evidence"))
         XCTAssertTrue(finalizationContext.contains("https://example.com/evidence"))
     }
 
@@ -763,6 +763,59 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         let directRange = try XCTUnwrap(projectedText.range(of: "monday.com Q1 revenue"))
         let delegatedRange = try XCTUnwrap(projectedText.range(of: "GitLab Q2"))
         XCTAssertLessThan(directRange.lowerBound, delegatedRange.lowerBound)
+    }
+
+    func testCorrectiveContextPinsRequiredLocalInputOutsideRecentWindow() throws {
+        let argumentsJSON = ToolArguments.json([
+            "paths": ["inputs/evaluation-context.md", "inputs/records.csv"],
+        ])
+        let payload: [String: Any] = [
+            "toolCall": [
+                "name": ToolDefinition.fileReadMany.name,
+                "argumentsJSON": argumentsJSON,
+            ],
+            "result": [
+                "ok": true,
+                "stdout": """
+                ## File 1: inputs/evaluation-context.md
+                Use exact local records.
+                ## File 2: inputs/records.csv
+                fiscal_year,nominal_revenue_usd
+                2023,4200000
+                2024,5100000
+                2025,6000000
+                """,
+                "stderr": "",
+                "artifacts": [],
+            ],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        let read = ChatMessage(
+            role: .tool,
+            content: try XCTUnwrap(String(data: data, encoding: .utf8))
+        )
+        let original = ChatMessage(role: .user, content: """
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/evaluation-context.md`, \
+        `inputs/records.csv`.
+        Write outputs/report.md.
+        """)
+        let stale = (0..<12).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "stale-\(index) ", count: 1_000))
+        }
+        let recent = (0..<4).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "recent-\(index) ", count: 1_000))
+        }
+
+        let projected = AgentCorrectiveContext.projected(
+            ChatThread(messages: [original, read] + stale + recent)
+        )
+        let text = projected.messages.map(\.content).joined(separator: "\n")
+
+        XCTAssertTrue(text.contains("Host-retained required local input evidence"))
+        XCTAssertTrue(text.contains("2023,4200000"))
+        XCTAssertTrue(text.contains("2025,6000000"))
+        XCTAssertTrue(text.contains("authoritative over model recollection"))
     }
 
     func testCorrectiveContextKeepsStrongestFetchPerURLAndDropsSemanticFailures() throws {

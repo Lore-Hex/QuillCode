@@ -141,7 +141,8 @@ enum AgentBoundedRunFinalizationGate {
 
     static func failedAuditReplayCorrectionPrompt(
         path: String,
-        failedAuditReceipt: String? = nil
+        failedAuditReceipt: String? = nil,
+        evidenceReceipt: String? = nil
     ) -> String {
         let receiptSection = failedAuditReceipt.map {
             """
@@ -164,6 +165,56 @@ enum AgentBoundedRunFinalizationGate {
         execute the changed helper \
         automatically. A typography-, whitespace-, or Markdown-only rewrite does not repair a \
         semantic assertion failure. Emit exactly one of those file writes now.\(receiptSection)
+
+        \(authoritativeEvidenceSection(evidenceReceipt))
+        """
+    }
+
+    static func missingRequiredStructuredInputBindings(
+        in call: ToolCall,
+        deliverablePath: String,
+        requiredInputPaths: Set<String>
+    ) -> [String] {
+        let executable: String
+        if isValidatorHelperWrite(call, deliverablePath: deliverablePath),
+           let arguments = try? ToolArguments(call.argumentsJSON),
+           let helperPath = arguments.string("path"),
+           let content = arguments.string("content") {
+            executable = executableValidatorText(
+                content,
+                fileExtension: URL(fileURLWithPath: helperPath).pathExtension.lowercased()
+            )
+        } else if call.name == ToolDefinition.shellRun.name,
+                  !AgentArtifactContractAuditGate.auditedPaths(
+                    for: call,
+                    among: [AgentArtifactVerificationGate.normalizedPath(deliverablePath)]
+                  ).isEmpty,
+                  let arguments = try? ToolArguments(call.argumentsJSON),
+                  let command = arguments.string("cmd") {
+            executable = executableValidatorText(command, fileExtension: "sh")
+        } else {
+            return []
+        }
+        return requiredInputPaths.sorted().filter { path in
+            !validatorReads(path: path, executableText: executable)
+        }
+    }
+
+    static func validatorInputBindingCorrectionPrompt(
+        path: String,
+        missingInputPaths: [String],
+        evidenceReceipt: String?
+    ) -> String {
+        let sources = missingInputPaths.map { "./\($0)" }.joined(separator: ", ")
+        return """
+        The proposed validator helper is not independent: its executable code does not read the \
+        required structured input \(sources). A comment naming an input or expected rows copied \
+        into the helper does not establish source grounding. Rewrite the validator helper now so \
+        it opens and parses every named structured input directly, derives expected values from \
+        those source rows, then parses and checks ./\(path). Do not rewrite the deliverable or \
+        answer with prose on this turn. The host will execute the corrected helper automatically.
+
+        \(authoritativeEvidenceSection(evidenceReceipt))
         """
     }
 
@@ -215,12 +266,13 @@ enum AgentBoundedRunFinalizationGate {
               !evidenceReceipt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return "" }
         return """
-        Host-retained successful research evidence:
+        Host-retained authoritative evidence:
         \(evidenceReceipt)
 
-        The receipt above is exact output from successful research tool calls retained by the host. \
-        Use direct host.web.fetch, host.browser.*, and source-retrieval shell observations as \
-        authoritative evidence; they take precedence over delegated summaries. \
+        The receipt above is exact output from successful required-file reads and research tool \
+        calls retained by the host. Required local input rows are authoritative over draft text and \
+        hard-coded expectations. Direct host.web.fetch, host.browser.*, and source-retrieval shell \
+        observations are authoritative over delegated summaries. \
         If earlier reasoning or draft text says these values were truncated, missing, or unavailable, \
         that claim is contradicted by the receipt and must not be repeated.
         """
@@ -276,6 +328,35 @@ enum AgentBoundedRunFinalizationGate {
             normalizedContent.contains($0)
         }
         return namesTarget && hasValidation
+    }
+
+    private static func executableValidatorText(
+        _ content: String,
+        fileExtension: String
+    ) -> String {
+        var text = content
+        if ["js", "mjs", "cjs"].contains(fileExtension),
+           let regex = try? NSRegularExpression(pattern: #"(?s)/\*.*?\*/"#) {
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+        }
+        let marker = ["js", "mjs", "cjs"].contains(fileExtension) ? "//" : "#"
+        return text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+            String(line).components(separatedBy: marker).first ?? ""
+        }.joined(separator: "\n")
+    }
+
+    private static func validatorReads(path: String, executableText: String) -> Bool {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+            .replacingOccurrences(of: "\\", with: "/")
+        let escapedPath = NSRegularExpression.escapedPattern(for: normalizedPath)
+        let normalizedExecutable = executableText.replacingOccurrences(of: "\\", with: "/")
+        let readers = #"(?:open|Path|read_csv|read_json|read_excel|readFileSync|readFile|"#
+            + #"File\.(?:read|open)|CSV\.(?:read|foreach))"#
+        let pattern = "(?is)\\b\(readers)\\s*\\([^\\n]{0,240}\(escapedPath)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(normalizedExecutable.startIndex..., in: normalizedExecutable)
+        return regex.firstMatch(in: normalizedExecutable, range: range) != nil
     }
 
     private static func shellQuoted(_ value: String) -> String {

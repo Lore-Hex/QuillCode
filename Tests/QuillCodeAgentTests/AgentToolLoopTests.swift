@@ -21,14 +21,52 @@ final class AgentToolLoopTests: XCTestCase {
 
         for prompt in [synthesis, audit] {
             XCTAssertTrue(prompt.contains("2026 June CPI: 333.952"))
-            XCTAssertTrue(prompt.contains("exact output from successful research tool calls"))
-            XCTAssertTrue(prompt.contains("take precedence over delegated summaries"))
+            XCTAssertTrue(prompt.contains(
+                "exact output from successful required-file reads and research tool calls"
+            ))
+            XCTAssertTrue(prompt.contains("authoritative over delegated summaries"))
             XCTAssertTrue(prompt.contains("claim is contradicted by the receipt"))
             XCTAssertTrue(prompt.contains("align every value with its exact source header"))
             XCTAssertTrue(prompt.contains("Never relabel a half-period"))
             XCTAssertTrue(prompt.contains("underlying observations independently"))
             XCTAssertTrue(prompt.contains("locate intended table fields by their headers"))
         }
+    }
+
+    func testRequiredStructuredInputBindingAlsoAppliesToInlineValidators() {
+        let ungrounded = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c \"assert len(open('outputs/report.md').read()) > 0\" "
+                    + "outputs/report.md # inputs/data.csv QuillCode validator",
+            ])
+        )
+        let grounded = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c \"import csv; source=list(csv.DictReader("
+                    + "open('inputs/data.csv'))); assert source; "
+                    + "assert open('outputs/report.md').read()\" outputs/report.md "
+                    + "# QuillCode validator",
+            ])
+        )
+
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.missingRequiredStructuredInputBindings(
+                in: ungrounded,
+                deliverablePath: "outputs/report.md",
+                requiredInputPaths: ["inputs/data.csv"]
+            ),
+            ["inputs/data.csv"]
+        )
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.missingRequiredStructuredInputBindings(
+                in: grounded,
+                deliverablePath: "outputs/report.md",
+                requiredInputPaths: ["inputs/data.csv"]
+            ),
+            []
+        )
     }
 
     func testAgentUsesPlanUpdateToolWhenAvailable() async throws {
@@ -377,6 +415,94 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("rejected a non-finalization action")
         })
+    }
+
+    func testBoundedRunFinalizationRejectsValidatorThatOnlyCommentsRequiredCSV() async throws {
+        let root = try makeTempDirectory()
+        let inputs = root.appendingPathComponent("inputs")
+        try FileManager.default.createDirectory(at: inputs, withIntermediateDirectories: true)
+        try "name,value\nalpha,1\nbeta,2\n".write(
+            to: inputs.appendingPathComponent("data.csv"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let validatorCapture = ToolCallCapture()
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let ungroundedValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": """
+                import pathlib, sys
+                # Expected values came from inputs/data.csv.
+                target = "outputs/report.md"
+                assert sys.argv[1].endswith(target)
+                rows = pathlib.Path(sys.argv[1]).read_text().splitlines()
+                assert rows == ["name,value", "alpha,1", "beta,2"]
+                print("PASS")
+                """,
+            ])
+        )
+        let groundedValidator = """
+        import csv, pathlib, sys
+        target = "outputs/report.md"
+        assert sys.argv[1].endswith(target)
+        source = list(csv.DictReader(open('inputs/data.csv', newline='')))
+        report = pathlib.Path(sys.argv[1]).read_text().splitlines()
+        assert len(source) == 2
+        assert len(report) == 3
+        print("PASS")
+        """
+        let groundedValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": groundedValidator,
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(deliverableWrite), .tool(deliverableWrite),
+                .tool(ungroundedValidatorWrite), .tool(groundedValidatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 12,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            """
+            Read every applicable source directly before acting.
+            For this task the required inputs are: `inputs/data.csv`.
+            Create `outputs/report.md` with exactly two data rows. After writing, read the saved \
+            output back and verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let validatorCallCount = await validatorCapture.count
+        let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
+        XCTAssertEqual(validatorCallCount, 1, eventSummary)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("scripts/validate_report.py")),
+            groundedValidator,
+            eventSummary
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("did not parse required structured input inputs/data.csv")
+        }, eventSummary)
+        XCTAssertEqual(result.stopReason, .finished, eventSummary)
     }
 
     func testBoundedRunFinalizationReturnsFailedValidatorToModelForRepair() async throws {

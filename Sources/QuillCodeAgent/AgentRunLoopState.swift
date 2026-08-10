@@ -34,6 +34,12 @@ struct AgentRunLoopState: Sendable {
     /// Workspace files successfully read this run. Empty-response recovery uses this to advance
     /// only the finite set of source reads the user explicitly requested and has not completed.
     private(set) var successfullyReadWorkspacePaths: Set<String> = []
+    /// Explicitly required local inputs remain authoritative in mixed local-plus-live-research
+    /// runs. Keeping a bounded host receipt prevents long browsing transcripts and corrective
+    /// compaction from replacing exact supplied records with remembered or invented values.
+    private var requiredInputWorkspacePaths: Set<String> = []
+    private var requiredInputEvidenceReceiptsByKey: [String: String] = [:]
+    private(set) var latestRequiredInputEvidenceReceipt: String?
     /// Task-named deliverables that must be read after their latest write. Shell tools can create
     /// rich artifacts that do not appear in ToolResult.artifacts, so successful shell steps use
     /// this bounded set to discover those outputs on disk and arm the normal readback gate.
@@ -133,6 +139,29 @@ struct AgentRunLoopState: Sendable {
 
     var latestCompletion: AgentToolStepCompletion? {
         lastCompletion
+    }
+
+    var latestAuthoritativeEvidenceReceipt: String? {
+        let receipts: [String] = [
+            latestRequiredInputEvidenceReceipt,
+            latestResearchEvidenceReceipt,
+        ].compactMap { receipt -> String? in
+            guard let receipt,
+                  !receipt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return nil }
+            return receipt
+        }
+        return receipts.isEmpty ? nil : receipts.joined(
+            separator: "\n\n--- next authoritative evidence class ---\n\n"
+        )
+    }
+
+    var requiredStructuredInputWorkspacePaths: Set<String> {
+        Set(requiredInputWorkspacePaths.filter { path in
+            Self.structuredInputExtensions.contains(
+                URL(fileURLWithPath: path).pathExtension.lowercased()
+            )
+        })
     }
 
     func repeatedCompletion(for call: ToolCall) -> AgentToolStepCompletion? {
@@ -668,6 +697,14 @@ struct AgentRunLoopState: Sendable {
                 AgentArtifactVerificationGate.pathsMatch($0, normalized)
             })
         }
+        let requiredPaths = sourcePaths.filter { normalized in
+            requiredInputWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, normalized)
+            })
+        }
+        if !requiredPaths.isEmpty {
+            recordRequiredInputEvidence(paths: requiredPaths, output: output)
+        }
         guard enforcesSourceOnlyGrounding, !sourcePaths.isEmpty else { return }
         sourceGroundingText += "\n" + output
         sourceReadsByPath[sourcePaths.joined(separator: " | ")] = output
@@ -711,6 +748,37 @@ struct AgentRunLoopState: Sendable {
         sourceGroundingText = enforcesSourceOnlyGrounding ? userMessage : ""
         sourceReadsByPath = [:]
         tabularSourceIssuesByPath = [:]
+        requiredInputWorkspacePaths = Set(
+            AgentExplicitSourceReadRecovery.requiredInputPaths(in: userMessage)
+        )
+        requiredInputEvidenceReceiptsByKey = [:]
+        latestRequiredInputEvidenceReceipt = nil
+    }
+
+    private mutating func recordRequiredInputEvidence(paths: [String], output: String) {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let key = paths.sorted().joined(separator: " | ")
+        requiredInputEvidenceReceiptsByKey[key] = """
+        Successful required local input read (\(key)):
+        \(Self.boundedRequiredInputEvidence(trimmed))
+        """
+
+        var retained: [String] = []
+        var retainedCharacters = 0
+        for receipt in requiredInputEvidenceReceiptsByKey.sorted(by: { $0.key < $1.key }).map(\.value) {
+            guard retainedCharacters + receipt.count <= Self.maximumRequiredInputEvidenceCharacters
+            else { continue }
+            retained.append(receipt)
+            retainedCharacters += receipt.count
+        }
+        latestRequiredInputEvidenceReceipt = """
+        Host-retained required local input evidence. These are exact successful file-read results, \
+        not model recollections. Treat their rows and values as authoritative over draft text, \
+        delegated summaries, and hard-coded validator expectations.
+
+        \(retained.joined(separator: "\n\n"))
+        """
     }
 
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {
@@ -882,6 +950,20 @@ struct AgentRunLoopState: Sendable {
     }
 
     private static let maximumResearchEvidenceReceiptCount = 3
+    private static let maximumRequiredInputEvidenceCharacters = 16_000
+    private static let structuredInputExtensions: Set<String> = [
+        "csv", "json", "jsonl", "tsv", "xls", "xlsx",
+    ]
+
+    private static func boundedRequiredInputEvidence(_ text: String) -> String {
+        let maximumCharacters = 12_000
+        guard text.count > maximumCharacters else { return text }
+        let headCount = maximumCharacters * 2 / 3
+        let tailCount = maximumCharacters - headCount
+        return String(text.prefix(headCount))
+            + "\n[...middle of required local input omitted from retained evidence...]\n"
+            + String(text.suffix(tailCount))
+    }
 
     private static func researchEvidenceRetentionScore(
         _ receipt: ResearchEvidenceReceipt

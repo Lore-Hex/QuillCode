@@ -119,4 +119,18 @@ final class AgentExplicitSourceReadRecoveryTests: XCTestCase {
         }
         XCTAssertEqual(secondCall.argumentsJSON, ToolArguments.json(["path": "inputs/data.csv"]))
     }
+
+    func testExtractsOnlySafeNondeliverableRequiredInputPaths() {
+        let prompt = """
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/context.md`, `../secret.md`, \
+        `inputs/data.csv`, `outputs/report.md`, `inputs/data.csv`.
+        Save the complete result to `outputs/report.md`.
+        """
+
+        XCTAssertEqual(
+            AgentExplicitSourceReadRecovery.requiredInputPaths(in: prompt),
+            ["inputs/context.md", "inputs/data.csv"]
+        )
+    }
 }

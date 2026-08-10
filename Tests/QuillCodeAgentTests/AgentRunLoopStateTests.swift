@@ -588,6 +588,60 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertLessThanOrEqual(receipt?.count ?? .max, 12_100)
     }
 
+    func testMixedSourceRunRetainsRequiredLocalRowsBesideLiveResearch() throws {
+        var state = AgentRunLoopState()
+        let prompt = """
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/context.md`, `inputs/records.csv`.
+        Research CPI and write outputs/report.md with a deterministic validator.
+        """
+        state.seedArtifactVerification(userMessage: prompt)
+        state.seedSourceGrounding(userMessage: prompt)
+
+        let read = ToolCall(
+            name: ToolDefinition.fileReadMany.name,
+            argumentsJSON: ToolArguments.json([
+                "paths": ["inputs/context.md", "inputs/records.csv"],
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: read,
+                stdout: """
+                ## File 1: inputs/context.md
+                Use the records as authoritative.
+
+                ## File 2: inputs/records.csv
+                fiscal_year,nominal_revenue_usd
+                2023,4200000
+                2024,5100000
+                2025,6000000
+                """
+            ),
+            workspaceRoot: root
+        ) { _ in "required-read" }
+
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/cpi"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "2026 June CPI: 333.952"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let localReceipt = try XCTUnwrap(state.latestRequiredInputEvidenceReceipt)
+        let combined = try XCTUnwrap(state.latestAuthoritativeEvidenceReceipt)
+        XCTAssertTrue(localReceipt.contains("2023,4200000"))
+        XCTAssertTrue(localReceipt.contains("exact successful file-read results"))
+        XCTAssertTrue(combined.contains("2025,6000000"))
+        XCTAssertTrue(combined.contains("2026 June CPI: 333.952"))
+        XCTAssertEqual(
+            state.requiredStructuredInputWorkspacePaths,
+            Set(["inputs/records.csv"])
+        )
+    }
+
     func testResearchEvidenceLedgerPreservesExactFetchAcrossLaterWorkerOutput() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(

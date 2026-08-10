@@ -362,7 +362,7 @@ public struct AgentRunner: Sendable {
                         path: path,
                         userMessage: userMessage,
                         phase: runLoop.boundedRunFinalizationPhase(at: path),
-                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                     )
                     next.events.append(.init(
                         kind: .notice,
@@ -383,7 +383,7 @@ public struct AgentRunner: Sendable {
                         path: path,
                         userMessage: userMessage,
                         phase: boundedFinalizationPhase,
-                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                     )
                 } else {
                     nil
@@ -448,7 +448,7 @@ public struct AgentRunner: Sendable {
                         phase: boundedFinalizationPhase,
                         attempt: correctiveTurnBudget.consecutiveTurns - 1,
                         limit: AgentCorrectiveTurnBudget.limit,
-                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                     )
                 } else if let repeatNudge {
                     AgentCorrectionEscalation.escalated(
@@ -673,7 +673,7 @@ public struct AgentRunner: Sendable {
                             path: path,
                             userMessage: userMessage,
                             phase: runLoop.boundedRunFinalizationPhase(at: path),
-                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                            evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                         )
                         next.events.append(.init(
                             kind: .notice,
@@ -790,7 +790,7 @@ public struct AgentRunner: Sendable {
                         path: path,
                         userMessage: userMessage,
                         phase: runLoop.boundedRunFinalizationPhase(at: path),
-                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                     )
                     let rejectedAction = switch resolvedAction {
                     case .tool(let call):
@@ -825,6 +825,34 @@ public struct AgentRunner: Sendable {
                     next.updatedAt = Date()
                     await onProgress?(next)
                     continue actionLoop
+                }
+                if let path = boundedRunFinalizationPath,
+                   runLoop.boundedRunFinalizationPhase(at: path) == .audit,
+                   !isControlledBoundedRunFinalizationAction,
+                   case .tool(let proposedCall) = resolvedAction {
+                    let missingInputs = AgentBoundedRunFinalizationGate
+                        .missingRequiredStructuredInputBindings(
+                            in: proposedCall,
+                            deliverablePath: path,
+                            requiredInputPaths: runLoop.requiredStructuredInputWorkspacePaths
+                        )
+                    if !missingInputs.isEmpty {
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .validatorInputBindingCorrectionPrompt(
+                                path: path,
+                                missingInputPaths: missingInputs,
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                            )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: rejected a validator helper that did not "
+                                + "parse required structured input "
+                                + missingInputs.joined(separator: ", ") + "."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
                 }
                 if case .tool(let proposedCall) = resolvedAction,
                    proposedCall.name == ToolDefinition.subagentsRun.name,
@@ -1143,7 +1171,7 @@ public struct AgentRunner: Sendable {
                     path: path,
                     tools: tools,
                     correctionCount: artifactContractAuditCorrectionCounts[path, default: 0],
-                    evidenceReceipt: runLoop.latestResearchEvidenceReceipt,
+                    evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                     failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                    ) {
                     controlledSourceGroundingFinalization = nil
@@ -1233,7 +1261,8 @@ public struct AgentRunner: Sendable {
                         pendingRepeatNudge = AgentBoundedRunFinalizationGate
                             .failedAuditReplayCorrectionPrompt(
                                 path: path,
-                                failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
+                                failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path),
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
                             )
                         next.events.append(.init(
                             kind: .notice,
@@ -1526,7 +1555,7 @@ public struct AgentRunner: Sendable {
                             tools: tools,
                             correctionCount:
                                 artifactContractAuditCorrectionCounts[path, default: 0],
-                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt,
+                            evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                             failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                            ) {
                             artifactContractAuditCorrectionCounts[path, default: 0] += 1

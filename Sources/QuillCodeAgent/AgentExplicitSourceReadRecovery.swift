@@ -5,6 +5,30 @@ import QuillCodeCore
 /// workspace-relative regular files named on an affirmative read instruction line. Writes,
 /// commands, inferred paths, directories, and named deliverables are outside its authority.
 enum AgentExplicitSourceReadRecovery {
+    static func requiredInputPaths(in userMessage: String) -> [String] {
+        guard hasAffirmativeRequiredSourceInstruction(userMessage) else { return [] }
+
+        let deliverables = AgentDeliverableGate.requiredDeliverables(in: userMessage)
+        var paths: [String] = []
+        for line in userMessage.split(whereSeparator: \Character.isNewline) {
+            let text = String(line)
+            guard text.lowercased().contains("required inputs") else { continue }
+            for rawPath in AgentRequestTextScanner.backtickQuotedValues(in: text) {
+                let path = AgentArtifactVerificationGate.normalizedPath(rawPath)
+                guard AgentRequestPathGuard.isSafeWorkspaceRelativePath(path),
+                      !deliverables.contains(where: {
+                          AgentArtifactVerificationGate.pathsMatch($0, path)
+                      }),
+                      !paths.contains(where: {
+                          AgentArtifactVerificationGate.pathsMatch($0, path)
+                      })
+                else { continue }
+                paths.append(path)
+            }
+        }
+        return paths
+    }
+
     static func nextAction(
         userMessage: String,
         workspaceRoot: URL,
