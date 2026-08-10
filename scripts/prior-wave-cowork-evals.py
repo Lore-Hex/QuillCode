@@ -1458,6 +1458,9 @@ automation is visible in Quill Cowork's persisted automation state.
             "`inputs/records.csv` with `real revenue = nominal revenue x (latest 2026 CPI / "
             "that year's selected CPI basis index)`. Show nominal and real dollars, CPI basis, "
             "nominal and real year-over-year growth, and cumulative 2023-to-2025 growth. "
+            "Prefix every nominal and rounded real-revenue amount with `$`, including amounts "
+            "repeated outside the canonical table, so the validator can audit every monetary "
+            "claim. "
             "Keep full precision in calculations and round displayed dollars to the nearest "
             "dollar. Do not invent a 2025 missing-month value. Do not invent a full-year "
             "2026 CPI value. "
@@ -2349,14 +2352,19 @@ def validate_task_126_real_revenue(path):
             (adjusted_by_year[2025] / adjusted_by_year[2024] - 1) * 100,
             (adjusted_by_year[2025] / adjusted_by_year[2023] - 1) * 100,
         ]
-        percentage_values = {
-            Decimal(value)
-            for value in re.findall(r"(?<![\d.])([+-]?\d+(?:\.\d+)?)\s*%", text)
-        }
+        percentage_values = [
+            (Decimal(value), bool(approximation))
+            for approximation, value in re.findall(
+                r"(?<![\d.])(~\s*)?([+-]?\d+(?:\.\d+)?)\s*%",
+                text,
+            )
+        ]
         inconsistent_percentage_values = sorted(
-            value for value in percentage_values
+            value for value, is_approximate in percentage_values
             if not any(
-                abs(value - expected) <= Decimal("0.02")
+                abs(value - expected) <= (
+                    Decimal("0.5") if is_approximate else Decimal("0.02")
+                )
                 for expected in expected_growth_percentages
             )
         )
@@ -2380,6 +2388,27 @@ def validate_task_126_real_revenue(path):
         )
         or re.search(r"\ban annual[- ]average\s*\([^)]*11", compact_text, re.I)
     )
+    markdown_lines = text.splitlines()
+    malformed_table_headers = []
+    for index, line in enumerate(markdown_lines[:-1]):
+        if not line.lstrip().startswith("|"):
+            continue
+        if index > 0 and markdown_lines[index - 1].lstrip().startswith("|"):
+            continue
+        next_line = markdown_lines[index + 1]
+        if not next_line.lstrip().startswith("|"):
+            continue
+        header_cells = line.strip().strip("|").split("|")
+        delimiter_cells = next_line.strip().strip("|").split("|")
+        has_valid_delimiter = (
+            len(delimiter_cells) == len(header_cells)
+            and all(
+                re.fullmatch(r":?-{3,}:?", cell.strip())
+                for cell in delimiter_cells
+            )
+        )
+        if not has_valid_delimiter:
+            malformed_table_headers.append(index + 1)
     checks = {
         "series": "cuur0000sa0" in text.casefold(),
         "official BLS URL": bool(re.search(r"https?://(?:[a-z0-9-]+\.)?bls\.gov/", text, re.I)),
@@ -2388,6 +2417,11 @@ def validate_task_126_real_revenue(path):
             re.search(
                 r"2025.{0,100}annual[- ]average.{0,100}"
                 r"(?:unavailable|not (?:available|published)|cannot be calculated)",
+                compact_text,
+                re.I,
+            )
+            or re.search(
+                r"2025.{0,160}not an annual[- ]average",
                 compact_text,
                 re.I,
             )
@@ -2424,6 +2458,7 @@ def validate_task_126_real_revenue(path):
             len(revenue_table_headers) == 1
             and revenue_table_headers[0].count("|") >= 4
         ),
+        "all Markdown tables are well formed": not malformed_table_headers,
     }
     failed = [name for name, passed in checks.items() if not passed]
     valid = not missing_years and not missing_nominal_revenue and not failed
@@ -2432,6 +2467,7 @@ def validate_task_126_real_revenue(path):
         f"failed checks={failed}; CPI values={cpi_values}; expected real={expected_real_by_year}; "
         f"inconsistent dollar values={inconsistent_dollar_values}; "
         f"inconsistent percentages={inconsistent_percentage_values}; "
+        f"malformed table header lines={malformed_table_headers}; "
         f"unique large dollar values={len(dollar_values)}"
     )
     return valid, detail

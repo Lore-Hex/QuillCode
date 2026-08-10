@@ -394,6 +394,7 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not invent a 2025 missing-month value", prompt)
         self.assertIn("latest published monthly 2026 index", prompt)
         self.assertIn("Do not invent a full-year 2026 CPI value", prompt)
+        self.assertIn("Prefix every nominal and rounded real-revenue amount with `$`", prompt)
         self.assertIn("deterministic post-write validator", prompt)
         self.assertIn("rejects any repeated dollar amount", prompt)
         self.assertEqual(PRIOR.minimum_source_citation_count(row), 1)
@@ -426,6 +427,15 @@ Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "result.md"
             path.write_text(artifact, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
+            rounded_summary = artifact.replace(
+                "The BLS 2025 annual average is not\npublished because October is unavailable, so 321.943 is an 11-observation\nobserved-month proxy.",
+                "The 2025 basis is an 11-observation observed-month proxy, NOT an annual average,\n"
+                "because October is unavailable.",
+            ) + "\nApproximate headline: real growth ~35% versus nominal growth ~43%.\n"
+            path.write_text(rounded_summary, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
 
@@ -466,6 +476,15 @@ Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertFalse(valid)
             self.assertIn("one well-formed revenue table", detail)
+
+            malformed_secondary_table = artifact + (
+                "\n| Item | Status |\n"
+                "| 2025 CPI | Observed-month proxy |\n"
+            )
+            path.write_text(malformed_secondary_table, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("all Markdown tables are well formed", detail)
 
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
