@@ -3,6 +3,7 @@ import csv
 import json
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 import zipfile
 from datetime import datetime, timezone
@@ -137,6 +138,21 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
     def test_catalog_covers_every_prior_wave_task_once(self):
         self.assertEqual([row["id"] for row in self.rows], list(range(1, 211)))
+
+    def test_serial_runner_does_not_launch_queued_cases_after_interrupt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with mock.patch.object(PRIOR, "run_case", side_effect=KeyboardInterrupt) as run_case:
+                with self.assertRaises(KeyboardInterrupt):
+                    PRIOR.run_cases_serially(
+                        Path("/tmp/quill-cowork"),
+                        self.rows[:3],
+                        Path(temporary),
+                        "test-key",
+                        900,
+                        False,
+                    )
+
+        self.assertEqual(run_case.call_count, 1)
 
     def test_prompts_preserve_original_task_and_require_native_evidence(self):
         for task_id in (1, 69, 111, 143, 148, 192, 207):

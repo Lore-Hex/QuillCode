@@ -9,7 +9,6 @@ while confidential and scheduling tasks exercise their real native product modes
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import csv
 import hashlib
 import html
@@ -2529,6 +2528,27 @@ def write_summary(root, results):
     return summary
 
 
+def run_cases_serially(binary, rows, root, key, timeout, keep_homes):
+    results = []
+    for row in rows:
+        case_id = row["id"]
+        try:
+            result = run_case(binary, row, root, key, timeout, keep_homes)
+        except Exception as error:
+            result = {
+                "id": case_id, "wave": "unknown", "category": "unknown",
+                "capability": "unknown", "evidenceClass": "unknown", "passed": False,
+                "exitCode": None, "timedOut": False, "durationMilliseconds": 0,
+                "usage": {}, "tools": [],
+                "checks": [{"name": "runner exception", "passed": False, "detail": str(error)}],
+                "paths": {},
+            }
+        results.append(result)
+        status = "PASS" if result["passed"] else "FAIL"
+        print(f"[{len(results)}/{len(rows)}] task {case_id}: {status}", flush=True)
+    return results
+
+
 def main():
     args = parse_args()
     if args.model != EXACT_MODEL:
@@ -2545,28 +2565,9 @@ def main():
         raise EvalError(f"Desktop binary not found: {args.binary}")
     key = load_api_key(args.key_file)
     root = artifact_root(args.artifact_dir)
-    results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
-        pending = {
-            executor.submit(run_case, args.binary.resolve(), row, root, key, args.timeout, args.keep_homes): row["id"]
-            for row in rows
-        }
-        for future in concurrent.futures.as_completed(pending):
-            case_id = pending[future]
-            try:
-                result = future.result()
-            except Exception as error:
-                result = {
-                    "id": case_id, "wave": "unknown", "category": "unknown",
-                    "capability": "unknown", "evidenceClass": "unknown", "passed": False,
-                    "exitCode": None, "timedOut": False, "durationMilliseconds": 0,
-                    "usage": {}, "tools": [],
-                    "checks": [{"name": "runner exception", "passed": False, "detail": str(error)}],
-                    "paths": {},
-                }
-            results.append(result)
-            status = "PASS" if result["passed"] else "FAIL"
-            print(f"[{len(results)}/{len(rows)}] task {case_id}: {status}", flush=True)
+    results = run_cases_serially(
+        args.binary.resolve(), rows, root, key, args.timeout, args.keep_homes
+    )
     summary = write_summary(root, results)
     print(f"Artifacts: {root}")
     print(f"Result: {summary['passed']}/{summary['total']} passed")
