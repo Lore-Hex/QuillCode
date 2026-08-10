@@ -9,12 +9,14 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         XCTAssertLessThanOrEqual(
             coreLineCount,
             240,
-            "The core desktop controller file should stay focused on published state, bootstrap, notifications, and refresh."
+            "The core desktop controller file should stay focused on published state, " +
+                "bootstrap, notifications, and refresh."
         )
         let extensionFileNames = [
             "QuillCodeDesktopController+Commands.swift",
             "QuillCodeDesktopController+ComposerAndPanes.swift",
             "QuillCodeDesktopController+Navigation.swift",
+            "QuillCodeDesktopController+Notifications.swift",
             "QuillCodeDesktopController+Settings.swift",
             "QuillCodeDesktopController+Terminal.swift",
             "QuillCodeDesktopController+Transcript.swift",
@@ -45,7 +47,9 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopControllerSourceText()
         let settingsCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopSettingsCoordinator.swift")
-        let computerUseCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopComputerUseCoordinator.swift")
+        let computerUseCoordinatorText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopComputerUseCoordinator.swift"
+        )
 
         Self.assertSource(text, contains: "QuillCodeDesktopSettingsCoordinator")
         Self.assertSource(text, contains: "MacSystemSettingsOpener")
@@ -164,7 +168,9 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
     func testDesktopControllerDelegatesWorkspaceActionMutations() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopControllerSourceText()
-        let actionCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopWorkspaceActionCoordinator.swift")
+        let actionCoordinatorText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopWorkspaceActionCoordinator.swift"
+        )
         let sourceOpenerText = try Self.desktopSourceText(named: "QuillCodeDesktopSourceOpener.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopWorkspaceActionCoordinator")
@@ -227,14 +233,20 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "navigationCoordinator.addProject")
         Self.assertSource(navigationText, contains: "model.newChat()")
         Self.assertSource(navigationText, contains: "model.selectThread(id)")
-        Self.assertSource(navigationText, contains: "WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)")
+        Self.assertSource(
+            navigationText,
+            contains: "WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)"
+        )
         Self.assertSource(navigationText, contains: "model.renameThread(id, to: title)")
         Self.assertSource(navigationText, contains: "model.selectProject(id)")
         Self.assertSource(navigationText, contains: "model.renameProject(id, to: name)")
         Self.assertSource(navigationText, contains: "model.addProject(path: url)")
         Self.assertSource(controllerText, excludes: "_ = model.newChat()")
         Self.assertSource(controllerText, excludes: "model.selectThread(id)")
-        Self.assertSource(controllerText, excludes: "WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)")
+        Self.assertSource(
+            controllerText,
+            excludes: "WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)"
+        )
         Self.assertSource(controllerText, excludes: "model.renameThread(id, to: title)")
         Self.assertSource(controllerText, excludes: "model.selectProject(id)")
         Self.assertSource(controllerText, excludes: "model.renameProject(id, to: name)")
@@ -290,7 +302,10 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(coordinatorText, contains: "case .toggleActivity:")
         Self.assertSource(coordinatorText, contains: "case .toggleAutomations:")
         Self.assertSource(plannerText, contains: "WorkspaceCommandRoutingCatalog.canRunInWorkspaceModel")
-        Self.assertSource(controllerText, contains: "guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }")
+        Self.assertSource(
+            controllerText,
+            contains: "guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }"
+        )
         Self.assertSource(controllerText, contains: "commandCoordinator.run(action, performer: self)")
         Self.assertSource(controllerText, excludes: "switch command.id")
         Self.assertSource(controllerText, excludes: "switch action")

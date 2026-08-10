@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-10 Unexpected-Exit Recovery
+
+Overall grade after this slice: **A+ crash visibility, A+ privacy, A+ lifecycle ownership**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Crash visibility | A+ | Packaged launches register before workspace construction and transition to Ready only after the first native root view appears, so the next launch can distinguish startup and running failures. |
+| False-positive control | A+ | A prior live PID, same-process reentry, stale/future marker, unsafe metadata, and a graceful Terminating marker never become crash notices. |
+| Lifecycle safety | A+ | Marker mutations use one cross-process `flock`, atomic JSON replacement, launch-ID ownership checks, and a graceful-quit write-before-remove transition, so an older process cannot clear a newer launch. |
+| Privacy | A+ | The private 0700 directory and 0600 marker contain only schema, launch identity, PID, phase, time, and validated build/system metadata; no paths, prompts, transcripts, account data, or credentials are recorded. |
+| UX | A+ | The next successful launch presents one native alert with Continue and Report Issue actions, names potentially incomplete in-progress work honestly, and does not republish after dismissal. |
+| Supportability | A+ | Crash reports include bounded current/previous version, build, commit, channel, OS, architecture, start time, and phase without attaching files or private workspace state. |
+| Architecture | A+ | Process bootstrap, one-shot root-view presentation, launch persistence, reporting, and packaged smoke have focused owners; extracting the root view and notification routing keeps the core desktop controller at 230 lines. |
+
+Validation:
+
+- Final focused lifecycle, issue-reporting, application-service, controller-architecture, updater
+  parity, review-binding, and native hit-target/accessibility suite: 33 tests, 0 failures
+- Authoritative full Swift suite: 5,778 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed; packaged direct-executable, Launch Services, live-window,
+  Accessibility-frame, interaction, and recovery smokes passed
+- Dedicated packaged performance smoke passed 3/3 launches: 266.41 ms median launch-ready,
+  98.58 MiB initial RSS, 158.00 MiB after interaction, 162.59 MiB after repeated interaction,
+  4.59 MiB repeated growth, and zero repeated thread growth
+- Deterministic grader: every touched production and feature-specific test file scores 100/A+
+
 ## 2026-08-10 Bounded Live Terminal Backpressure
 
 Overall grade after this slice: **A+ memory ownership, A+ responsiveness, A+ crash resilience**.

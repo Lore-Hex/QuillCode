@@ -7,6 +7,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- Unexpected-exit recovery: early packaged launch registration, Starting-to-Ready transition,
+  graceful Terminating cleanup, dead-process detection, live-PID/same-process suppression, stale and
+  future timestamp rejection, unsafe metadata rejection, private directory/file permissions,
+  cross-process locking, old-owner cleanup refusal, idempotent service startup, one-shot dismissal,
+  content-free crash-report metadata, and packaged recovery-then-clean-relaunch smoke.
 - First-launch installation guidance: writable-copy suppression, already-installed suppression,
   read-only presentation, once-per-build dismissal, a new-build reminder, disabled smoke
   configuration, Applications-folder routing, fixed-size rendering, coordinated updater-sheet

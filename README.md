@@ -49,7 +49,9 @@ menu. Downloads are size- and SHA-256-verified, the app identity and code signat
 installation, the packaged source commit must match the public manifest, activation is atomic, and
 the previous build is restored if the new build cannot finish launching. Use **Report an Issue...**
 in the app menu to open a prefilled GitHub report with bounded build and system information; it does
-not attach project paths, transcripts, or credentials.
+not attach project paths, transcripts, or credentials. After an unexpected exit, the next successful
+launch identifies whether the prior session ended during startup or while running, warns that active
+command work may be incomplete, and offers the same privacy-safe report path.
 
 ## Downloads
 

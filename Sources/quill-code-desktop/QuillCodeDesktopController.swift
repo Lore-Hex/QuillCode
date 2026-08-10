@@ -50,6 +50,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
     let updateController: QuillCodeDesktopUpdateController
     let installationLocationController: QuillCodeDesktopInstallationLocationController
+    let launchLifecycleController: QuillCodeDesktopLaunchLifecycleController?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until app services start.
@@ -67,6 +68,7 @@ final class QuillCodeDesktopController: ObservableObject {
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
         installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
+        launchLifecycleController: QuillCodeDesktopLaunchLifecycleController? = nil,
         workspaceRoot: URL? = nil
     ) {
         let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
@@ -102,6 +104,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.updateController = updateController ?? QuillCodeDesktopUpdateController()
         self.installationLocationController = installationLocationController
             ?? QuillCodeDesktopInstallationLocationController()
+        self.launchLifecycleController = launchLifecycleController
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -222,24 +225,6 @@ final class QuillCodeDesktopController: ObservableObject {
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate
         center.setNotificationCategories([QuillCodeApprovalNotification.category, QuillCodeRetryNotification.category])
-    }
-
-    /// Decides a blocked approval gate from a tapped notification action. Selects the gate's thread
-    /// first (a notification may target a thread the user is not currently viewing), then routes through
-    /// the SAME coordinator `runToolCardAction` path as the in-app tool card. Going through the one
-    /// path (rather than a bare `Task` calling `decidePendingApproval`) means the notification decision
-    /// serializes on that chat's `.send` slot exactly like the in-app decision, so two decisions for
-    /// the same chat cannot interleave their resume/drain. A Skip still records unconditionally.
-    func decideNotificationApproval(requestID: String, approve: Bool, threadID: UUID?) {
-        if let threadID, model.selectedThread?.id != threadID {
-            selectThread(threadID)
-        }
-        runToolCardAction(ToolCardActionSurface(
-            title: approve ? "Approve" : "Skip",
-            kind: approve ? .approve : .deny,
-            requestID: requestID,
-            style: approve ? .primary : .secondary
-        ))
     }
 
 }
