@@ -101,6 +101,17 @@ packaged commit, the run exits successfully without touching the tag, manifest,
 or assets; the already queued run for the newer commit becomes the next publisher.
 Immutable stable version tags are unaffected by this tester-channel freshness gate.
 
+Tester asset replacement is also recoverable after the freshness decision. The publisher uploads
+every candidate under a run-scoped temporary name, then requires GitHub's recorded size, upload
+state, and SHA-256 digest to match the local artifact before any canonical download name changes.
+Existing assets are renamed to rollback aliases instead of deleted; verified candidates take their
+canonical names with the updater manifest swapped last. Release notes and target commit change only
+after the complete asset inventory is present, and `tester-latest` moves last. A failure during
+upload, asset exchange, metadata update, or tag push deletes candidates and restores the prior
+asset names, release metadata, and remote tag, then verifies that restored snapshot. Rollback assets
+are deleted with bounded retries only after the new metadata and tag both agree. This keeps a
+transport or GitHub API failure from stranding an unrecoverable half-published tester channel.
+
 DMG construction is transactional and stage-aware. The packager creates each
 candidate beside the destination, then verifies, mounts, inspects, signature-checks,
 and detaches it before an atomic replacement. Transient macOS disk-image service

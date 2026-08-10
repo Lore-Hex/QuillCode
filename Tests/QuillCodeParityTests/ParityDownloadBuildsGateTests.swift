@@ -315,13 +315,15 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--channel \"$RELEASE_CHANNEL\"",
             "--commit \"$GITHUB_SHA\"",
             "--output \"$RUNNER_TEMP/release-notes.md\"",
-            "current-release-assets.txt",
             "scripts/plan-download-publication.sh",
             "published: ${{ steps.publication.outputs.publish-required }}",
             "if: steps.publication.outputs.publish-required == 'true'",
             "if: needs.publish.outputs.published == 'true'",
-            "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
-            "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber",
+            "scripts/publish-tester-release.py",
+            "--assets-dir \"$RUNNER_TEMP/release-assets\"",
+            "--notes-file \"$RUNNER_TEMP/release-notes.md\"",
+            "--repo \"$GITHUB_REPOSITORY\"",
+            "--run-id \"$GITHUB_RUN_ID\"",
             "--verify-tag",
             "--draft",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/*",
@@ -360,6 +362,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
         XCTAssertFalse(workflow.contains("cat > \"$RUNNER_TEMP/release-notes.md\""))
         XCTAssertFalse(workflow.contains("MACOS_DISTRIBUTION_NOTE"))
+        XCTAssertFalse(workflow.contains("--clobber"))
+        XCTAssertFalse(workflow.contains("gh release delete-asset"))
         let validationIndex = try XCTUnwrap(workflow.range(of: "scripts/validate-download-build-ref.sh"))
         let ciGateIndex = try XCTUnwrap(workflow.range(of: "scripts/wait-for-successful-ci.sh"))
         let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))
@@ -367,7 +371,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
         let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
         let freshnessIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-publication.sh"))
-        let releaseMutationIndex = try XCTUnwrap(workflow.range(of: "git tag -f \"$RELEASE_TAG\""))
+        let releaseMutationIndex = try XCTUnwrap(workflow.range(of: "scripts/publish-tester-release.py"))
         let publicVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-published:"))
         let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
         let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))

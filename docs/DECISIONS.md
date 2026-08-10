@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-09: moving tester publication retains a verified rollback snapshot
+
+- **Decision:** Tester assets upload under run-scoped candidate names and must match GitHub's
+  recorded size, upload state, and SHA-256 digest before canonical names change. Existing assets
+  move to rollback aliases; they are not clobbered or deleted in place.
+- **Commit order:** Candidates take canonical names with the updater manifest last, then release
+  metadata moves to the new commit, then the `tester-latest` Git ref moves last. Prior assets are
+  deleted only after the new metadata and remote tag have both been read back and verified.
+- **Failure recovery:** Upload, rename, metadata, and tag failures delete every known candidate,
+  restore prior asset names by immutable GitHub asset ID, restore the complete metadata snapshot,
+  force the old tag back, and compare the recovered inventory, digests, metadata, and ref with the
+  snapshot before returning failure. Cleanup deletions receive bounded retries.
+- **Scope:** Immutable stable releases retain their draft, consumer-verification, and promotion
+  transaction. This publisher owns only the deliberately moving tester release.
+- **Evidence:** `scripts/tester_publication`, the thin `publish-tester-release.py` entry point,
+  workflow ordering assertions, and deterministic injected failures at upload, asset rename,
+  release metadata, tag push, and post-commit cleanup.
+
 ## 2026-08-09: superseded tester builds never mutate the moving release
 
 - **Decision:** The Download Builds publisher re-fetches `origin/main` after all architecture
