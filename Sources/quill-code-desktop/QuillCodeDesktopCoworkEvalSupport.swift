@@ -10,7 +10,6 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     static let maximumToolSteps = 4_096
     static let maximumDelegationBudgetSeconds = 600
     static let minimumDelegationBudgetSeconds = 60
-    static let synthesisReserveSeconds = 480
 
     var homePath: String
     var workspacePath: String
@@ -24,22 +23,22 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     var maxToolSteps: Int
     var runSpendFuseUSD: Double?
 
-    var subagentDelegationBudget: Duration {
-        .seconds(max(
-            Self.minimumDelegationBudgetSeconds,
-            min(
-                Self.maximumDelegationBudgetSeconds,
-                timeoutSeconds - Self.synthesisReserveSeconds
+    private var researchBudgetSeconds: Int {
+        min(
+            max(0, timeoutSeconds - 1),
+            max(
+                Self.minimumDelegationBudgetSeconds,
+                min(Self.maximumDelegationBudgetSeconds, timeoutSeconds / 3)
             )
-        ))
+        )
+    }
+
+    var subagentDelegationBudget: Duration {
+        .seconds(max(1, researchBudgetSeconds))
     }
 
     var boundedRunFinalizationAfterSeconds: TimeInterval {
-        let reserve = min(
-            Self.synthesisReserveSeconds,
-            max(1, timeoutSeconds - Self.minimumDelegationBudgetSeconds)
-        )
-        return TimeInterval(max(0, timeoutSeconds - reserve))
+        TimeInterval(researchBudgetSeconds)
     }
 
     init?(arguments: [String]) {

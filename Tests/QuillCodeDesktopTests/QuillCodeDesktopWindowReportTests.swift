@@ -135,15 +135,15 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
     }
 
-    func testCoworkEvalReservesParentSynthesisTimeFromBoundedRun() throws {
+    func testCoworkEvalReservesTwoThirdsOfRunForSynthesisAndRepair() throws {
         let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
             "QuillCode",
             "--cowork-eval",
             "--cowork-eval-timeout-seconds", "900",
         ]))
 
-        XCTAssertEqual(request.subagentDelegationBudget, .seconds(420))
-        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 420)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(300))
+        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 300)
     }
 
     func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
