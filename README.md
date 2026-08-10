@@ -58,6 +58,10 @@ inactive or quits. Quill Cowork restores that text after an unexpected exit with
 potentially large chat transcript on every keystroke. Checkpoints are private, bounded, and scoped to
 one chat; confidential-chat text is never written to them.
 
+Live model output is also bounded and projected to the interface at display cadence instead of once
+per provider token. The first useful text remains immediate, the exact final draft is preserved across
+success and connection failure, and an oversized response offers a direct model-switch recovery path.
+
 Choosing **Remind Me Tomorrow** defers only that exact update for 24 hours, including across app
 restarts. A newer build appears on the normal check cadence, and **Check for Updates...** always
 overrides the reminder. The app reopens its already-verified update state at the deadline without an

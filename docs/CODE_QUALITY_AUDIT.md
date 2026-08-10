@@ -26,6 +26,31 @@ Validation:
 - `python3 scripts/grade-code-quality.py --root .`
 - `git diff --check`
 
+## 2026-08-10 Bounded Streaming Presentation Cadence
+
+Overall grade after this slice: **A+ bounded streaming, A+ progress efficiency, A+ failure recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Response bounds | A+ | Every streamed action shares a 16 MiB UTF-8 limit, checked before append with a typed error and focused desktop recovery. |
+| Presentation efficiency | A+ | Visible drafts and bounded reasoning summaries publish at the existing 50 ms desktop cadence instead of rebuilding growing JSON and thread snapshots for every provider token. |
+| Per-action work | A+ | Once a stream is classified as a tool action, preview parsing stops; answer streams retain immediate first text and a forced exact terminal preview. |
+| Failure semantics | A+ | The latest safe answer and reasoning summary flush before a stream error propagates, while usage remains committed through the existing failure path. |
+| Architecture | A+ | Cadence policy lives in a focused agent type and is shared by answer and reasoning projection without coupling provider transport to SwiftUI. |
+| Regression evidence | A+ | Deterministic tests reduce 4,096 rapid fragments to two draft callbacks and cover success/error flushing, UTF-8 overflow, reasoning coalescing, recovery UX, and parity ownership. |
+
+Validation:
+
+- `swift test --filter 'TrustedRouterStreamingActionTests|AgentStreamingTests|WorkspaceRuntimeIssueBuilderTests|ParityAgentStreamingGateTests'` (35 tests, 0 failures)
+- `swift test --filter 'AgentMalformedActionRecoveryTests|AgentPromisedWorkGuardTests|AgentStreamingTests|RetryingLLMClientTests|ParityAgentStreamingGateTests|ParityTrustedRouterActionParsingGateTests'` (77 tests, 0 failures)
+- Full Swift suite: 5,809 tests, 5 skipped, 0 failures
+- Packaged direct-executable, Launch Services, SIGKILL draft recovery, live-window, Accessibility,
+  and two-pass interaction smokes passed
+- Packaged performance passed 3/3 fresh processes: 272.59 ms median launch-ready, 98.80 MiB
+  initial RSS, 158.42 MiB after interaction, and 163.12 MiB after repeated interaction
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-10 Durable Update Reminders
 
 Overall grade after this slice: **A+ interruption UX, A+ update freshness, A+ bounded persistence**.

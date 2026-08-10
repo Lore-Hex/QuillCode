@@ -128,6 +128,11 @@
 
 ## Latest Quality Pass
 
+- Model streaming now separates provider-token cadence from presentation cadence: visible answer
+  drafts and bounded reasoning summaries publish at most every 50 milliseconds, with immediate first
+  text and an exact final flush on success or provider failure. A shared 16 MiB UTF-8 action limit
+  prevents malformed or runaway streams from exhausting the desktop, non-answer tool JSON stops
+  repeated preview parsing after classification, and an overflow opens focused model-switch recovery.
 - Unsent composer text now uses a private, owner-bound, size-limited checkpoint after a short typing
   debounce, with immediate app-deactivation and quit flushes. The live model updates synchronously so
   unrelated background surface refreshes cannot erase typing during that delay. New chats gain one
