@@ -332,7 +332,9 @@ private actor WorkspaceSubagentParentProjection {
 }
 
 private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
-    private static let parentSummaryLimit = 6_000
+    private static let maximumWorkerSummaryCharacters = 6_000
+    private static let maximumCombinedWorkerSummaryCharacters = 18_000
+    private static let maximumStatusSummaryCharacters = 1_000
 
     struct Worker: Codable, Sendable, Hashable {
         var name: String
@@ -348,27 +350,45 @@ private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
 
     init(result: WorkspaceSubagentRunResult, delegationBudgetReached: Bool = false) {
         self.runID = result.record.id
+        let perWorkerLimit = min(
+            Self.maximumWorkerSummaryCharacters,
+            max(
+                1,
+                Self.maximumCombinedWorkerSummaryCharacters
+                    / max(1, result.record.workers.count)
+            )
+        )
         self.workers = result.record.workers.map { worker in
             Worker(
                 name: worker.name,
                 role: worker.role,
                 status: worker.status,
-                summary: result.workerResults[worker.id] ?? worker.summary
+                summary: Self.boundedWorkerSummary(
+                    result.workerResults[worker.id] ?? worker.summary,
+                    limit: perWorkerLimit
+                )
             )
-        }
-        let detailedResults = workers.compactMap { worker -> String? in
-            guard let summary = worker.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !summary.isEmpty
-            else { return nil }
-            let bounded = String(summary.prefix(Self.parentSummaryLimit))
-            return "## \(worker.name) (\(worker.status.label))\n\(bounded)"
         }
         let synthesisDirective = delegationBudgetReached
             ? "Delegation time budget reached. Do not start more research. Synthesize the parent deliverable now from the completed results and existing evidence."
             : nil
-        self.summary = ([synthesisDirective, result.summary] + detailedResults)
+        let statusSummary = result.summary
+            .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map(String.init)
+            .map { String($0.prefix(Self.maximumStatusSummaryCharacters)) }
+        self.summary = [synthesisDirective, statusSummary]
             .compactMap { $0 }
             .joined(separator: "\n\n")
         self.awaitingApproval = result.record.workers.contains { $0.status == .awaitingApproval }
+    }
+
+    private static func boundedWorkerSummary(_ summary: String?, limit: Int) -> String? {
+        guard let summary = summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !summary.isEmpty
+        else { return nil }
+        guard summary.count > limit else { return summary }
+        return String(summary.prefix(limit))
+            + "\n[Worker result truncated to keep parent context bounded.]"
     }
 }

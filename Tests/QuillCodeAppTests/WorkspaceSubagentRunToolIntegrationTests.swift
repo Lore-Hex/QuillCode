@@ -99,8 +99,44 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         let resolved = try XCTUnwrap(execution)
 
         XCTAssertTrue(resolved.result.stdout.contains(marker))
+        XCTAssertEqual(resolved.result.stdout.components(separatedBy: marker).count - 1, 1)
         XCTAssertFalse(resolved.result.stdout.contains("private child detail"))
         XCTAssertFalse(resolved.result.stdout.contains("private-tool"))
+    }
+
+    func testToolOutputBoundsCombinedWorkerEvidenceWithoutDroppingWorkers() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { job in
+            WorkspaceSubagentWorkerResult(
+                summary: "EVIDENCE-\(job.name)\n" + String(repeating: "verified fact and URL ", count: 800)
+            )
+        })
+        let executor = WorkspaceSubagentRunToolExecutor(
+            sessionFactory: factory,
+            threadStore: nil,
+            approvalPayloadStore: nil,
+            schedulerOverride: scheduler,
+            recordSink: nil
+        )
+        let workers = (1...6).map { index in
+            ["name": "Worker \(index)", "role": "Research evidence track \(index)."]
+        }
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Research six independent evidence tracks.",
+                "workers": workers,
+            ])
+        )
+
+        let execution = await executor.executionOverride(call, root, ChatThread(), nil)
+        let stdout = try XCTUnwrap(execution?.result.stdout)
+
+        for index in 1...6 {
+            XCTAssertTrue(stdout.contains("EVIDENCE-Worker \(index)"))
+        }
+        XCTAssertLessThan(stdout.count, 22_000)
     }
 
     func testModelAuthoredDelegationBudgetCancelsWorkersAndReturnsEvidenceToParent() async throws {
