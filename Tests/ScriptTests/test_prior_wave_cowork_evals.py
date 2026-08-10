@@ -414,6 +414,20 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
         self.assertEqual(matched, [])
 
+    def test_source_grounding_accepts_five_letter_source_values(self):
+        row = self.rows[120]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            matched = PRIOR.matched_source_grounding_anchors(
+                row,
+                workspace,
+                "UK & Ireland and Japan were converted from local currency to USD.",
+            )
+
+        self.assertIn("uk ireland", matched)
+        self.assertIn("japan", matched)
+
     def test_task_coverage_accepts_conservative_word_variants(self):
         row = self.rows[5]
 

@@ -336,7 +336,7 @@ def source_grounding_anchors(row, workspace):
         if not words or not any(any(character.isalpha() for character in word) for word in words):
             return
         phrase = " ".join(words)
-        if (len(words) >= 2 or len(words[0]) >= 6) and phrase not in anchors:
+        if (len(words) >= 2 or len(words[0]) >= 5) and phrase not in anchors:
             anchors.append(phrase)
 
     for description, relative, _, _ in COLLECTION_SPECS.get(row["id"], []):
