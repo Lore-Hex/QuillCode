@@ -3,6 +3,7 @@ import Foundation
 struct QuillCodeDesktopAccessibilityRequiredElementSample {
     var elementsByIdentifier: [String: QuillCodeDesktopAccessibilityElementSnapshot]
     var missingIdentifiers: Set<String>
+    var sampleCount: Int
 
     var isComplete: Bool {
         missingIdentifiers.isEmpty
@@ -18,13 +19,17 @@ enum QuillCodeDesktopAccessibilityElementSetSampler {
         elements: () -> [QuillCodeDesktopAccessibilityElementSnapshot]
     ) async -> QuillCodeDesktopAccessibilityRequiredElementSample {
         guard !identifiers.isEmpty else {
-            return .init(elementsByIdentifier: [:], missingIdentifiers: [])
+            return .init(elementsByIdentifier: [:], missingIdentifiers: [], sampleCount: 0)
         }
 
         let attemptCount = max(1, maximumAttempts)
-        var latest = requiredElements(identifiers, in: [])
+        var latest = requiredElements(identifiers, in: [], sampleCount: 0)
         for attempt in 0..<attemptCount {
-            latest = requiredElements(identifiers, in: elements())
+            latest = requiredElements(
+                identifiers,
+                in: elements(),
+                sampleCount: attempt + 1
+            )
             if latest.isComplete {
                 return latest
             }
@@ -36,7 +41,8 @@ enum QuillCodeDesktopAccessibilityElementSetSampler {
 
     private static func requiredElements(
         _ identifiers: Set<String>,
-        in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
+        in elements: [QuillCodeDesktopAccessibilityElementSnapshot],
+        sampleCount: Int
     ) -> QuillCodeDesktopAccessibilityRequiredElementSample {
         let candidatesByIdentifier = Dictionary(grouping: elements, by: \.identifier)
         var resolved: [String: QuillCodeDesktopAccessibilityElementSnapshot] = [:]
@@ -48,7 +54,8 @@ enum QuillCodeDesktopAccessibilityElementSetSampler {
         }
         return .init(
             elementsByIdentifier: resolved,
-            missingIdentifiers: identifiers.subtracting(resolved.keys)
+            missingIdentifiers: identifiers.subtracting(resolved.keys),
+            sampleCount: sampleCount
         )
     }
 }

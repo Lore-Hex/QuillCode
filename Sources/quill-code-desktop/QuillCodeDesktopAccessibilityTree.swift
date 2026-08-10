@@ -49,16 +49,51 @@ struct QuillCodeDesktopAccessibilityHitTestResult {
     }
 }
 
+struct QuillCodeDesktopAccessibilityElementIdentity: Hashable {
+    let element: AXUIElement
+
+    static func == (
+        lhs: QuillCodeDesktopAccessibilityElementIdentity,
+        rhs: QuillCodeDesktopAccessibilityElementIdentity
+    ) -> Bool {
+        CFEqual(lhs.element, rhs.element)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(CFHash(element))
+    }
+}
+
 @MainActor
 struct QuillCodeDesktopAccessibilityTree {
     var elements: [QuillCodeDesktopAccessibilityElementSnapshot]
 
     init(root: NSView) {
         _ = root
-        var visited = Set<CFHashCode>()
+        var visited = Set<QuillCodeDesktopAccessibilityElementIdentity>()
         var collected: [QuillCodeDesktopAccessibilityElementSnapshot] = []
         let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
         Self.collect(from: application, into: &collected, visited: &visited)
+        elements = collected
+    }
+
+    init(root: NSView, matchingIdentifiers identifiers: Set<String>) {
+        _ = root
+        guard !identifiers.isEmpty else {
+            elements = []
+            return
+        }
+        var visited = Set<QuillCodeDesktopAccessibilityElementIdentity>()
+        var collected: [QuillCodeDesktopAccessibilityElementSnapshot] = []
+        var matchedIdentifiers: Set<String> = []
+        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        _ = Self.collect(
+            from: application,
+            matchingIdentifiers: identifiers,
+            into: &collected,
+            matchedIdentifiers: &matchedIdentifiers,
+            visited: &visited
+        )
         elements = collected
     }
 
@@ -96,10 +131,9 @@ struct QuillCodeDesktopAccessibilityTree {
     private static func collect(
         from element: AXUIElement,
         into collected: inout [QuillCodeDesktopAccessibilityElementSnapshot],
-        visited: inout Set<CFHashCode>
+        visited: inout Set<QuillCodeDesktopAccessibilityElementIdentity>
     ) {
-        let identity = CFHash(element)
-        guard visited.insert(identity).inserted else { return }
+        guard visited.insert(.init(element: element)).inserted else { return }
 
         if let snapshot = snapshot(for: element),
            !snapshot.identifier.isEmpty || snapshot.role == kAXMenuItemRole as String
@@ -112,11 +146,47 @@ struct QuillCodeDesktopAccessibilityTree {
         }
     }
 
+    private static func collect(
+        from element: AXUIElement,
+        matchingIdentifiers identifiers: Set<String>,
+        into collected: inout [QuillCodeDesktopAccessibilityElementSnapshot],
+        matchedIdentifiers: inout Set<String>,
+        visited: inout Set<QuillCodeDesktopAccessibilityElementIdentity>
+    ) -> Bool {
+        guard visited.insert(.init(element: element)).inserted else { return false }
+
+        let identifier = stringAttribute(kAXIdentifierAttribute, from: element)
+        if identifiers.contains(identifier),
+           let snapshot = snapshot(for: element, identifier: identifier),
+           snapshot.frameArea > 0
+        {
+            collected.append(snapshot)
+            matchedIdentifiers.insert(snapshot.identifier)
+            if matchedIdentifiers == identifiers {
+                return true
+            }
+        }
+
+        for child in children(of: element) {
+            if collect(
+                from: child,
+                matchingIdentifiers: identifiers,
+                into: &collected,
+                matchedIdentifiers: &matchedIdentifiers,
+                visited: &visited
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+
     private static func snapshot(
         for element: AXUIElement,
+        identifier suppliedIdentifier: String? = nil,
         ancestorIdentifiers: [String] = []
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        let identifier = stringAttribute(kAXIdentifierAttribute, from: element)
+        let identifier = suppliedIdentifier ?? stringAttribute(kAXIdentifierAttribute, from: element)
         let role = stringAttribute(kAXRoleAttribute, from: element)
         let title = stringAttribute(kAXTitleAttribute, from: element)
         let description = stringAttribute(kAXDescriptionAttribute, from: element)
@@ -142,11 +212,10 @@ struct QuillCodeDesktopAccessibilityTree {
 
     private static func ancestorIdentifiers(of element: AXUIElement) -> [String] {
         var identifiers: [String] = []
-        var visited = Set<CFHashCode>()
+        var visited = Set<QuillCodeDesktopAccessibilityElementIdentity>()
         var current: AXUIElement? = element
         while let parent = current.flatMap(parentElement) {
-            let identity = CFHash(parent)
-            guard visited.insert(identity).inserted else { break }
+            guard visited.insert(.init(element: parent)).inserted else { break }
             let identifier = stringAttribute(kAXIdentifierAttribute, from: parent)
             if !identifier.isEmpty {
                 identifiers.append(identifier)
