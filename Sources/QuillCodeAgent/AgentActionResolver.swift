@@ -226,6 +226,13 @@ extension AgentRunner {
                     if let fallback = fallbackLLM, !usedFallback {
                         usedFallback = true
                         activeLLM = fallback
+                        // The new route has not consumed any semantic corrections for this step.
+                        // Reset the local budget so a fast malformed/prose response can still be
+                        // repaired into an action instead of inheriting the displaced route's
+                        // exhausted reasoning attempts. `usedFallback` and the per-route limit keep
+                        // the recovery bounded: there is still only one route switch.
+                        attempt = 0
+                        emptyResponseAttempt = 0
                         pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
                             preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
                         )

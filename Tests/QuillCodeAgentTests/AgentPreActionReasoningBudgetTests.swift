@@ -151,7 +151,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 2)
     }
 
-    func testReasoningFallbackDoesNotResetCorrectionBudget() async {
+    func testReasoningFallbackGetsFreshMalformedActionCorrectionBudget() async throws {
         let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)
         let primary = ScriptedState([
             .failure(overrun),
@@ -159,8 +159,11 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             .failure(overrun),
         ])
         let fallback = ScriptedState([
-            .failure(overrun),
-            .success(.say("too late")),
+            .failure(TrustedRouterAgentError.invalidActionJSON("I will write the artifact now.")),
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: #"{"path":"outputs/report.md","content":"complete"}"#
+            ))),
         ])
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
@@ -168,25 +171,27 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         )
         var thread = ChatThread(title: "bounded fallback")
 
-        do {
-            _ = try await runner.nextAction(
-                thread: &thread,
-                userMessage: "Write the requested artifact.",
-                tools: [ToolDefinition.fileWrite],
-                workspaceRoot: FileManager.default.temporaryDirectory,
-                onProgress: nil
-            )
-            XCTFail("expected the shared reasoning budget to be exhausted")
-        } catch is AgentPreActionReasoningBudgetExceededError {
-            // Expected: the fallback gets one action attempt, not a fresh correction budget.
-        } catch {
-            XCTFail("unexpected error: \(error)")
+        let action = try await runner.nextAction(
+            thread: &thread,
+            userMessage: "Write the requested artifact.",
+            tools: [ToolDefinition.fileWrite],
+            workspaceRoot: FileManager.default.temporaryDirectory,
+            onProgress: nil
+        )
+
+        guard case .tool(let call) = action else {
+            XCTFail("expected the fallback's corrected file-write action")
+            return
         }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        XCTAssertTrue(thread.events.contains {
+            $0.summary.contains("returned a malformed action")
+        })
 
         let primaryCalls = await primary.recorded().count
         let fallbackCalls = await fallback.recorded().count
         XCTAssertEqual(primaryCalls, 3)
-        XCTAssertEqual(fallbackCalls, 1)
+        XCTAssertEqual(fallbackCalls, 2)
     }
 
     func testLongReasoningAfterFirstToolActionIsAllowed() async throws {
