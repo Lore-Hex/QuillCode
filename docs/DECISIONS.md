@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-09: superseded tester builds never mutate the moving release
+
+- **Decision:** The Download Builds publisher re-fetches `origin/main` after all architecture
+  artifacts are ready and immediately before any `tester-latest` mutation. A tester run whose
+  commit is no longer current records `publish-required=false` and completes without moving the
+  tag, editing release notes, or replacing assets.
+- **Serialization:** Download builds remain serialized with cancellation disabled. An in-flight
+  publisher cannot be interrupted halfway through replacing a release, while a completed but
+  superseded build yields cleanly to the already queued newer run.
+- **Stable releases:** Canonical immutable version tags remain publishable even when `main` advances,
+  but the planner rechecks that the tag still resolves to the workflow commit and otherwise fails
+  closed.
+- **Evidence:** `scripts/plan-download-publication.sh`, the publish/verification job conditions in
+  `download-builds.yml`, deterministic fresh/stale/tag planner tests, and the workflow parity gate.
+
 ## 2026-08-09: process services start at application entry
 
 - **Decision:** The ordinary `QuillCodeDesktopApp` entry path calls
