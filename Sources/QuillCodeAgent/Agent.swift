@@ -1917,6 +1917,23 @@ public struct AgentRunner: Sendable {
                             workspaceRoot: workspaceRoot,
                             stateSignature: stateSignature
                         )
+                        if !completion.result.ok,
+                           let path = runLoop.pendingArtifactContractAuditPath(),
+                           runLoop.needsContractAuditRepairReadback(at: path),
+                           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+                            pendingBoundedRunFinalizationAction = .tool(ToolCall(
+                                name: ToolDefinition.fileRead.name,
+                                argumentsJSON: ToolArguments.json(["path": path])
+                            ))
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the failed validator left ./\(path) on "
+                                    + "disk; advanced one exact repair read before allowing a "
+                                    + "rewrite."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                         switch verdict {
                         case .none:
                             break

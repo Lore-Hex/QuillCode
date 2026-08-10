@@ -359,6 +359,10 @@ struct AgentRunLoopState: Sendable {
         workspaceRoot: URL
     ) {
         if completion.call.name == ToolDefinition.shellRun.name {
+            // A compound shell step can create the named deliverable and then exit nonzero when
+            // its validator fails. Discover the durable file before handling the exit status so
+            // repair readback and overwrite safety agree about the artifact's existence.
+            recordExistingShellAuthoredArtifacts(workspaceRoot: workspaceRoot)
             let auditedPaths = AgentArtifactContractAuditGate.auditedPaths(
                 for: completion.call,
                 among: requiredContractAuditWorkspacePaths
@@ -382,14 +386,6 @@ struct AgentRunLoopState: Sendable {
                         Self.failedContractAuditReceipt(from: completion.result)
                 }
                 return
-            }
-            for path in requiredReadbackWorkspacePaths where
-                AgentArtifactVerificationGate.isExistingWorkspaceFile(
-                    path,
-                    workspaceRoot: workspaceRoot
-                ) {
-                writtenWorkspacePaths.insert(path)
-                unverifiedWrittenWorkspacePaths.insert(path)
             }
             return
         }
@@ -518,6 +514,19 @@ struct AgentRunLoopState: Sendable {
             recordSuccessfulFileReads(paths: [path], output: completion.result.stdout)
         default:
             break
+        }
+    }
+
+    private mutating func recordExistingShellAuthoredArtifacts(workspaceRoot: URL) {
+        let discoverablePaths = requiredReadbackWorkspacePaths
+            .union(requiredContractAuditWorkspacePaths)
+        for path in discoverablePaths where
+            AgentArtifactVerificationGate.isExistingWorkspaceFile(
+                path,
+                workspaceRoot: workspaceRoot
+            ) {
+            writtenWorkspacePaths.insert(path)
+            unverifiedWrittenWorkspacePaths.insert(path)
         }
     }
 

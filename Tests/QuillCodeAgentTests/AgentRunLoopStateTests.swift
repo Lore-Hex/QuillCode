@@ -191,6 +191,36 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertFalse(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
     }
 
+    func testFailedShellAuditDiscoversCreatedDeliverableBeforeReturning() throws {
+        let workspace = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let deliverable = workspace.appendingPathComponent("outputs/report.md")
+        try FileManager.default.createDirectory(
+            at: deliverable.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "name,value\nalpha,1\n".write(to: deliverable, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: workspace) }
+
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Create outputs/report.md with exactly two data rows. After writing, "
+                + "read the saved output back and verify it."
+        )
+        let validator = shellCall(
+            "python3 -c \"assert False\" outputs/report.md # QuillCode validator"
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: validator, stdout: "expected two data rows", ok: false),
+            workspaceRoot: workspace
+        ) { _ in "failed-shell-audit" }
+
+        XCTAssertTrue(state.writtenWorkspacePaths.contains("outputs/report.md"))
+        XCTAssertTrue(state.unverifiedWrittenWorkspacePaths.contains("outputs/report.md"))
+        XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
+        XCTAssertTrue(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
+    }
+
     func testFailedContractAuditBlocksUnchangedReplayUntilValidatorHelperChanges() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

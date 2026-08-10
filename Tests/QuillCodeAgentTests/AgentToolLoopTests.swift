@@ -459,6 +459,81 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.stopReason, .finished)
     }
 
+    func testFailedShellAuthoredArtifactIsReadBeforeModelRepair() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let readCapture = ToolCallCapture()
+        let initialValidator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c \"assert False\" outputs/report.md # QuillCode validator",
+            ])
+        )
+        let repairedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let repairedValidator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c \"assert len(open('outputs/report.md').read().splitlines()) "
+                    + "== 3\" outputs/report.md # QuillCode validator",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(initialValidator), .tool(repairedWrite), .tool(repairedValidator),
+                .say("Completed outputs/report.md."),
+            ]),
+            toolExecutionOverride: { call, workspaceRoot in
+                if call.name == ToolDefinition.fileRead.name {
+                    await readCapture.record(call)
+                    return nil
+                }
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                if await validatorCapture.count == 1 {
+                    let output = workspaceRoot.appendingPathComponent("outputs/report.md")
+                    try? FileManager.default.createDirectory(
+                        at: output.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try? "name,value\nalpha,1\n".write(
+                        to: output,
+                        atomically: true,
+                        encoding: .utf8
+                    )
+                    return ToolResult(ok: false, stderr: "expected exactly two data rows")
+                }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 10
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows. After writing, read the saved "
+                + "output back and verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let validatorCallCount = await validatorCapture.count
+        let readCallCount = await readCapture.count
+        XCTAssertEqual(validatorCallCount, 2)
+        XCTAssertEqual(readCallCount, 2, "one repair read plus final readback")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "name,value\nalpha,1\nbeta,2\n"
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("advanced one exact repair read")
+        })
+        XCTAssertEqual(result.stopReason, .finished)
+    }
+
     func testBoundedRunFinalizationRejectsUnchangedFailedValidatorReplay() async throws {
         let root = try makeTempDirectory()
         let validatorCapture = ToolCallCapture()
