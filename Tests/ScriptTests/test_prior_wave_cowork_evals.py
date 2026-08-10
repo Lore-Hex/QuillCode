@@ -484,6 +484,20 @@ General price inflation is roughly 9.6% over the selected CPI basis window.
             self.assertTrue(valid, detail)
             self.assertIn("2026: Decimal('333.952')", detail)
 
+            delta_summary_and_audit_table = artifact.replace(
+                "Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.",
+                "From 2023 to 2025, nominal revenue rose by a cumulative "
+                "$1,800,000 (42.86%) increase; "
+                "real revenue rose by a cumulative $1,620,623 (35.21%) increase.",
+            ) + (
+                "\n| Year | Nominal ($) | Ratio | = Real revenue (full precision) | Rounded |\n"
+                "| --- | ---: | ---: | ---: | ---: |\n"
+                "| 2023 | 4,200,000 | 1.0959969303 | 4,603,187.107386 | $4,603,187 |\n"
+            )
+            path.write_text(delta_summary_and_audit_table, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
             rounded_summary = artifact.replace(
                 "The BLS 2025 annual average is not\npublished because October is unavailable, so 321.943 is an 11-observation\nobserved-month proxy.",
                 "The 2025 basis is an 11-observation observed-month proxy, NOT an annual average,\n"

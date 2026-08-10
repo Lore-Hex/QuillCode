@@ -2305,13 +2305,33 @@ def validate_task_126_real_revenue(path):
         value for value in ("4200000", "5100000", "6000000")
         if value not in normalized
     ]
+    dollar_mentions = [
+        (
+            match,
+            int(Decimal(match.group(1).replace(",", "")).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )),
+        )
+        for match in re.finditer(r"\$\s*(\d[\d,]{5,}(?:\.\d+)?)", text)
+    ]
     dollar_values = {
-        int(Decimal(value.replace(",", "")).quantize(
-            Decimal("1"),
-            rounding=ROUND_HALF_UP,
-        ))
-        for value in re.findall(r"\$\s*(\d[\d,]{5,}(?:\.\d+)?)", text)
+        value
+        for _, value in dollar_mentions
     }
+
+    def is_labeled_dollar_delta(match):
+        prefix = text[max(0, match.start() - 55):match.start()]
+        suffix = text[match.end():match.end() + 55]
+        delta_terms = r"(?:increase|decrease|change|difference|delta|gain|loss)"
+        return bool(
+            re.search(delta_terms + r"(?:\s+of)?\s*$", prefix, re.I)
+            or re.search(
+                r"^\s*(?:\([+-]?\d+(?:\.\d+)?%\)\s*)?" + delta_terms + r"\b",
+                suffix,
+                re.I,
+            )
+        )
     cpi_values = {}
     missing_cpi_years = []
     year_matches = list(re.finditer(r"\b(2023|2024|2025|2026)\b", text))
@@ -2367,8 +2387,9 @@ def validate_task_126_real_revenue(path):
             ))
         allowed_values = set(nominal_by_year.values()) | set(expected_real_by_year.values())
         inconsistent_dollar_values = sorted(
-            value for value in dollar_values
+            value for match, value in dollar_mentions
             if value >= 1_000_000
+            and not is_labeled_dollar_delta(match)
             and not any(abs(value - allowed) <= 1 for allowed in allowed_values)
         )
         expected_growth_percentages = [
@@ -2406,8 +2427,8 @@ def validate_task_126_real_revenue(path):
         line for line in text.splitlines()
         if line.lstrip().startswith("|")
         and "year" in line.casefold()
-        and "nominal" in line.casefold()
-        and "real" in line.casefold()
+        and re.search(r"\bnominal\s+revenue\b", line, re.I)
+        and re.search(r"\breal\s+revenue\b", line, re.I)
     ]
     mislabeled_2025_average = False
     for match in re.finditer(r"annual[- ]average", compact_text, re.I):
