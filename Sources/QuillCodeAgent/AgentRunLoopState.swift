@@ -39,6 +39,11 @@ struct AgentRunLoopState: Sendable {
     /// bytes that failed instead of reconstructing a long artifact from diluted context.
     private var failedContractAuditWorkspacePaths: Set<String> = []
     private var consumedContractAuditRepairReadbackWorkspacePaths: Set<String> = []
+    /// Exact failed audit commands remain blocked until either the audited deliverable or its
+    /// validator helper changes. A repair read alone must not permit an unchanged broken validator
+    /// to consume the rest of a bounded run.
+    private var failedContractAuditCallSignaturesByWorkspacePath:
+        [String: ToolCallFingerprint] = [:]
     /// Task-named text deliverables whose latest write predates a successful live-page fetch.
     /// Terminal completion is gated until a later write incorporates or dispositions that evidence;
     /// the ordinary readback gate then verifies the refreshed artifact.
@@ -196,6 +201,23 @@ struct AgentRunLoopState: Sendable {
         })
     }
 
+    func isUnchangedFailedContractAuditReplay(_ call: ToolCall, at path: String) -> Bool {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+        let auditedPaths = AgentArtifactContractAuditGate.auditedPaths(
+            for: call,
+            among: [normalizedPath]
+        )
+        guard !auditedPaths.isEmpty else { return false }
+        let signature = ToolCallFingerprint.make(
+            name: call.name,
+            argumentsJSON: call.argumentsJSON
+        )
+        return failedContractAuditCallSignaturesByWorkspacePath.contains { storedPath, stored in
+            AgentArtifactVerificationGate.pathsMatch(storedPath, normalizedPath)
+                && stored == signature
+        }
+    }
+
     func pendingArtifactReadbackPath() -> String? {
         pendingArtifactReadbackWorkspacePaths.sorted().first
     }
@@ -326,9 +348,17 @@ struct AgentRunLoopState: Sendable {
                 contractAuditedWorkspacePaths.formUnion(auditedPaths)
                 failedContractAuditWorkspacePaths.subtract(auditedPaths)
                 consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
+                removeFailedContractAuditCallSignatures(for: auditedPaths)
             } else {
                 failedContractAuditWorkspacePaths.formUnion(auditedPaths)
                 consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
+                let signature = ToolCallFingerprint.make(
+                    name: completion.call.name,
+                    argumentsJSON: completion.call.argumentsJSON
+                )
+                for path in auditedPaths {
+                    failedContractAuditCallSignaturesByWorkspacePath[path] = signature
+                }
                 return
             }
             for path in requiredReadbackWorkspacePaths where
@@ -364,6 +394,17 @@ struct AgentRunLoopState: Sendable {
             markResearchArtifactRefreshed(normalized)
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
                let content = arguments.string("content") {
+                let previousContent = latestWrittenTextContents[normalized]
+                if previousContent != nil,
+                   previousContent != content {
+                    let repairedAuditPaths = requiredContractAuditWorkspacePaths.filter { path in
+                        AgentBoundedRunFinalizationGate.validatorHelperExecutionCall(
+                            after: completion.call,
+                            deliverablePath: path
+                        ) != nil
+                    }
+                    removeFailedContractAuditCallSignatures(for: repairedAuditPaths)
+                }
                 latestWrittenTextContents[normalized] = content
             }
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
@@ -463,6 +504,19 @@ struct AgentRunLoopState: Sendable {
                 !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
             }
         )
+        removeFailedContractAuditCallSignatures(for: [writtenPath])
+    }
+
+    private mutating func removeFailedContractAuditCallSignatures<S: Sequence>(
+        for paths: S
+    ) where S.Element == String {
+        let paths = Array(paths)
+        failedContractAuditCallSignaturesByWorkspacePath =
+            failedContractAuditCallSignaturesByWorkspacePath.filter { storedPath, _ in
+                !paths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, storedPath)
+                })
+            }
     }
 
     private mutating func recordSuccessfulFileReads(paths: [String], output: String) {

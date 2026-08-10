@@ -1151,6 +1151,20 @@ public struct AgentRunner: Sendable {
                     return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                 case .tool(let call):
                     var activeCall = call
+                    if let path = boundedRunFinalizationPath,
+                       runLoop.boundedRunFinalizationPhase(at: path) == .audit,
+                       runLoop.isUnchangedFailedContractAuditReplay(activeCall, at: path) {
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .failedAuditReplayCorrectionPrompt(path: path)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: rejected an unchanged failed validator for "
+                                + "./\(path) and required a deliverable or validator repair."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
                     if let lastCompletion = runLoop.repeatedCompletion(for: activeCall) {
                         // Cline learning #2 (graded loop detection): finalizing on the FIRST repeat
                         // converts a recoverable moment into a terminal answer — the F25 incident

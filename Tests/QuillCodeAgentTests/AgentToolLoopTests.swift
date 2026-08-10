@@ -433,6 +433,75 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.stopReason, .finished)
     }
 
+    func testBoundedRunFinalizationRejectsUnchangedFailedValidatorReplay() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let repairRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let initialValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 4",
+            ])
+        )
+        let repairedValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 3\nprint('PASS')",
+            ])
+        )
+        let unchangedValidator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 'scripts/validate_report.py' 'outputs/report.md' # QuillCode validator",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(initialWrite), .tool(initialValidatorWrite), .tool(repairRead),
+                .tool(unchangedValidator), .tool(repairedValidatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return await validatorCapture.count == 1
+                    ? ToolResult(ok: false, stderr: "validator expected four rows")
+                    : ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 12,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows. After writing, read the saved "
+                + "output back and verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(validatorCallCount, 2)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected an unchanged failed validator")
+        })
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/report.md`."
+        )
+    }
+
     func testAgentRedirectsFourthSerialResearchCallIntoEarlyDelegation() async throws {
         let root = try makeTempDirectory()
         let directCapture = ToolCallCapture()

@@ -131,6 +131,18 @@ enum AgentBoundedRunFinalizationGate {
         }
     }
 
+    static func failedAuditReplayCorrectionPrompt(path: String) -> String {
+        """
+        The exact deterministic validator command you proposed already failed, and rerunning it \
+        unchanged cannot produce new evidence. Do not browse or rerun that command. Use the failed \
+        assertions and the saved ./\(path) readback to identify which side is wrong. If the \
+        deliverable is wrong, rewrite the complete ./\(path). If the deliverable satisfies the \
+        original request but the validator parsed or compared it incorrectly, rewrite the validator \
+        helper with materially corrected assertions; the host will execute the changed helper \
+        automatically. Emit exactly one of those file writes now.
+        """
+    }
+
     static func escalatedCorrectionPrompt(
         path: String,
         userMessage: String,

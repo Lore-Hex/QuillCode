@@ -184,6 +184,59 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertFalse(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
     }
 
+    func testFailedContractAuditBlocksUnchangedReplayUntilValidatorHelperChanges() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and run a deterministic validator against it."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n",
+            ])
+        )
+        let helper = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert 'Report' in open('outputs/report.md').read()",
+            ])
+        )
+        let repairedHelper = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert '# Report' in open('outputs/report.md').read()\nprint('PASS')",
+            ])
+        )
+        let validator = shellCall(
+            "python3 scripts/validate_report.py outputs/report.md # QuillCode validator"
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"), workspaceRoot: root
+        ) { _ in "write" }
+        _ = state.recordCompletedStep(
+            completed(call: helper, stdout: "wrote"), workspaceRoot: root
+        ) { _ in "helper" }
+        _ = state.recordCompletedStep(
+            completed(call: validator, stdout: "bad parser", ok: false), workspaceRoot: root
+        ) { _ in "failed-audit" }
+
+        XCTAssertTrue(state.isUnchangedFailedContractAuditReplay(validator, at: "outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: helper, stdout: "wrote same helper"), workspaceRoot: root
+        ) { _ in "same-helper" }
+        XCTAssertTrue(state.isUnchangedFailedContractAuditReplay(validator, at: "outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: repairedHelper, stdout: "wrote repaired helper"), workspaceRoot: root
+        ) { _ in "repaired-helper" }
+        XCTAssertFalse(state.isUnchangedFailedContractAuditReplay(validator, at: "outputs/report.md"))
+    }
+
     func testRenderedChartNeedsLaterSuccessfulRead() {
         var state = AgentRunLoopState()
         let render = ToolCall(
