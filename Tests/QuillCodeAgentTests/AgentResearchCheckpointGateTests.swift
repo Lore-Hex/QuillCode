@@ -38,11 +38,37 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
         ))
         XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
             path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.browserScript.name,
+            canDelegate: true,
+            canWriteFiles: true,
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+        XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
             proposedToolName: ToolDefinition.webSearch.name,
             canDelegate: true,
             canWriteFiles: true,
             hasDelegatedResearch: true,
             correctionCounts: [:]
+        ))
+    }
+
+    func testVisibleBrowserExtractionCountsAsDirectResearch() {
+        XCTAssertTrue(AgentResearchCheckpointGate.isDirectResearchCollectionTool(
+            ToolDefinition.browserOpen.name
+        ))
+        XCTAssertTrue(AgentResearchCheckpointGate.isDirectResearchCollectionTool(
+            ToolDefinition.browserInspect.name
+        ))
+        XCTAssertTrue(AgentResearchCheckpointGate.isDirectResearchCollectionTool(
+            ToolDefinition.browserScript.name
+        ))
+        XCTAssertFalse(AgentResearchCheckpointGate.isDirectResearchCollectionTool(
+            ToolDefinition.browserClick.name
+        ))
+        XCTAssertFalse(AgentResearchCheckpointGate.isParallelizableResearchCollectionTool(
+            ToolDefinition.browserScript.name
         ))
     }
 
@@ -79,6 +105,18 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             canWriteFiles: false,
             correctionCounts: [:]
         ))
+    }
+
+    func testCheckpointInterruptsBrowserScriptDespiteAppendRisk() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.correction(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.browserScript.name,
+            proposedToolRisk: .append,
+            canWriteFiles: true,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertEqual(correction.path, "outputs/revenue.html")
     }
 
     func testCorrectionBudgetIsBounded() {
@@ -161,6 +199,19 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
                     AgentResearchCheckpointGate.finalizationCorrectionLimitPerPath,
             ]
         ))
+    }
+
+    func testPostCheckpointSynthesisInterruptsBrowserScriptDespiteAppendRisk() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.finalizationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.browserScript.name,
+            proposedToolRisk: .append,
+            canWriteFiles: true,
+            userMessage: "Create the report.",
+            correctionCounts: [:]
+        ))
+
+        XCTAssertEqual(correction.path, "outputs/revenue.html")
     }
 
     func testExhaustedResearchBudgetBlocksAnotherFetch() throws {

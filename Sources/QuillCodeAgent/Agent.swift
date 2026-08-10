@@ -813,6 +813,7 @@ public struct AgentRunner: Sendable {
                         minimumResearchSteps:
                             AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
                     ),
+                    proposedToolName: nil,
                     proposedToolRisk: .read,
                     canWriteFiles: tools.contains(where: {
                         $0.name == ToolDefinition.fileWrite.name
@@ -1655,6 +1656,7 @@ public struct AgentRunner: Sendable {
                             minimumResearchSteps:
                                 AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
                         ),
+                        proposedToolName: activeCall.name,
                         proposedToolRisk: tools.first(where: {
                             $0.name == activeCall.name
                         })?.risk,
@@ -1707,6 +1709,7 @@ public struct AgentRunner: Sendable {
                             minimumResearchWeight:
                                 AgentResearchCheckpointGate.minimumPreDraftResearchWeight
                         ),
+                        proposedToolName: activeCall.name,
                         proposedToolRisk: tools.first(where: {
                             $0.name == activeCall.name
                         })?.risk,

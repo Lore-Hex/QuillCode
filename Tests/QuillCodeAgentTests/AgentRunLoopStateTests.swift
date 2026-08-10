@@ -427,6 +427,63 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertLessThanOrEqual(receipt?.count ?? .max, 12_100)
     }
 
+    func testVisibleBrowserExtractionBecomesLatestResearchEvidenceReceipt() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research official figures and write outputs/report.md."
+        )
+        let script = ToolCall(
+            name: ToolDefinition.browserScript.name,
+            argumentsJSON: ToolArguments.json(["source": "extractRows()"])
+        )
+        let table = "2025|317.671|319.082|-(X)|324.054\n2026|325.252|333.952"
+        let output = try JSONHelpers.encodePretty(BrowserScriptToolOutput(
+            title: "Official series",
+            url: "https://example.gov/series",
+            value: table
+        ))
+
+        _ = state.recordCompletedStep(
+            completed(call: script, stdout: output),
+            workspaceRoot: root
+        ) { _ in "browser-script" }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("Successful host.browser.script observation"))
+        XCTAssertTrue(receipt.contains("https://example.gov/series"))
+        XCTAssertTrue(receipt.contains(table))
+        XCTAssertTrue(state.didFetchSuccessfully)
+        XCTAssertEqual(state.researchPressureWeightBeforeDraft, 1)
+    }
+
+    func testEmptyVisibleBrowserExtractionDoesNotReplaceUsefulReceipt() throws {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "official figure: 333.952"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let script = ToolCall(
+            name: ToolDefinition.browserScript.name,
+            argumentsJSON: ToolArguments.json(["source": "missingValue()"])
+        )
+        let output = try JSONHelpers.encodePretty(BrowserScriptToolOutput(
+            title: "Official series",
+            url: "https://example.gov/series",
+            value: ""
+        ))
+        _ = state.recordCompletedStep(
+            completed(call: script, stdout: output),
+            workspaceRoot: root
+        ) { _ in "empty-browser-script" }
+
+        XCTAssertTrue(state.latestResearchEvidenceReceipt?.contains("333.952") == true)
+    }
+
     func testForcedResearchCheckpointRequiresWebWorkAndFinalRewrite() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

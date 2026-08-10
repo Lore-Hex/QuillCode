@@ -26,7 +26,7 @@ enum AgentResearchCheckpointGate {
         hasDelegatedResearch: Bool,
         correctionCounts: [String: Int]
     ) -> Correction? {
-        guard isDirectResearchCollectionTool(proposedToolName),
+        guard isParallelizableResearchCollectionTool(proposedToolName),
               canDelegate,
               canWriteFiles,
               !hasDelegatedResearch,
@@ -50,11 +50,13 @@ enum AgentResearchCheckpointGate {
 
     static func correction(
         path: String?,
+        proposedToolName: String? = nil,
         proposedToolRisk: ToolRiskClass?,
         canWriteFiles: Bool,
         correctionCounts: [String: Int]
     ) -> Correction? {
-        guard proposedToolRisk == .read,
+        guard proposedToolRisk == .read
+                || proposedToolName.map(isResearchCollectionTool) == true,
               canWriteFiles,
               let path,
               correctionCounts[path, default: 0] < correctionLimitPerPath
@@ -112,6 +114,16 @@ enum AgentResearchCheckpointGate {
     }
 
     static func isDirectResearchCollectionTool(_ name: String) -> Bool {
+        [
+            ToolDefinition.webSearch.name,
+            ToolDefinition.webFetch.name,
+            ToolDefinition.browserOpen.name,
+            ToolDefinition.browserInspect.name,
+            ToolDefinition.browserScript.name,
+        ].contains(name)
+    }
+
+    static func isParallelizableResearchCollectionTool(_ name: String) -> Bool {
         name == ToolDefinition.webSearch.name || name == ToolDefinition.webFetch.name
     }
 
@@ -143,12 +155,14 @@ enum AgentResearchCheckpointGate {
 
     static func finalizationCorrection(
         path: String?,
+        proposedToolName: String? = nil,
         proposedToolRisk: ToolRiskClass?,
         canWriteFiles: Bool,
         userMessage: String,
         correctionCounts: [String: Int]
     ) -> Correction? {
-        guard proposedToolRisk == .read,
+        guard proposedToolRisk == .read
+                || proposedToolName.map(isResearchCollectionTool) == true,
               canWriteFiles,
               let path,
               correctionCounts[path, default: 0] < finalizationCorrectionLimitPerPath

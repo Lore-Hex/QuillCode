@@ -597,13 +597,16 @@ struct AgentRunLoopState: Sendable {
                 writtenWorkspacePaths.insert(artifact)
             }
         }
-        if name == "host.web.fetch" || name == ToolDefinition.subagentsRun.name {
+        let isResearchObservation = AgentResearchCheckpointGate.isDirectResearchCollectionTool(name)
+            || name == ToolDefinition.subagentsRun.name
+        if isResearchObservation {
             // Delegated results are new research observations just like fetched pages. If they
             // arrive after an artifact write, that artifact must be reconciled before completion.
             // This is especially important when one worker returns usable evidence alongside a
             // partial/failed worker: the parent should preserve what it learned, not silently bless
             // the pre-delegation draft.
-            if name == "host.web.fetch" {
+            if AgentResearchCheckpointGate.isDirectResearchCollectionTool(name),
+               name != ToolDefinition.webSearch.name {
                 didFetchSuccessfully = true
             }
             latestResearchEvidenceReceipt = Self.researchEvidenceReceipt(
@@ -648,7 +651,17 @@ struct AgentRunLoopState: Sendable {
     }
 
     private static func researchEvidenceReceipt(toolName: String, output: String) -> String? {
-        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        let receiptOutput: String
+        if toolName == ToolDefinition.browserScript.name,
+           let data = output.data(using: .utf8),
+           let script = try? JSONDecoder().decode(BrowserScriptToolOutput.self, from: data) {
+            let value = script.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { return nil }
+            receiptOutput = "Page: \(script.title)\nURL: \(script.url)\nExtracted value:\n\(value)"
+        } else {
+            receiptOutput = output
+        }
+        let trimmed = receiptOutput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
         let maximumCharacters = 12_000
@@ -668,8 +681,7 @@ struct AgentRunLoopState: Sendable {
         _ completion: AgentToolStepCompletion
     ) {
         let researchWeight: Int
-        if completion.call.name == ToolDefinition.webSearch.name ||
-            completion.call.name == ToolDefinition.webFetch.name {
+        if AgentResearchCheckpointGate.isDirectResearchCollectionTool(completion.call.name) {
             // Failed requests consume the same wall-clock/context reserve and establish an evidence
             // gap the deliverable should disposition, so direct attempts count regardless of result.
             researchWeight = 1
@@ -692,7 +704,11 @@ struct AgentRunLoopState: Sendable {
 
         guard completion.result.ok else { return }
         switch completion.call.name {
-        case ToolDefinition.webSearch.name, ToolDefinition.webFetch.name:
+        case ToolDefinition.webSearch.name,
+             ToolDefinition.webFetch.name,
+             ToolDefinition.browserOpen.name,
+             ToolDefinition.browserInspect.name,
+             ToolDefinition.browserScript.name:
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 successfulResearchStepsAfterCheckpoint += 1
             }
