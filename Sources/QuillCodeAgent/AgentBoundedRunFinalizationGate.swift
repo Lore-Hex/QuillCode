@@ -96,11 +96,16 @@ enum AgentBoundedRunFinalizationGate {
     static func correctionPrompt(
         path: String,
         userMessage: String,
-        phase: Phase = .synthesize
+        phase: Phase = .synthesize,
+        evidenceReceipt: String? = nil
     ) -> String {
         switch phase {
         case .synthesize:
-            synthesisPrompt(path: path, userMessage: userMessage)
+            synthesisPrompt(
+                path: path,
+                userMessage: userMessage,
+                evidenceReceipt: evidenceReceipt
+            )
         case .audit:
             """
             The bounded run is in its reserved validation window. Stop researching, browsing, and \
@@ -115,6 +120,8 @@ enum AgentBoundedRunFinalizationGate {
             first and then execute it against ./\(path). If validation fails, you may read the \
             saved ./\(path) once to inspect the exact failing content. Then rewrite only the complete \
             named deliverable and validate it again.
+
+            \(authoritativeEvidenceSection(evidenceReceipt))
             """
         case .readback:
             """
@@ -148,17 +155,27 @@ enum AgentBoundedRunFinalizationGate {
         userMessage: String,
         phase: Phase,
         attempt: Int,
-        limit: Int
+        limit: Int,
+        evidenceReceipt: String? = nil
     ) -> String {
         AgentCorrectionEscalation.escalated(
-            correctionPrompt(path: path, userMessage: userMessage, phase: phase),
+            correctionPrompt(
+                path: path,
+                userMessage: userMessage,
+                phase: phase,
+                evidenceReceipt: evidenceReceipt
+            ),
             attempt: attempt,
             limit: limit,
             alternatives: [requiredActionDescription(path: path, phase: phase)]
         )
     }
 
-    private static func synthesisPrompt(path: String, userMessage: String) -> String {
+    private static func synthesisPrompt(
+        path: String,
+        userMessage: String,
+        evidenceReceipt: String?
+    ) -> String {
         """
         The bounded run has entered its reserved finalization window. Stop researching, browsing, \
         delegating, parsing, and creating helper files. Synthesize the strongest verified evidence \
@@ -170,6 +187,24 @@ enum AgentBoundedRunFinalizationGate {
 
         Original request requirements:
         \(originalRequestExcerpt(userMessage))
+
+        \(authoritativeEvidenceSection(evidenceReceipt))
+        """
+    }
+
+    private static func authoritativeEvidenceSection(_ evidenceReceipt: String?) -> String {
+        guard let evidenceReceipt,
+              !evidenceReceipt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return "" }
+        return """
+        Host-retained successful research evidence:
+        \(evidenceReceipt)
+
+        The receipt above is exact output from successful research tool calls retained by the host. \
+        Use direct host.web.fetch, host.browser.*, and source-retrieval shell observations as \
+        authoritative evidence; they take precedence over delegated summaries. \
+        If earlier reasoning or draft text says these values were truncated, missing, or unavailable, \
+        that claim is contradicted by the receipt and must not be repeated.
         """
     }
 

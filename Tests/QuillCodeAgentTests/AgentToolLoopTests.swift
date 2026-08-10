@@ -5,6 +5,28 @@ import QuillCodeTools
 @testable import QuillCodeAgent
 
 final class AgentToolLoopTests: XCTestCase {
+    func testBoundedFinalizationPromptMakesRetainedEvidenceAuthoritative() {
+        let evidence = "Successful host.web.fetch observation:\n2026 June CPI: 333.952"
+        let synthesis = AgentBoundedRunFinalizationGate.correctionPrompt(
+            path: "outputs/report.md",
+            userMessage: "Write outputs/report.md with the official figures.",
+            evidenceReceipt: evidence
+        )
+        let audit = AgentBoundedRunFinalizationGate.correctionPrompt(
+            path: "outputs/report.md",
+            userMessage: "Write outputs/report.md with the official figures.",
+            phase: .audit,
+            evidenceReceipt: evidence
+        )
+
+        for prompt in [synthesis, audit] {
+            XCTAssertTrue(prompt.contains("2026 June CPI: 333.952"))
+            XCTAssertTrue(prompt.contains("exact output from successful research tool calls"))
+            XCTAssertTrue(prompt.contains("take precedence over delegated summaries"))
+            XCTAssertTrue(prompt.contains("claim is contradicted by the receipt"))
+        }
+    }
+
     func testAgentUsesPlanUpdateToolWhenAvailable() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(

@@ -358,7 +358,8 @@ public struct AgentRunner: Sendable {
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
                         userMessage: userMessage,
-                        phase: runLoop.boundedRunFinalizationPhase(at: path)
+                        phase: runLoop.boundedRunFinalizationPhase(at: path),
+                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                     )
                     next.events.append(.init(
                         kind: .notice,
@@ -378,7 +379,8 @@ public struct AgentRunner: Sendable {
                     AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
                         userMessage: userMessage,
-                        phase: boundedFinalizationPhase
+                        phase: boundedFinalizationPhase,
+                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                     )
                 } else {
                     nil
@@ -414,7 +416,8 @@ public struct AgentRunner: Sendable {
                         userMessage: userMessage,
                         phase: boundedFinalizationPhase,
                         attempt: correctiveTurnBudget.consecutiveTurns - 1,
-                        limit: AgentCorrectiveTurnBudget.limit
+                        limit: AgentCorrectiveTurnBudget.limit,
+                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                     )
                 } else if let repeatNudge {
                     AgentCorrectionEscalation.escalated(
@@ -717,7 +720,8 @@ public struct AgentRunner: Sendable {
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
                         userMessage: userMessage,
-                        phase: runLoop.boundedRunFinalizationPhase(at: path)
+                        phase: runLoop.boundedRunFinalizationPhase(at: path),
+                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt
                     )
                     let rejectedAction = switch resolvedAction {
                     case .tool(let call):

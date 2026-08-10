@@ -455,6 +455,80 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertLessThanOrEqual(receipt?.count ?? .max, 12_100)
     }
 
+    func testResearchEvidenceLedgerPreservesExactFetchAcrossLaterWorkerOutput() throws {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "2025 monthly values: 317.671, 319.082, 324.054"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "verify official data",
+                "workers": [["name": "Verifier", "role": "verify the source"]],
+            ] as [String: Any])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: "Worker stopped at its step limit."),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("317.671, 319.082, 324.054"))
+        XCTAssertTrue(receipt.contains("Worker stopped at its step limit."))
+        XCTAssertTrue(receipt.contains("next successful research observation"))
+    }
+
+    func testResearchEvidenceLedgerEvictsOnlyOldestObservationAtBound() throws {
+        var state = AgentRunLoopState()
+        for index in 1...4 {
+            let fetch = ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.gov/data/\(index)"])
+            )
+            _ = state.recordCompletedStep(
+                completed(call: fetch, stdout: "official observation \(index)"),
+                workspaceRoot: root
+            ) { _ in "fetch-\(index)" }
+        }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertFalse(receipt.contains("official observation 1"))
+        XCTAssertTrue(receipt.contains("official observation 2"))
+        XCTAssertTrue(receipt.contains("official observation 3"))
+        XCTAssertTrue(receipt.contains("official observation 4"))
+    }
+
+    func testSearchSnippetsDoNotDisplaceFetchedResearchEvidence() throws {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "official fetched value: 333.952"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let search = ToolCall(
+            name: ToolDefinition.webSearch.name,
+            argumentsJSON: ToolArguments.json(["query": "example CPI"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: search, stdout: "unverified snippet says 999.999"),
+            workspaceRoot: root
+        ) { _ in "search" }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("official fetched value: 333.952"))
+        XCTAssertFalse(receipt.contains("unverified snippet"))
+    }
+
     func testVisibleBrowserExtractionBecomesLatestResearchEvidenceReceipt() throws {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

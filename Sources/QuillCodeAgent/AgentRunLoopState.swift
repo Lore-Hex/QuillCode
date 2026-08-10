@@ -15,10 +15,11 @@ struct AgentRunLoopState: Sendable {
     /// gate; `writtenWorkspacePaths` limits deliverable scanning to files this run itself wrote.
     private(set) var groundedURLs: Set<String> = []
     private(set) var didFetchSuccessfully = false
-    /// The most recent successful live/delegated research output is retained as a bounded,
-    /// read-only receipt. Corrective synthesis and validation prompts can surface the exact
-    /// evidence again after long transcripts have diluted the original tool observation.
+    /// Recent successful live/delegated research outputs are retained as a bounded, read-only
+    /// ledger. Corrective synthesis and validation prompts can surface exact evidence again after
+    /// long transcripts have diluted the original tool observations.
     private(set) var latestResearchEvidenceReceipt: String?
+    private var researchEvidenceReceipts: [String] = []
     private(set) var writtenWorkspacePaths: Set<String> = []
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
@@ -611,10 +612,22 @@ struct AgentRunLoopState: Sendable {
                name != ToolDefinition.webSearch.name {
                 didFetchSuccessfully = true
             }
-            latestResearchEvidenceReceipt = Self.researchEvidenceReceipt(
+            if name != ToolDefinition.webSearch.name,
+               let receipt = Self.researchEvidenceReceipt(
                 toolName: name,
                 output: completion.result.stdout
-            ) ?? latestResearchEvidenceReceipt
+            ) {
+                researchEvidenceReceipts.removeAll(where: { $0 == receipt })
+                researchEvidenceReceipts.append(receipt)
+                if researchEvidenceReceipts.count > Self.maximumResearchEvidenceReceiptCount {
+                    researchEvidenceReceipts.removeFirst(
+                        researchEvidenceReceipts.count - Self.maximumResearchEvidenceReceiptCount
+                    )
+                }
+                latestResearchEvidenceReceipt = researchEvidenceReceipts.joined(
+                    separator: "\n\n--- next successful research observation ---\n\n"
+                )
+            }
             for path in namedTextDeliverableWorkspacePaths where
                 writtenWorkspacePaths.contains(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, path)
@@ -678,6 +691,8 @@ struct AgentRunLoopState: Sendable {
         }
         return "Successful \(toolName) observation:\n\(bounded)"
     }
+
+    private static let maximumResearchEvidenceReceiptCount = 3
 
     private mutating func recordResearchCheckpointProgress(
         _ completion: AgentToolStepCompletion
