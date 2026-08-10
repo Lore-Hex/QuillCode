@@ -25,9 +25,14 @@ final class QuillCodeDesktopComputerUseCoordinator {
         self.systemSettingsOpener = systemSettingsOpener
     }
 
-    func install(on model: QuillCodeWorkspaceModel) {
+    func install(
+        on model: QuillCodeWorkspaceModel,
+        refreshForegroundApplication: Bool = true
+    ) {
         model.setComputerUseBackend(backend)
-        refreshForegroundApplication(on: model)
+        if refreshForegroundApplication {
+            scheduleForegroundApplicationRefresh(on: model)
+        }
     }
 
     /// Opt-in upgrade to the cua-driver backend (background computer use — no focus/cursor steal).
@@ -43,12 +48,23 @@ final class QuillCodeDesktopComputerUseCoordinator {
         guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return }
         backend = cua
         model.setComputerUseBackend(cua) // also sets status
-        refreshForegroundApplication(on: model)
+    }
+
+    func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) async {
+        foregroundRefreshGeneration += 1
+        let generation = foregroundRefreshGeneration
+        guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
+            model.setComputerUseForegroundApplication(nil)
+            return
+        }
+        let application = await provider.foregroundApplication()
+        guard foregroundRefreshGeneration == generation else { return }
+        model.setComputerUseForegroundApplication(application)
     }
 
     func refreshStatus(on model: QuillCodeWorkspaceModel) {
         model.setComputerUseStatus(backend.status)
-        refreshForegroundApplication(on: model)
+        scheduleForegroundApplicationRefresh(on: model)
     }
 
     @discardableResult
@@ -69,21 +85,9 @@ final class QuillCodeDesktopComputerUseCoordinator {
         return didOpen
     }
 
-    private func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) {
-        foregroundRefreshGeneration += 1
-        let generation = foregroundRefreshGeneration
-        guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
-            model.setComputerUseForegroundApplication(nil)
-            return
-        }
+    private func scheduleForegroundApplicationRefresh(on model: QuillCodeWorkspaceModel) {
         Task { [weak self] in
-            let application = await provider.foregroundApplication()
-            await MainActor.run {
-                // Drop the result if a newer refresh has since started (e.g. a backend swap), so a
-                // slow native lookup can't overwrite the live cua backend's foreground app.
-                guard let self, self.foregroundRefreshGeneration == generation else { return }
-                model.setComputerUseForegroundApplication(application)
-            }
+            await self?.refreshForegroundApplication(on: model)
         }
     }
 }

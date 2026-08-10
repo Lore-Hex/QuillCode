@@ -51,7 +51,9 @@ the previous build is restored if the new build cannot finish launching. Use **R
 in the app menu to open a prefilled GitHub report with bounded build and system information; it does
 not attach project paths, transcripts, or credentials. After an unexpected exit, the next successful
 launch identifies whether the prior session ended during startup or while running, warns that active
-command work may be incomplete, and offers the same privacy-safe report path.
+command work may be incomplete, and offers the same privacy-safe report path. A startup-phase exit
+reopens with automatic project refreshes, automations, account checks, and optional driver discovery
+paused until the user either keeps them paused for that launch or deliberately resumes them.
 
 Unsent composer text is checkpointed after a brief typing pause and immediately when the app becomes
 inactive or quits. Quill Cowork restores that text after an unexpected exit without rewriting the

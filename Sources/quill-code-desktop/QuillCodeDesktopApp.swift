@@ -127,10 +127,11 @@ struct QuillCodeDesktopApp: App {
                 metadata: QuillCodeDesktopBuildMetadata.current(configuration: configuration)
             )
         }
-        _ = launchLifecycleController?.startIfNeeded()
+        let unexpectedExit = launchLifecycleController?.startIfNeeded()
         let controller = QuillCodeDesktopController(
             updateController: updateController,
             launchLifecycleController: launchLifecycleController,
+            startupMode: QuillCodeDesktopStartupMode(unexpectedExit: unexpectedExit),
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
         controller.startApplicationServices()

@@ -62,6 +62,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let launchLifecycleController: QuillCodeDesktopLaunchLifecycleController?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
+    var automaticStartupState: QuillCodeDesktopStartupState
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until app services start.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
 
@@ -80,6 +81,7 @@ final class QuillCodeDesktopController: ObservableObject {
         updateController: QuillCodeDesktopUpdateController? = nil,
         installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
         launchLifecycleController: QuillCodeDesktopLaunchLifecycleController? = nil,
+        startupMode: QuillCodeDesktopStartupMode = .normal,
         workspaceRoot: URL? = nil
     ) {
         let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
@@ -117,8 +119,9 @@ final class QuillCodeDesktopController: ObservableObject {
         self.installationLocationController = installationLocationController
             ?? QuillCodeDesktopInstallationLocationController()
         self.launchLifecycleController = launchLifecycleController
+        self.automaticStartupState = QuillCodeDesktopStartupState(mode: startupMode)
         do {
-            self.model = try bootstrap.makeModel()
+            self.model = try bootstrap.makeModel(automaticStartupPolicy: .deferUntilRequested)
         } catch {
             self.model = QuillCodeWorkspaceModel(
                 startupLoadIssue: WorkspaceStartupLoadIssue(
@@ -132,15 +135,10 @@ final class QuillCodeDesktopController: ObservableObject {
         if let launchWorkspaceRoot {
             modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: launchWorkspaceRoot)
         }
-        self.computerUseCoordinator.install(on: model)
-        // Opt-in (QUILLCODE_USE_CUA_DRIVER=1): asynchronously upgrade to the cua-driver backend so
-        // computer use runs in the background without stealing focus/cursor. Native stays live until
-        // this resolves, so startup never blocks on the driver subprocess.
-        let cuaCoordinator = self.computerUseCoordinator
-        let cuaModel = model
-        Task { @MainActor in
-            await cuaCoordinator.resolvePreferredBackend(on: cuaModel)
-        }
+        self.computerUseCoordinator.install(
+            on: model,
+            refreshForegroundApplication: false
+        )
         // Ping the user when unattended work needs attention. The closure reads live config so
         // Settings toggles apply immediately without rebuilding the desktop controller.
         let workspaceModel = model
@@ -180,34 +178,11 @@ final class QuillCodeDesktopController: ObservableObject {
         workspaceModel.onProjectContextChanged = { [weak self] in
             self?.refresh()
         }
-        workspaceModel.scheduleSelectedProjectContextRefresh()
-        // Bootstrap may finish a very small scan before the callback above is installed. Starting
-        // one final generation here guarantees the published surface receives the completed index.
-        workspaceModel.refreshFileMentionIndex()
         browserCoordinator.installSessionUpdateHandler(
             model: model,
             refresh: { [weak self] in self?.refresh() }
         )
         installVisibleBrowserToolOverride(on: model)
-        automationCoordinator.runDueAutomations(
-            model: model,
-            notifier: automationNotifier,
-            refresh: { [weak self] in self?.refresh() }
-        )
-        automationCoordinator.startTicker(
-            model: model,
-            tasks: tasks,
-            notifier: automationNotifier,
-            refresh: { [weak self] in self?.refresh() }
-        )
-        scheduleModelCatalogRefreshIfNeeded()
-        modelCatalogRefreshCoordinator.startTicker(tasks: tasks) { [weak self] in
-            self?.scheduleModelCatalogRefreshIfNeeded()
-        }
-        scheduleTrustedRouterCreditsRefreshIfNeeded()
-        trustedRouterCreditsCoordinator.startTicker(tasks: tasks) { [weak self] in
-            self?.scheduleTrustedRouterCreditsRefreshIfNeeded()
-        }
     }
 
     /// Starts services that belong to the application process rather than any SwiftUI scene. The

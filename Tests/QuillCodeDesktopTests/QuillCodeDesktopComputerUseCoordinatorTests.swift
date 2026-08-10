@@ -5,6 +5,26 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopComputerUseCoordinatorTests: XCTestCase {
+    func testForegroundLookupCanWaitForTheStartupBoundary() async {
+        let application = ComputerUseApplication(
+            name: "Terminal",
+            bundleIdentifier: "com.apple.Terminal"
+        )
+        let backend = ForegroundRecordingComputerUseBackend(application: application)
+        let coordinator = QuillCodeDesktopComputerUseCoordinator(backend: backend)
+        let model = QuillCodeWorkspaceModel()
+
+        coordinator.install(on: model, refreshForegroundApplication: false)
+        await Task.yield()
+        XCTAssertEqual(backend.lookupCount, 0)
+        XCTAssertNil(model.root.topBar.computerUseForegroundApplication)
+
+        await coordinator.refreshForegroundApplication(on: model)
+
+        XCTAssertEqual(backend.lookupCount, 1)
+        XCTAssertEqual(model.root.topBar.computerUseForegroundApplication, application)
+    }
+
     func testOpenSystemSettingsRequestsPermissionForExactDestination() {
         let backend = PermissionRecordingComputerUseBackend()
         let opener = ComputerUseSettingsRecordingOpener()
@@ -24,6 +44,37 @@ final class QuillCodeDesktopComputerUseCoordinatorTests: XCTestCase {
         XCTAssertEqual(backend.accessibilityRequestCount, 1)
         XCTAssertEqual(opener.accessibilityOpenCount, 1)
     }
+}
+
+private final class ForegroundRecordingComputerUseBackend: @unchecked Sendable,
+    ComputerUseBackend,
+    ComputerUseForegroundApplicationProviding
+{
+    private(set) var lookupCount = 0
+    let application: ComputerUseApplication
+
+    init(application: ComputerUseApplication) {
+        self.application = application
+    }
+
+    var status: ComputerUseStatus {
+        .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
+    }
+
+    func foregroundApplication() async -> ComputerUseApplication? {
+        lookupCount += 1
+        return application
+    }
+
+    func screenshot() async throws -> ComputerScreenshot {
+        ComputerScreenshot(width: 1, height: 1, pngBase64: "")
+    }
+
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
 }
 
 private final class PermissionRecordingComputerUseBackend: @unchecked Sendable,

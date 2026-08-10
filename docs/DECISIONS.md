@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-10: startup failures reopen with automatic workspace work paused
+
+- **Decision:** Controller construction now loads and projects the usable workspace without starting
+  managed-worktree retention, pull-request reconciliation, project context and mention indexing,
+  due automations, refresh tickers, account requests, or optional Computer Use driver discovery.
+  A yielded first-window task starts that work once and then marks the launch ready.
+- **Crash-loop boundary:** An active launch record left in the `starting` phase selects recovery
+  startup on the next process. The workspace opens, but automatic background work remains paused and
+  the launch remains classified as starting until the user chooses either **Keep Background Work
+  Paused** or **Resume Background Work**. The first choice marks the usable paused session ready; the
+  second starts the same idempotent normal service set before marking it ready. Ready-state exits keep
+  the existing warning because they are not evidence that startup work caused the failure.
+- **Availability boundary:** Draft lifecycle flushes, update recovery and automatic update checks,
+  issue reporting, the installed-location recovery path, native Computer Use capability, and all
+  explicit workspace actions remain available. The optional foreground-app lookup and CUA driver
+  resolution are deferred and owned by a cancellable task slot instead of escaping controller
+  lifecycle ownership.
+- **Evidence:** `QuillCodeDesktopLaunchLifecycleTests` covers first-window deferral, both recovery
+  choices, phase transitions, and normal ready incidents. `QuillCodeDesktopComputerUseCoordinatorTests`
+  proves the startup lookup can remain dormant. Packaged launch-recovery smoke and desktop parity
+  gates pin the executable and release architecture paths.
+
 ## 2026-08-10: agent transcript progress projects only proven tail changes
 
 - **Decision:** Reconciliation classifies each presentation-cadence snapshot as transcript
