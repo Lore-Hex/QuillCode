@@ -51,6 +51,33 @@ final class AgentInvalidShellProposalPreflightTests: XCTestCase {
         ))
     }
 
+    func testRedirectsMultilineInlineInterpreterCommands() throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        for command in [
+            "python3 -c \"\nprint(42)\n\"",
+            "node -c '\nconsole.log(42)\n'",
+            "/usr/bin/ruby -c \"\nputs 42\n\"",
+        ] {
+            let correction = AgentInvalidShellProposalPreflight.correction(
+                for: shellCall(command),
+                workspaceRoot: root
+            )
+            XCTAssertNotNil(correction, command)
+            XCTAssertTrue(correction?.prompt.contains("host.file.write") == true)
+        }
+
+        XCTAssertNil(AgentInvalidShellProposalPreflight.correction(
+            for: shellCall("python3 -c 'print(42)'"),
+            workspaceRoot: root
+        ))
+        XCTAssertNil(AgentInvalidShellProposalPreflight.correction(
+            for: shellCall("python3 outputs/validate.py"),
+            workspaceRoot: root
+        ))
+    }
+
     func testInvalidShellProposalAfterSourceReadIsCorrectedBeforeExecution() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }

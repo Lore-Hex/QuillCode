@@ -219,6 +219,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
+        XCTAssertTrue(prompt.contains("Reserve interpreter `-c` commands"))
+        XCTAssertTrue(prompt.contains("write a relative workspace script with host.file.write"))
         XCTAssertTrue(prompt.contains("canonical argument keys"))
         XCTAssertTrue(prompt.contains("do not use \"command\""))
         XCTAssertTrue(prompt.contains("use host.file.list"))

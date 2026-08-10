@@ -30,6 +30,17 @@ enum AgentInvalidShellProposalPreflight {
                 """
             )
         }
+        if isMultilineInlineInterpreterCommand(command) {
+            return Correction(
+                summary: "Self-healing: redirected a multiline inline interpreter command.",
+                prompt: """
+                The proposed shell call embeds a multiline program in an interpreter `-c` argument. \
+                Nested JSON, shell, and language quoting makes that form unreliable. Write the \
+                program to a relative workspace script with host.file.write, then run that script \
+                with host.shell.run. Reserve `-c` for a complete single-line program.
+                """
+            )
+        }
         if let path = nonExecutableSourcePath(command, workspaceRoot: workspaceRoot) {
             return Correction(
                 summary: "Self-healing: redirected a workspace source path away from the shell.",
@@ -81,6 +92,14 @@ enum AgentInvalidShellProposalPreflight {
     private static func isIncompleteInlineInterpreterCommand(_ command: String) -> Bool {
         command.range(
             of: #"^(?:[^\s]+/)?(?:python(?:[0-9]+(?:\.[0-9]+)*)?|node|ruby|perl)\s+-c\s*['\"]?$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+    }
+
+    private static func isMultilineInlineInterpreterCommand(_ command: String) -> Bool {
+        guard command.contains("\n") || command.contains("\r") else { return false }
+        return command.range(
+            of: #"^(?:[^\s]+/)?(?:python(?:[0-9]+(?:\.[0-9]+)*)?|node|ruby|perl)\s+-c\s+"#,
             options: [.regularExpression, .caseInsensitive]
         ) != nil
     }

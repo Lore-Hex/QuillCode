@@ -252,6 +252,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to run a command, create a host.shell.run action immediately. Do not answer \
         first with "I'll run ..." or "I will run ...".
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
+        - Reserve interpreter `-c` commands for complete single-line programs. For multiline Python, \
+        Node, Ruby, or Perl, write a relative workspace script with host.file.write and execute that \
+        script with host.shell.run so JSON and shell quote nesting cannot corrupt the program.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and \
         "content". Do not answer first with "I'll create ..." or "I will create ...".
         - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately \
