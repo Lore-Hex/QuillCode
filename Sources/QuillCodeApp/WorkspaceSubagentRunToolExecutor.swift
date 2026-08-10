@@ -38,16 +38,15 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
     }
 
     var executionOverride: AgentThreadToolExecutionOverride {
-        { call, _, parentThread, onProgress in
+        { call, _, parentThread, _ in
             guard call.name == ToolDefinition.subagentsRun.name else { return nil }
-            return await execute(call, parentThread: parentThread, onProgress: onProgress)
+            return await execute(call, parentThread: parentThread)
         }
     }
 
     private func execute(
         _ call: ToolCall,
-        parentThread: ChatThread,
-        onProgress: AgentRunProgressHandler?
+        parentThread: ChatThread
     ) async -> AgentThreadToolExecution {
         let request: WorkspaceSubagentRunRequest
         do {
@@ -74,10 +73,12 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
             request: request,
             runID: runID,
             state: { record in
-                guard let snapshot = await projection.recordIfOpen(record) else { return }
+                guard await projection.recordIfOpen(record) != nil else { return }
+                // The record sink is the authoritative mid-run publication path. Awaiting the
+                // generic agent progress callback here duplicates the full parent snapshot and can
+                // prevent the tool from returning when presentation work is delayed. The agent
+                // publishes the final projected thread after this override returns.
                 await recordSink?(record, parentThread.id)
-                guard await projection.isOpen else { return }
-                await onProgress?(snapshot)
             },
             deadline: { parentCancelled in
                 let result = await projection.finalizeAtDeadline(
@@ -87,7 +88,6 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
                     parentCancelled: parentCancelled
                 )
                 await recordSink?(result.record, parentThread.id)
-                await onProgress?(await projection.snapshot())
                 return result
             },
             spawn: { _, summary in

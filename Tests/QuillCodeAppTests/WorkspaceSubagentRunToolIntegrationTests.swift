@@ -142,6 +142,40 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         XCTAssertLessThan(stdout.count, 22_000)
     }
 
+    func testDurableRecordSinkDoesNotAwaitRedundantAgentProgressCallback() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let records = SubagentRunRecordCollector()
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            WorkspaceSubagentWorkerResult(summary: "COMPLETE: Durable evidence retained.")
+        })
+        let executor = WorkspaceSubagentRunToolExecutor(
+            sessionFactory: factory,
+            threadStore: nil,
+            approvalPayloadStore: nil,
+            schedulerOverride: scheduler,
+            recordSink: { record, _ in await records.append(record) }
+        )
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Return after durable worker persistence.",
+                "workers": [["name": "Researcher", "role": "Retain evidence."]]
+            ])
+        )
+
+        let startedAt = Date()
+        let execution = await executor.executionOverride(call, root, ChatThread()) { _ in
+            try? await Task.sleep(for: .milliseconds(400))
+        }
+        let resolved = try XCTUnwrap(execution)
+        let latestStatuses = await records.latestStatuses()
+
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.2)
+        XCTAssertEqual(resolved.thread.subagentRuns.first?.workers.map(\.status), [.completed])
+        XCTAssertEqual(latestStatuses, [.completed])
+    }
+
     func testModelAuthoredDelegationBudgetCancelsWorkersAndReturnsEvidenceToParent() async throws {
         let root = try makeQuillCodeTestDirectory()
         let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
