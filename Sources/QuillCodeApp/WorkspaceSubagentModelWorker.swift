@@ -320,6 +320,12 @@ enum WorkspaceSubagentPromptBuilder {
         Your role: \(job.role)
         \(groupPathSection(for: job))
         \(priorResultsSection(job.priorResults))
+        The objective provides context, but your role defines your ownership boundary.
+        Do not create or modify a parent deliverable named only in the objective unless
+        your role explicitly assigns that deliverable to you. Research-only roles must
+        return evidence and exact source URLs to the coordinator; leave final synthesis
+        and parent-deliverable writes to the coordinator.
+
         Work autonomously with the available tools. Inspect the real workspace,
         perform the role's requested actions, and verify the result before you
         finish. Do not merely announce what you intend to do. Respect the
