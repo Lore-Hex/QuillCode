@@ -79,7 +79,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Current provider account credit balance. This is intentionally separate from context-window
     /// usage and local spend limits because it comes directly from TrustedRouter's account endpoint.
     public var accountBalance: ProviderAccountBalanceSurface?
-    /// Pre-formatted spend chip (e.g. `Spend limit $0.0050 / $1.00`), or nil when the thread has no
+    /// Pre-formatted spend chip (e.g. `Task Limit $0.0050 / $1.00`), or nil when the thread has no
     /// priced provider usage. When present, renderers prefer this over the raw token-usage chip.
     public var spendStatusLabel: String?
     /// Tooltip/accessibility detail for `spendStatusLabel`, including unpriced-call and token context.

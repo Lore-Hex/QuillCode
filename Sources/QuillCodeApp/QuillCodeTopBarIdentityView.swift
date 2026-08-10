@@ -100,9 +100,9 @@ struct QuillCodeTopBarIdentityView: View {
                 .quillCodeCapsuleButtonTarget()
                 .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
                 .layoutPriority(2)
-                .help("Adjust this task's spend limit")
+                .help("Adjust this task's limit")
                 .accessibilityLabel(spendStatusLabel)
-                .accessibilityHint("Shows controls to increase or decrease this task's spend limit")
+                .accessibilityHint("Shows controls to increase or decrease this task's limit")
                 .accessibilityIdentifier("quillcode-topbar-spend-limit")
                 .popover(isPresented: $showsSpendLimitDetails, arrowEdge: .bottom) {
                     spendLimitPopover(
@@ -167,7 +167,7 @@ struct QuillCodeTopBarIdentityView: View {
         )
         return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Spend limit")
+                Text("Task Limit")
                     .font(.headline)
                 Text("Current task: \(RunSpendLedger.costLabel(spentUSD))")
                     .font(.caption)
@@ -177,7 +177,7 @@ struct QuillCodeTopBarIdentityView: View {
             HStack(spacing: 10) {
                 spendLimitAdjustmentButton(
                     systemName: "minus",
-                    label: "Decrease spend limit",
+                    label: "Decrease task limit",
                     isEnabled: lowerLimit != nil
                 ) {
                     onSetSpendLimit(lowerLimit)
@@ -196,7 +196,7 @@ struct QuillCodeTopBarIdentityView: View {
 
                 spendLimitAdjustmentButton(
                     systemName: "plus",
-                    label: "Increase spend limit",
+                    label: "Increase task limit",
                     isEnabled: true
                 ) {
                     onSetSpendLimit(higherLimit)

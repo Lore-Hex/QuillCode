@@ -120,7 +120,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(section.title, "Run Receipts")
         XCTAssertEqual(section.itemTestID, "activity-run-receipt")
         XCTAssertEqual(section.countLabel, "2 items")
-        XCTAssertEqual(topBar.spendStatusLabel, "Spend limit $0.0050 / $1.00")
+        XCTAssertEqual(topBar.spendStatusLabel, "Task Limit $0.0050 / $1.00")
         XCTAssertEqual(try XCTUnwrap(topBar.threadSpendUSD), 0.005, accuracy: 0.000_001)
         XCTAssertEqual(topBar.runSpendLimitUSD, 1.0)
         XCTAssertEqual(

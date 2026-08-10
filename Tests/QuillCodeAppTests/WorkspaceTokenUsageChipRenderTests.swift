@@ -236,7 +236,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             makeTopBar(
                 usageStatusLabel: "1.5k ctx · ↑1k ↓500",
                 tokenBudget: makeTokenBudget(),
-                spendStatusLabel: "Spend limit $0.0050 / $1.00",
+                spendStatusLabel: "Task Limit $0.0050 / $1.00",
                 spendStatusDetail: "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500",
                 threadSpendUSD: 0.005,
                 runSpendLimitUSD: 1
@@ -246,7 +246,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-spend""#))
-        XCTAssertTrue(html.contains("Spend limit $0.0050 / $1.00"))
+        XCTAssertTrue(html.contains("Task Limit $0.0050 / $1.00"))
         XCTAssertTrue(html.contains("Latest usage: 1.5k ctx · ↑1k ↓500"))
         XCTAssertTrue(html.contains("topbar-spend-chip"))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))
