@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-08-09 Transactional Tester Publication
+
+Overall grade after this slice: **A+ publication integrity, A+ recovery, A+ maintainability**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Pre-mutation integrity | A+ | Every candidate is uploaded under a run-scoped alias and its GitHub state, byte size, and SHA-256 digest must match before canonical names change. |
+| Recovery | A+ | Previous asset IDs, names, digests, metadata, and tag commit remain available until the new metadata and ref pass read-back verification; injected upload, rename, metadata, and tag failures restore the exact snapshot. |
+| User continuity | A+ | The updater manifest swaps after other candidates and the moving tag changes last; old assets are deleted only after commit, with bounded cleanup retries. |
+| Architecture | A+ | Parsing/contracts, bounded file hashing, remote operations, initial publication, transaction orchestration, and CLI validation are separate focused modules. The deterministic grader scores every new production file 100/A+. |
+| Regression coverage | A+ | Focused parity tests drive a stateful fake GitHub release and Git remote, assert operation order, exact final inventory, exact rollback digests, transient cleanup retry, and mutation-free input rejection. |
+
+Validation:
+
+- Transactional publisher, workflow, and freshness suite: 14 tests, 0 failures
+- Authoritative full suite outside the managed macOS service sandbox: 5,756 tests,
+  5 skipped, 0 failures
+- Python compile validation for the entry point and all transaction modules
+- Workflow parser, executable mode, diff hygiene, and secret scan
+- Deterministic production-file grades: 100/A+ for all six publisher files
+
 ## 2026-08-09 Current-Main Publication Boundary
 
 Overall grade after this slice: **A+ release freshness, A+ supersession safety, A+ stable isolation**.

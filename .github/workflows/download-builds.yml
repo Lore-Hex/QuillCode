@@ -202,12 +202,7 @@ jobs:
             RELEASE_TAG="tester-latest"
             RELEASE_TITLE="Quill Cowork Tester Build"
             RELEASE_CHANNEL="tester"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
-            git push origin "refs/tags/$RELEASE_TAG" --force
           fi
-          MANIFEST_NAME="latest-${RELEASE_CHANNEL}-build.json"
           scripts/build-release-notes.py \
             --build-info "$RUNNER_TEMP/release-assets/BUILD_INFO.txt" \
             --repo "$GITHUB_REPOSITORY" \
@@ -234,30 +229,12 @@ jobs:
               --prerelease \
               --latest=false
           else
-            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-              gh release edit "$RELEASE_TAG" \
-                --title "$RELEASE_TITLE" \
-                --notes-file "$RUNNER_TEMP/release-notes.md" \
-                --target "$GITHUB_SHA" \
-                --prerelease
-            else
-              gh release create "$RELEASE_TAG" \
-                --title "$RELEASE_TITLE" \
-                --notes-file "$RUNNER_TEMP/release-notes.md" \
-                --target "$GITHUB_SHA" \
-                --prerelease \
-                --latest=false
-            fi
-
-            find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/current-release-assets.txt"
-            gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' |
-              while IFS= read -r asset_name; do
-                if [[ -n "$asset_name" ]] && ! grep -Fxq "$asset_name" "$RUNNER_TEMP/current-release-assets.txt"; then
-                  gh release delete-asset "$RELEASE_TAG" "$asset_name" --yes
-                fi
-              done
-
-            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber
+            scripts/publish-tester-release.py \
+              --assets-dir "$RUNNER_TEMP/release-assets" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --repo "$GITHUB_REPOSITORY" \
+              --commit "$GITHUB_SHA" \
+              --run-id "$GITHUB_RUN_ID"
           fi
 
   verify-published:
