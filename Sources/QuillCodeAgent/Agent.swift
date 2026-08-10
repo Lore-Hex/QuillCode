@@ -708,6 +708,11 @@ public struct AgentRunner: Sendable {
                         && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
                             resolvedAction,
                             deliverablePath: path
+                        )),
+                   !(runLoop.needsContractAuditRepairReadback(at: path)
+                        && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
+                            resolvedAction,
+                            deliverablePath: path
                         )) {
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,

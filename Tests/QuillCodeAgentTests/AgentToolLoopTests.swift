@@ -356,6 +356,7 @@ final class AgentToolLoopTests: XCTestCase {
     func testBoundedRunFinalizationReturnsFailedValidatorToModelForRepair() async throws {
         let root = try makeTempDirectory()
         let validatorCapture = ToolCallCapture()
+        let readCapture = ToolCallCapture()
         let initialWrite = ToolCall(
             name: ToolDefinition.fileWrite.name,
             argumentsJSON: ToolArguments.json([
@@ -369,6 +370,10 @@ final class AgentToolLoopTests: XCTestCase {
                 "path": "outputs/report.md",
                 "content": "name,value\nalpha,1\nbeta,2\n",
             ])
+        )
+        let repairRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
         )
         let initialValidatorWrite = ToolCall(
             name: ToolDefinition.fileWrite.name,
@@ -387,9 +392,13 @@ final class AgentToolLoopTests: XCTestCase {
         let runner = AgentRunner(
             llm: SequenceLLMClient(actions: [
                 .tool(initialWrite), .tool(initialValidatorWrite),
-                .tool(repairedWrite), .tool(repairedValidatorWrite),
+                .tool(repairRead), .tool(repairedWrite), .tool(repairedValidatorWrite),
             ]),
             toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.fileRead.name {
+                    await readCapture.record(call)
+                    return nil
+                }
                 guard call.name == ToolDefinition.shellRun.name else { return nil }
                 await validatorCapture.record(call)
                 let attempt = await validatorCapture.count
@@ -410,7 +419,9 @@ final class AgentToolLoopTests: XCTestCase {
         )
 
         let validatorCallCount = await validatorCapture.count
+        let readCallCount = await readCapture.count
         XCTAssertEqual(validatorCallCount, 2)
+        XCTAssertEqual(readCallCount, 2, "one repair read plus the automatic final readback")
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
             "name,value\nalpha,1\nbeta,2\n"

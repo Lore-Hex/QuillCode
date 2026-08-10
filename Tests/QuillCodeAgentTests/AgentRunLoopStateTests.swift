@@ -137,6 +137,53 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.pendingArtifactReadbackWorkspacePaths, ["outputs/report.md"])
     }
 
+    func testFailedContractAuditAllowsExactlyOneRepairReadUntilRewrite() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and run a deterministic validator against it."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n",
+            ])
+        )
+        let validator = shellCall(
+            "python3 -c \"assert False\" outputs/report.md # QuillCode validator"
+        )
+        let read = fileReadCall("outputs/report.md")
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        _ = state.recordCompletedStep(
+            completed(call: validator, stdout: "failed", ok: false),
+            workspaceRoot: root
+        ) { _ in "failed-audit" }
+
+        XCTAssertTrue(state.needsContractAuditRepairReadback(at: "./outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: read, stdout: "# Report\n"),
+            workspaceRoot: root
+        ) { _ in "read" }
+        XCTAssertFalse(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: validator, stdout: "failed again", ok: false),
+            workspaceRoot: root
+        ) { _ in "failed-audit-again" }
+        XCTAssertTrue(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "rewrote"),
+            workspaceRoot: root
+        ) { _ in "rewrite" }
+        XCTAssertFalse(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
+    }
+
     func testRenderedChartNeedsLaterSuccessfulRead() {
         var state = AgentRunLoopState()
         let render = ToolCall(
