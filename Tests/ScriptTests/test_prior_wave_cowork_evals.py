@@ -452,6 +452,23 @@ Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
 
+            production_precision_audit = artifact.replace(
+                "2023 CPI basis: 304.701583\n"
+                "2024 CPI basis: 313.688833",
+                "2023 CPI basis: 304.7015833333333333333333333333333333333\n"
+                "2024 CPI basis: 313.6888333333333333333333333333333333333",
+            ).replace(
+                "The BLS 2025 annual average is not\n"
+                "published because October is unavailable, so 321.943 is an 11-observation\n"
+                "observed-month proxy.",
+                "2025: The API returned no M13 (calendar-year annual average). "
+                "October is unavailable, so the mean of the 11 published months is a 2025 "
+                "observed-month proxy.",
+            )
+            path.write_text(production_precision_audit, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
             rounded_summary = artifact.replace(
                 "The BLS 2025 annual average is not\npublished because October is unavailable, so 321.943 is an 11-observation\nobserved-month proxy.",
                 "The 2025 basis is an 11-observation observed-month proxy, NOT an annual average,\n"
