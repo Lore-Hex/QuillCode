@@ -324,9 +324,9 @@ def matched_task_terms(row, text):
 
 
 def minimum_source_citation_count(row):
-    # Task 125 has one external fact: the IRS mileage rate. Its other authorities
-    # are the two supplied workspace sources, so one primary IRS URL is sufficient.
-    if row["id"] == 125:
+    # These tasks use one authoritative external dataset; their other authorities
+    # are supplied workspace sources. One primary-source URL is therefore sufficient.
+    if row["id"] in {125, 126}:
         return 1
     return 2
 
@@ -571,6 +571,14 @@ def task_table(row, reference="", item_index=1, count=40):
                 "TRV-125-005", "Priya Shah", "2026-03-11", 248, "97.00", "yes",
                 "173.60", "65.00", "179.80", "75.00", "apply both new limits",
             ),
+        ]
+
+    if row["id"] == 126:
+        return [
+            ("fiscal_year", "nominal_revenue_usd", "reporting_basis", "status"),
+            (2023, 4200000, "calendar-year recognized revenue", "audited"),
+            (2024, 5100000, "calendar-year recognized revenue", "audited"),
+            (2025, 6000000, "calendar-year recognized revenue", "audited"),
         ]
 
     if "kpi-dashboard" in reference.casefold():
@@ -1434,6 +1442,20 @@ automation is visible in Quill Cowork's persisted automation state.
             "cap a GSA or IRS rate. Remove draft, checkpoint, pending, next-pass, and future-work "
             "language before readback. "
         )
+    elif row["id"] == 126:
+        task_specific_instruction = (
+            "Use the official BLS CPI-U U.S. city average, All items, not seasonally "
+            "adjusted series `CUUR0000SA0`. Use its annual-average indexes for 2023, "
+            "2024, and 2025, and the latest published monthly 2026 index as the target "
+            "2026-dollar benchmark. Explicitly name that 2026 month and disclose that it "
+            "is a monthly benchmark rather than a completed annual average. Cite the exact "
+            "official BLS URL next to the CPI figures. Restate every nominal revenue row in "
+            "`inputs/records.csv` with `real revenue = nominal revenue x (latest 2026 CPI / "
+            "that year's annual-average CPI)`. Show nominal and real dollars, CPI basis, "
+            "nominal and real year-over-year growth, and cumulative 2023-to-2025 growth. "
+            "Keep full precision in calculations and round displayed dollars to the nearest "
+            "dollar. Do not invent a full-year 2026 CPI value. "
+        )
     field_instruction = (
         "Because the requested deliverable is a reusable macro, named bracketed runtime "
         "fields such as `[Invoice Number]` are allowed. Document every runtime field, but "
@@ -2251,6 +2273,50 @@ def validate_task_117_revenue_chart(path):
     return valid, detail
 
 
+def validate_task_126_real_revenue(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read real-revenue analysis: {error}"
+
+    normalized = re.sub(r"[$,\s]", "", text).casefold()
+    missing_years = [year for year in ("2023", "2024", "2025", "2026") if year not in text]
+    missing_nominal_revenue = [
+        value for value in ("4200000", "5100000", "6000000")
+        if value not in normalized
+    ]
+    dollar_values = {
+        int(value.replace(",", ""))
+        for value in re.findall(r"\$\s*(\d[\d,]{5,})", text)
+    }
+    checks = {
+        "series": "cuur0000sa0" in text.casefold(),
+        "official BLS URL": bool(re.search(r"https?://(?:[a-z0-9-]+\.)?bls\.gov/", text, re.I)),
+        "annual-average basis": bool(re.search(r"annual[- ]average", text, re.I)),
+        "not seasonally adjusted basis": bool(re.search(r"not seasonally adjusted", text, re.I)),
+        "2026 monthly benchmark disclosure": bool(
+            re.search(r"2026", text)
+            and re.search(r"monthly|month", text, re.I)
+            and re.search(r"latest|benchmark", text, re.I)
+        ),
+        "real-dollar basis": bool(re.search(r"2026[- ]dollars|2026 dollars", text, re.I)),
+        "adjustment formula": bool(
+            re.search(r"real\s+revenue", text, re.I)
+            and re.search(r"nominal\s+revenue", text, re.I)
+            and ("/" in text or "÷" in text)
+        ),
+        "growth comparison": bool(re.search(r"year[- ]over[- ]year|yoy", text, re.I)),
+        "three adjusted amounts": len(dollar_values) >= 6,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    valid = not missing_years and not missing_nominal_revenue and not failed
+    detail = (
+        f"missing years={missing_years}; missing nominal revenue={missing_nominal_revenue}; "
+        f"failed checks={failed}; unique large dollar values={len(dollar_values)}"
+    )
+    return valid, detail
+
+
 def visible_prose(text):
     text = re.sub(
         r"(?is)<(?:style|script|pre|code)\b[^>]*>.*?</(?:style|script|pre|code)\s*>",
@@ -2453,6 +2519,9 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 117:
         chart_valid, chart_detail = validate_task_117_revenue_chart(artifact)
         add("quarterly revenue chart semantics", chart_valid, chart_detail)
+    if row["id"] == 126:
+        revenue_valid, revenue_detail = validate_task_126_real_revenue(artifact)
+        add("real revenue trend semantics", revenue_valid, revenue_detail)
     verification_text = "\n".join(tool_output_text(tool) for tool in reads + shell_reads)
     combined_text = "\n".join(
         value for value in (artifact_text, verification_text, report.get("finalAnswer", "") if report else "")

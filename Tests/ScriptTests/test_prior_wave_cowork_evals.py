@@ -376,6 +376,51 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertEqual(PRIOR.minimum_source_citation_count(self.rows[124]), 1)
         self.assertEqual(PRIOR.minimum_source_citation_count(self.rows[123]), 2)
 
+    def test_real_revenue_fixture_and_prompt_define_cpi_basis(self):
+        row = self.rows[125]
+        self.assertEqual(
+            PRIOR.task_table(row),
+            [
+                ("fiscal_year", "nominal_revenue_usd", "reporting_basis", "status"),
+                (2023, 4200000, "calendar-year recognized revenue", "audited"),
+                (2024, 5100000, "calendar-year recognized revenue", "audited"),
+                (2025, 6000000, "calendar-year recognized revenue", "audited"),
+            ],
+        )
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("CUUR0000SA0", prompt)
+        self.assertIn("annual-average indexes for 2023", prompt)
+        self.assertIn("latest published monthly 2026 index", prompt)
+        self.assertIn("Do not invent a full-year 2026 CPI value", prompt)
+        self.assertEqual(PRIOR.minimum_source_citation_count(row), 1)
+
+    def test_real_revenue_semantics_require_bls_basis_and_adjusted_values(self):
+        artifact = """# Real revenue in 2026 dollars
+
+Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023,
+2024, and 2025 inputs are annual-average indexes; the latest monthly 2026 index
+is the July benchmark, not a completed annual average.
+Source: https://www.bls.gov/cpi/data.htm
+
+Real revenue = nominal revenue x (latest 2026 CPI / annual-average CPI).
+
+| Year | Nominal revenue | Real revenue | Year-over-year growth |
+| --- | ---: | ---: | ---: |
+| 2023 | $4,200,000 | $4,600,000 | n/a |
+| 2024 | $5,100,000 | $5,400,000 | 17.4% |
+| 2025 | $6,000,000 | $6,100,000 | 13.0% |
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "result.md"
+            path.write_text(artifact, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
+            path.write_text(artifact.replace("CUUR0000SA0", "unknown series"), encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("series", detail)
+
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
 
