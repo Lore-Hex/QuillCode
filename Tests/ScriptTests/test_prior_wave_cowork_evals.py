@@ -1083,6 +1083,14 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
             self.assertTrue(valid, detail)
 
+            competitor_header_html = valid_html.replace(
+                "<th>Q1</th>",
+                "<th>Q1 - Asana, Inc.; monday.com Ltd.; GitLab Inc.</th>",
+            )
+            artifact.write_text(competitor_header_html, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertTrue(valid, detail)
+
             inverted_chart = "".join(
                 f"<polyline points='{chart_points(values, inverted=True)}'/>"
                 for values in revenue_series

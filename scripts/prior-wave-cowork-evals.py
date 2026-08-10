@@ -29,6 +29,7 @@ import zlib
 import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -1923,6 +1924,84 @@ def validate_task_33_sequence(path):
     return valid, detail
 
 
+class _Task117TableParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tables = []
+        self._table = None
+        self._section = None
+        self._row = None
+        self._cell = None
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.casefold()
+        if tag == "table" and self._table is None:
+            self._table = {"rows": []}
+        elif self._table is not None and tag in {"thead", "tbody", "tfoot"}:
+            self._section = tag
+        elif self._table is not None and tag == "tr" and self._row is None:
+            self._row = {"section": self._section, "cells": []}
+        elif self._row is not None and tag in {"td", "th"} and self._cell is None:
+            self._cell = {"tag": tag, "text": [], "links": []}
+        elif self._cell is not None and tag == "a":
+            attributes = dict(attrs)
+            if attributes.get("href"):
+                self._cell["links"].append(attributes["href"])
+
+    def handle_endtag(self, tag):
+        tag = tag.casefold()
+        if tag in {"td", "th"} and self._cell is not None and self._row is not None:
+            self._cell["text"] = re.sub(
+                r"\s+", " ", " ".join(self._cell["text"])
+            ).strip()
+            self._row["cells"].append(self._cell)
+            self._cell = None
+        elif tag == "tr" and self._row is not None and self._table is not None:
+            self._table["rows"].append(self._row)
+            self._row = None
+        elif tag in {"thead", "tbody", "tfoot"} and self._table is not None:
+            self._section = None
+        elif tag == "table" and self._table is not None:
+            self.tables.append(self._table)
+            self._table = None
+            self._section = None
+            self._row = None
+            self._cell = None
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell["text"].append(data)
+
+
+def _task_117_company_rows(text):
+    parser = _Task117TableParser()
+    parser.feed(text)
+    parser.close()
+
+    comparison_table = None
+    for table in parser.tables:
+        if any(
+            row["cells"]
+            and row["cells"][0]["tag"] == "th"
+            and row["cells"][0]["text"].strip().casefold() == "company"
+            for row in table["rows"]
+        ):
+            comparison_table = table
+            break
+    if comparison_table is None:
+        return []
+
+    body_rows = [
+        row for row in comparison_table["rows"] if row["section"] == "tbody"
+    ]
+    if body_rows:
+        return body_rows
+    return [
+        row for row in comparison_table["rows"]
+        if row["cells"] and row["cells"][0]["tag"] == "td"
+    ]
+
+
 def validate_task_117_revenue_chart(path):
     try:
         text = path.read_text(encoding="utf-8")
@@ -1948,32 +2027,32 @@ def validate_task_117_revenue_chart(path):
     ]
 
     company_labels = {
-        "Atlas Labs": r"\batlas\s+labs\b",
-        "Asana, Inc.": r"\basana\b",
-        "monday.com Ltd.": r"\bmonday\.com\b",
-        "GitLab Inc.": r"\bgitlab\b",
+        "Atlas Labs": "atlaslabs",
+        "Asana, Inc.": "asanainc",
+        "monday.com Ltd.": "mondaycomltd",
+        "GitLab Inc.": "gitlabinc",
     }
-    table_rows = [
-        html.unescape(match)
-        for match in re.findall(r"(?is)<tr\b[^>]*>(.*?)</tr\s*>", text)
-    ]
+    table_rows = _task_117_company_rows(text)
     missing_company_rows = []
     duplicate_company_rows = []
     incomplete_company_rows = []
     missing_row_citations = []
     table_series = []
-    for company, pattern in company_labels.items():
-        matching_rows = [value for value in table_rows if re.search(pattern, value, re.I)]
+    for company, normalized_name in company_labels.items():
+        matching_rows = [
+            row for row in table_rows
+            if row["cells"]
+            and re.sub(
+                r"[^a-z0-9]+", "", row["cells"][0]["text"].casefold()
+            ) == normalized_name
+        ]
         if not matching_rows:
             missing_company_rows.append(company)
             continue
         if len(matching_rows) != 1:
             duplicate_company_rows.append(f"{company}: {len(matching_rows)} rows")
-        row_text = matching_rows[0]
-        cells = [
-            html.unescape(re.sub(r"(?is)<[^>]+>", " ", value)).strip()
-            for value in re.findall(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]\s*>", row_text)
-        ]
+        row = matching_rows[0]
+        cells = [cell["text"] for cell in row["cells"]]
         value_cells = cells[1:5]
         raw_usd_values = [
             re.sub(r"[$,\s]", "", value, flags=re.IGNORECASE)
@@ -1986,7 +2065,10 @@ def validate_task_117_revenue_chart(path):
             incomplete_company_rows.append(f"{company}: {value_cells}")
         else:
             table_series.append([int(value.removeprefix("USD")) for value in raw_usd_values])
-        if company != "Atlas Labs" and not re.search(r"https?://", row_text, re.I):
+        row_links = [link for cell in row["cells"] for link in cell["links"]]
+        if company != "Atlas Labs" and not any(
+            re.match(r"https?://", link, re.I) for link in row_links
+        ):
             missing_row_citations.append(company)
 
     svg_shapes = len(re.findall(r"(?i)<(?:rect|path|polyline|line|circle)\b", text))
