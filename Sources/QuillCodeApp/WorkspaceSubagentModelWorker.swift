@@ -394,7 +394,12 @@ enum WorkspaceSubagentTerminalStatus {
         if hasRecoverableWorkMarker(in: text.lowercased()) {
             return .failed
         }
-        return .completed
+        if lines.contains(where: { $0.hasPrefix("complete:") || $0 == "complete" }) {
+            return .completed
+        }
+        // The worker prompt makes the terminal marker a protocol requirement. Treating arbitrary
+        // final prose as success lets a plan-only response satisfy the scheduler without doing work.
+        return .failed
     }
 
     private static func hasRecoverableWorkMarker(in text: String) -> Bool {

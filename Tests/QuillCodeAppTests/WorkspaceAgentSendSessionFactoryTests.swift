@@ -112,6 +112,40 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertNotNil(session.runner.threadToolExecutionOverride)
     }
 
+    func testSubagentSessionCapsFocusedWorkerToolBudgetWithoutReducingParent() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let parent = ChatThread(title: "Coordinator")
+        let child = ChatThread(title: "Researcher")
+        let factory = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(maxToolSteps: 512),
+            selectedProject: nil,
+            config: AppConfig(maxToolSteps: 512),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        )
+
+        let parentSession = factory.makeSession(prompt: "Coordinate the work", thread: parent)
+        let childSession = factory.makeSubagentSession(
+            prompt: "Research one evidence track",
+            thread: child,
+            parentThread: parent,
+            job: WorkspaceSubagentJob(name: "Researcher", role: "verify one figure"),
+            runsStartHook: true
+        )
+
+        XCTAssertEqual(parentSession.runner.maxToolSteps, 512)
+        XCTAssertEqual(
+            childSession.runner.maxToolSteps,
+            WorkspaceAgentSendSessionFactory.maximumSubagentToolSteps
+        )
+    }
+
     func testSideConversationDoesNotAdvertiseSubagentTool() throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let parentID = UUID()

@@ -48,7 +48,10 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         let run = try XCTUnwrap(result.thread.subagentRuns.first)
         XCTAssertEqual(run.workers.map(\.name), ["Explorer", "Verifier"])
         XCTAssertEqual(run.workers.map(\.status), [.completed, .completed])
-        XCTAssertEqual(run.workers.map(\.summary), ["Mapped the relevant files.", "Focused checks passed."])
+        XCTAssertEqual(
+            run.workers.map(\.summary),
+            ["COMPLETE: Mapped the relevant files.", "COMPLETE: Focused checks passed."]
+        )
         XCTAssertEqual(
             result.thread.messages.last(where: { $0.role == .assistant })?.content,
             "The parallel review is complete."
@@ -262,7 +265,9 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         )
         model.subagentSchedulerOverride = WorkspaceSubagentScheduler { job in
             try await Task.sleep(for: .milliseconds(250))
-            return job.name == "Explorer" ? "Mapped the relevant files." : "Focused checks passed."
+            return job.name == "Explorer"
+                ? "COMPLETE: Mapped the relevant files."
+                : "COMPLETE: Focused checks passed."
         }
         let parentThreadID = model.newChat()
         model.setDraft("Use two subagents to inspect and verify this change.")
@@ -316,10 +321,10 @@ private struct DelegatingParentLLMClient: LLMClient {
         tools: [ToolDefinition]
     ) async throws -> AgentAction {
         if userMessage.contains("You are the \"Explorer\" subagent") {
-            return .say("Mapped the relevant files.")
+            return .say("COMPLETE: Mapped the relevant files.")
         }
         if userMessage.contains("You are the \"Verifier\" subagent") {
-            return .say("Focused checks passed.")
+            return .say("COMPLETE: Focused checks passed.")
         }
         if thread.messages.contains(where: { $0.role == .tool }) {
             return .say("The parallel review is complete.")

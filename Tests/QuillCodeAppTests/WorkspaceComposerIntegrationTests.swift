@@ -481,7 +481,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(
             runner: AgentRunner(
-                llm: FixedToolLLMClient(call: ToolCall(
+                llm: ToolThenCompleteLLMClient(call: ToolCall(
                     name: ToolDefinition.fileWrite.name,
                     argumentsJSON: ToolArguments.json([
                         "path": "delegated.txt",

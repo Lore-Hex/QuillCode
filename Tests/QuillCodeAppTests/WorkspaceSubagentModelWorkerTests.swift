@@ -44,7 +44,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
                         "content": "hello from subagent\n"
                     ])
                 )),
-                .say("Created subagent.txt and verified the write.")
+                .say("COMPLETE: Created subagent.txt and verified the write.")
             ]
         )
 
@@ -52,7 +52,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             WorkspaceSubagentJob(name: "Builder", role: "create the marker", objective: "prepare fixture")
         )
 
-        XCTAssertEqual(summary, "Created subagent.txt and verified the write.")
+        XCTAssertEqual(summary, "COMPLETE: Created subagent.txt and verified the write.")
         XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "hello from subagent\n")
     }
 
@@ -94,7 +94,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
                     name: ToolDefinition.fileWrite.name,
                     argumentsJSON: ToolArguments.json(["path": "blocked.txt", "content": "no"])
                 )),
-                .say("Done.")
+                .say("COMPLETE: Done.")
             ],
             safety: StaticSafetyReviewer(),
             parentThread: parent
@@ -121,7 +121,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
 
         let resumed = try await worker.resume(pause, job: job)
 
-        XCTAssertEqual(resumed.summary, "Done.")
+        XCTAssertEqual(resumed.summary, "COMPLETE: Done.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
         XCTAssertTrue(resumed.transcript.contains { $0.kind == .tool && $0.statusLabel == "Done" })
     }
@@ -253,6 +253,8 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "COMPLETE: Need the four Q figures. One Q4 FY2026 figure found: $205.6M. Need to fetch remaining quarters.",
             "The prior source repeated the same result. I'll switch to a different source: TipRanks for historical quarterly values.",
             "I have partial evidence so far. Key findings: Columbus Foundation Core Support Grants are ",
+            "I'll locate the latest published figure. Let me start by fetching the official source.",
+            "Verified the figure against the official source, but omitted the required terminal marker.",
         ]
 
         for stall in stalls {

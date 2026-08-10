@@ -114,6 +114,30 @@ struct FixedToolLLMClient: LLMClient {
     }
 }
 
+actor ToolThenCompleteLLMClient: LLMClient {
+    private var pendingCall: ToolCall?
+    private let completion: String
+
+    init(call: ToolCall, completion: String = "COMPLETE: Tool execution succeeded.") {
+        self.pendingCall = call
+        self.completion = completion
+    }
+
+    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
+        if let pendingCall {
+            self.pendingCall = nil
+            return .tool(pendingCall)
+        }
+        return .say(completion)
+    }
+}
+
+struct SubagentCompletionLLMClient: LLMClient {
+    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
+        .say("COMPLETE: Finished delegated work.")
+    }
+}
+
 final class ToolDefinitionRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var recordedTools: [ToolDefinition] = []

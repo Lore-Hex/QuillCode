@@ -8,6 +8,10 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 struct WorkspaceAgentSendSessionFactory: Sendable {
+    /// Delegated roles are intentionally narrow. They must return evidence to the coordinator
+    /// instead of inheriting a high parent budget and re-proving an already established result.
+    static let maximumSubagentToolSteps = 16
+
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?
     private let config: AppConfig
@@ -106,21 +110,26 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         thread: ChatThread,
         recordsUserMessage: Bool = true,
         allowsSubagents: Bool? = nil,
-        lifecycle: WorkspaceAgentSessionLifecycle? = nil
+        lifecycle: WorkspaceAgentSessionLifecycle? = nil,
+        maximumToolSteps: Int? = nil
     ) -> WorkspaceAgentSendSession {
         let permitsSubagents = allowsSubagents ?? !thread.runtimeContext.isEphemeral
+        var runner = configuredRunner(
+            modelID: thread.model,
+            threadID: thread.id,
+            allowsSubagents: permitsSubagents,
+            threadIsConfidential: thread.runtimeContext.isConfidential
+        )
+        if let maximumToolSteps {
+            runner.maxToolSteps = min(runner.maxToolSteps, maximumToolSteps)
+        }
         return WorkspaceAgentSendSession(
             prompt: prompt,
             thread: thread,
             // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
             // top-bar picker) takes effect on the next turn without a Settings save/re-sign-in, and
             // so each thread runs on its own model.
-            runner: configuredRunner(
-                modelID: thread.model,
-                threadID: thread.id,
-                allowsSubagents: permitsSubagents,
-                threadIsConfidential: thread.runtimeContext.isConfidential
-            ),
+            runner: runner,
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             // Run hooks receive the raw prompt / last assistant message on stdin and execute
@@ -157,7 +166,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
                 job: job,
                 threadStore: subagentThreadStore,
                 runsStartHook: runsStartHook
-            )
+            ),
+            maximumToolSteps: Self.maximumSubagentToolSteps
         )
     }
 
