@@ -18,6 +18,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
             "QuillCodeDesktopController+Navigation.swift",
             "QuillCodeDesktopController+Notifications.swift",
             "QuillCodeDesktopController+Settings.swift",
+            "QuillCodeDesktopController+Startup.swift",
             "QuillCodeDesktopController+Terminal.swift",
             "QuillCodeDesktopController+Transcript.swift",
             "QuillCodeDesktopController+WorkspaceActions.swift",

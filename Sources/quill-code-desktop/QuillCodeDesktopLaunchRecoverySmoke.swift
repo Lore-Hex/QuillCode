@@ -58,11 +58,31 @@ enum QuillCodeDesktopLaunchRecoverySmoke {
             throw Failure.gracefulLaunchReportedAsUnexpected
         }
         try store.finishLaunch(launchID: clean.currentRecord.launchID)
+
+        _ = try store.beginLaunch(
+            metadata: metadata,
+            now: startedAt.addingTimeInterval(30),
+            processIdentifier: 70_004,
+            processIsRunning: { _ in false }
+        )
+        let recovery = try store.beginLaunch(
+            metadata: metadata,
+            now: startedAt.addingTimeInterval(40),
+            processIdentifier: 70_005,
+            processIsRunning: { _ in false }
+        )
+        guard recovery.unexpectedExit?.requiresRecoveryStartup == true,
+              QuillCodeDesktopStartupMode(unexpectedExit: recovery.unexpectedExit) == .recovery
+        else {
+            throw Failure.missingStartupRecoveryMode
+        }
+        try store.finishLaunch(launchID: recovery.currentRecord.launchID)
     }
 
     private enum Failure: LocalizedError {
         case gracefulLaunchReportedAsUnexpected
         case missingReadyIncident
+        case missingStartupRecoveryMode
 
         var errorDescription: String? {
             switch self {
@@ -70,6 +90,8 @@ enum QuillCodeDesktopLaunchRecoverySmoke {
                 "Launch recovery smoke reported a gracefully finished launch as unexpected."
             case .missingReadyIncident:
                 "Launch recovery smoke did not recover the simulated ready-state unexpected exit."
+            case .missingStartupRecoveryMode:
+                "Launch recovery smoke did not pause automatic work after a startup exit."
             }
         }
     }

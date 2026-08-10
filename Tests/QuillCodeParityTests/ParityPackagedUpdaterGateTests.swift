@@ -3,7 +3,8 @@ import XCTest
 final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
     func testPublishedBuildMustUpdateAndRelaunchItself() throws {
         let app = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
-        let controller = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let controller = try Self.desktopControllerSourceText()
+        let bootstrap = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
         let runner = try Self.desktopSourceText(named: "QuillCodeDesktopUpdaterSmokeRunner.swift")
         let script = try Self.scriptText(named: "packaged-macos-updater-smoke.sh")
         let workflow = try Self.workflowText(named: "download-builds.yml")
@@ -39,10 +40,17 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(app.contains("controller.installationLocationController.startIfNeeded()"))
         Self.assertSource(controller, containsAll: [
             "func startApplicationServices()",
+            "func completeStartupIfAllowed()",
+            "automaticStartupPolicy: .deferUntilRequested",
+            "model.startAutomaticStartupWork()",
+            "tasks.replace(.computerUseBackendResolution)",
+            "refreshForegroundApplication: false",
+            "await cuaCoordinator.refreshForegroundApplication(on: cuaModel)",
             "installApprovalNotificationHandling()",
             "installationLocationController.startIfNeeded()",
             "updateController.startAutomaticChecks()"
         ])
+        Self.assertSource(bootstrap, contains: "automaticStartupPolicy == .startImmediately")
         Self.assertSource(runner, containsAll: [
             "waitForAvailableUpdate(configuration: configuration)",
             "feedPropagationAttemptLimit = 6",

@@ -74,10 +74,18 @@ in-app diagnostic is deliberately content-free and should report `Private conten
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
-termination clears the matching marker. If the process instead disappears during startup or while
-running, the next successful launch shows **Quill Cowork closed unexpectedly** and warns that an
-in-progress command may be incomplete. Choose **Continue** to return to the workspace or **Report
-Issue...** to open a prefilled crash report.
+termination clears the matching marker. If the process disappears after it was ready, the next
+launch shows **Quill Cowork closed unexpectedly** and warns that an in-progress command may be
+incomplete. Choose **Continue** to return to the workspace or **Report Issue...** to open a prefilled
+crash report.
+
+If the process disappears before reaching its first-window startup boundary, the next launch opens
+the saved workspace in recovery mode. Managed-worktree retention, pull-request reconciliation,
+project indexing, due automations, account refreshes, and optional Computer Use driver discovery stay
+paused instead of immediately repeating the same startup work. **Keep Background Work Paused** leaves
+that work off for the current launch; **Resume Background Work** starts the normal idempotent service
+set. Draft protection, updates, issue reporting, installation recovery, and explicit user actions
+remain available in either choice.
 
 The marker and report include only launch phase/time plus version, build, source commit, channel,
 architecture, and macOS version. They do not include project paths, filenames, prompts, transcripts,

@@ -27,7 +27,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     }
 
     @MainActor
-    public func makeModel() throws -> QuillCodeWorkspaceModel {
+    public func makeModel(
+        automaticStartupPolicy: WorkspaceAutomaticStartupPolicy = .startImmediately
+    ) throws -> QuillCodeWorkspaceModel {
         var unreadableDataKinds: [WorkspaceStartupDataKind] = []
         do {
             try paths.ensure()
@@ -168,8 +170,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )
         )
-        model.enforceManagedWorktreeRetention()
-        model.scheduleSelectedPullRequestReconciliation()
+        if automaticStartupPolicy == .startImmediately {
+            model.startAutomaticStartupWork()
+        }
         return model
     }
 

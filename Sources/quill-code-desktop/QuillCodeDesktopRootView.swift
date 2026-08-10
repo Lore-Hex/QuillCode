@@ -40,21 +40,41 @@ struct QuillCodeDesktopRootView: View {
                     }
             }
             .task {
-                controller.launchLifecycleController?.markReady()
+                await Task.yield()
+                controller.completeStartupIfAllowed()
             }
             .alert(
-                "Quill Cowork closed unexpectedly",
+                unexpectedExitTitle,
                 isPresented: unexpectedExitBinding,
                 presenting: unexpectedExit
             ) { incident in
-                Button("Continue") {
-                    unexpectedExit = nil
+                if incident.requiresRecoveryStartup {
+                    Button("Keep Background Work Paused") {
+                        continueWithAutomaticWorkspaceServicesPaused()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .quillCodePlatformMenuItemTarget(
+                        reason: "macOS owns alert action geometry."
+                    )
+                    .accessibilityIdentifier("quillcode-startup-recovery-keep-paused")
+                    Button("Resume Background Work") {
+                        controller.resumeAutomaticWorkspaceServices()
+                        unexpectedExit = nil
+                    }
+                    .quillCodePlatformMenuItemTarget(
+                        reason: "macOS owns alert action geometry."
+                    )
+                    .accessibilityIdentifier("quillcode-startup-recovery-resume")
+                } else {
+                    Button("Continue") {
+                        unexpectedExit = nil
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .quillCodePlatformMenuItemTarget(
+                        reason: "macOS owns alert action geometry."
+                    )
+                    .accessibilityIdentifier("quillcode-unexpected-exit-continue")
                 }
-                .keyboardShortcut(.defaultAction)
-                .quillCodePlatformMenuItemTarget(
-                    reason: "macOS owns alert action geometry."
-                )
-                .accessibilityIdentifier("quillcode-unexpected-exit-continue")
                 Button("Report Issue...") {
                     reportUnexpectedExit(incident)
                 }
@@ -72,13 +92,29 @@ struct QuillCodeDesktopRootView: View {
             get: { unexpectedExit != nil },
             set: { isPresented in
                 if !isPresented {
-                    unexpectedExit = nil
+                    continueWithAutomaticWorkspaceServicesPaused()
                 }
             }
         )
     }
 
+    private var unexpectedExitTitle: String {
+        unexpectedExit?.requiresRecoveryStartup == true
+            ? "Quill Cowork opened in recovery mode"
+            : "Quill Cowork closed unexpectedly"
+    }
+
+    private func continueWithAutomaticWorkspaceServicesPaused() {
+        if unexpectedExit?.requiresRecoveryStartup == true {
+            controller.continueWithAutomaticWorkspaceServicesPaused()
+        }
+        unexpectedExit = nil
+    }
+
     private func reportUnexpectedExit(_ incident: QuillCodeDesktopUnexpectedExit) {
+        if incident.requiresRecoveryStartup {
+            controller.continueWithAutomaticWorkspaceServicesPaused()
+        }
         unexpectedExit = nil
         QuillCodeDesktopIssueReporter.open(
             configuration: controller.updateController.configuration,
