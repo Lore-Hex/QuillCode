@@ -140,6 +140,24 @@ enum AgentArtifactContractAuditGate {
             + "contract audit after \(correctionLimitPerPath) corrective attempts."
     }
 
+    static func evidenceContradiction(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> String? {
+        let evidenceValues = decimalObservations(in: evidenceReceipt)
+        guard evidenceValues.count >= 4,
+              structuredObservationLineCount(in: evidenceReceipt) >= 2,
+              containsUnavailableEvidenceClaim(artifact)
+        else { return nil }
+
+        let artifactValues = decimalObservations(in: artifact)
+        guard evidenceValues.isDisjoint(with: artifactValues) else { return nil }
+        let examples = evidenceValues.sorted().prefix(4).joined(separator: ", ")
+        return "The validator passed an artifact that says source values were unavailable, "
+            + "but retained structured evidence contains numeric observations including "
+            + "\(examples). Reconcile the artifact and validate the requested calculations."
+    }
+
     private static func isValidatorCommand(_ command: String) -> Bool {
         let executorPattern = #"(?is)\b(?:python\d*|ruby|perl|node|deno|awk|jq|xmllint|tidy)\b"#
         let assertionPattern = #"(?is)(?:\b(?:assert|validate|validator|verify|verification|lint|check)\b|\b(?:validate|validator|verify|verification|lint|check)[-_][\w.-]*\.(?:py|js|mjs|cjs|rb|pl)\b|\b(?:xmllint|tidy)\b|raise\s+SystemExit|exit\s*\()"#
@@ -149,6 +167,38 @@ enum AgentArtifactContractAuditGate {
         else { return false }
         return executorRegex.firstMatch(in: command, range: range) != nil
             && assertionRegex.firstMatch(in: command, range: range) != nil
+    }
+
+    private static func decimalObservations(in text: String) -> Set<String> {
+        let pattern = #"\b\d{2,5}\.\d{2,8}\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        return Set(regex.matches(in: text, range: range).compactMap { match in
+            guard let valueRange = Range(match.range, in: text) else { return nil }
+            return String(text[valueRange])
+        })
+    }
+
+    private static func structuredObservationLineCount(in text: String) -> Int {
+        text.split(separator: "\n").filter { line in
+            let value = String(line)
+            let hasStructure = value.contains("|") || value.contains("\t")
+            return hasStructure && !decimalObservations(in: value).isEmpty
+        }.count
+    }
+
+    private static func containsUnavailableEvidenceClaim(_ text: String) -> Bool {
+        let patterns = [
+            #"(?is)\b(?:numeric|data|value|index)[\w\s-]{0,40}\btruncat(?:ed|ion)\b"#,
+            #"(?is)\bno\b.{0,100}\b(?:value|index|observation|figure)s?\b.{0,60}\b(?:confirm|retriev|available)"#,
+            #"(?is)\b(?:cannot|could\s+not|unable\s+to)\b.{0,100}\b(?:compute|calculate|confirm|retrieve)\b"#,
+            #"(?is)\b(?:numerator|denominator|source\s+value)s?\b.{0,80}\b(?:unverified|unavailable|missing)\b"#,
+        ]
+        let range = NSRange(text.startIndex..., in: text)
+        return patterns.contains { pattern in
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+            return regex.firstMatch(in: text, range: range) != nil
+        }
     }
 }
 

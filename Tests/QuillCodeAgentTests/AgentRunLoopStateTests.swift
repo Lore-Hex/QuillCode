@@ -580,24 +580,123 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(receipt.contains("next successful research observation"))
     }
 
-    func testResearchEvidenceLedgerEvictsOnlyOldestObservationAtBound() throws {
+    func testResearchEvidenceLedgerEvictsWeakestObservationAtBound() throws {
         var state = AgentRunLoopState()
-        for index in 1...4 {
+        let observations = [
+            "official observation 1 " + String(repeating: "verified ", count: 80),
+            "official observation 2",
+            "official observation 3 " + String(repeating: "detail ", count: 20),
+            "official observation 4 " + String(repeating: "detail ", count: 30),
+        ]
+        for (offset, observation) in observations.enumerated() {
             let fetch = ToolCall(
                 name: ToolDefinition.webFetch.name,
-                argumentsJSON: ToolArguments.json(["url": "https://example.gov/data/\(index)"])
+                argumentsJSON: ToolArguments.json([
+                    "url": "https://example.gov/data/\(offset + 1)",
+                ])
             )
             _ = state.recordCompletedStep(
-                completed(call: fetch, stdout: "official observation \(index)"),
+                completed(call: fetch, stdout: observation),
                 workspaceRoot: root
-            ) { _ in "fetch-\(index)" }
+            ) { _ in "fetch-\(offset + 1)" }
         }
 
         let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
-        XCTAssertFalse(receipt.contains("official observation 1"))
-        XCTAssertTrue(receipt.contains("official observation 2"))
+        XCTAssertTrue(receipt.contains("official observation 1"))
+        XCTAssertFalse(receipt.contains("official observation 2"))
         XCTAssertTrue(receipt.contains("official observation 3"))
         XCTAssertTrue(receipt.contains("official observation 4"))
+    }
+
+    func testShellHTTPErrorDoesNotDisplaceSuccessfulFetchedEvidence() throws {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: fetch,
+                stdout: "Year | Jan | Feb\n2026 | 325.252 | 333.952"
+            ),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        for version in 1...4 {
+            let shell = ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "curl -s https://api.example.gov/v\(version)/data",
+                ])
+            )
+            _ = state.recordCompletedStep(
+                completed(
+                    call: shell,
+                    stdout: "<title>HTTP Status 404 - Not Found</title>"
+                ),
+                workspaceRoot: root
+            ) { _ in "shell-\(version)" }
+        }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("333.952"))
+        XCTAssertFalse(receipt.contains("HTTP Status 404"))
+    }
+
+    func testPassingValidatorDoesNotAuditArtifactThatContradictsResearchEvidence() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: """
+        Calculate every row, run a deterministic validator, and save outputs/report.md.
+        """)
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: fetch,
+                stdout: """
+                Year | Jan | Feb | Mar
+                2025 | 317.671 | 319.082 | 324.054
+                2026 | 325.252 | 326.785 | 333.952
+                """
+            ),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": """
+                # Report
+
+                The numeric values were truncated, so I cannot compute the requested result.
+                """,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let audit = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 validate.py outputs/report.md # validator assertions",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: audit, stdout: "PASS: no unsupported values"),
+            workspaceRoot: root
+        ) { _ in "audit" }
+
+        XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
+        XCTAssertTrue(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
+        XCTAssertTrue(
+            state.failedContractAuditReceipt(at: "outputs/report.md")?
+                .contains("VALIDATION REJECTED") == true
+        )
     }
 
     func testResearchEvidenceLedgerKeepsStrongestObservationForRepeatedURL() throws {

@@ -3,6 +3,50 @@ import QuillCodeCore
 @testable import QuillCodeAgent
 
 final class AgentArtifactContractAuditGateTests: XCTestCase {
+    func testRejectsUnavailableArtifactWhenStructuredEvidenceContainsValues() throws {
+        let evidence = """
+        Year | Jan | Feb | Mar
+        2025 | 317.671 | 319.082 | 324.054
+        2026 | 325.252 | 326.785 | 333.952
+        """
+        let artifact = """
+        # Report
+
+        The numeric value cells were truncated. No CPI index could be confirmed, so I cannot
+        compute the requested restatement.
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("numeric observations"))
+        XCTAssertTrue(issue.contains("requested calculations"))
+    }
+
+    func testAllowsUnavailableDisclosureWhenReceiptHasNoStructuredValues() {
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: "The source was unavailable, so I cannot compute the result.",
+            evidenceReceipt: "HTTP Status 404 - Not Found"
+        ))
+    }
+
+    func testAllowsArtifactThatUsesRetainedStructuredEvidence() {
+        let evidence = """
+        Year | Jan | Feb | Mar
+        2025 | 317.671 | 319.082 | 324.054
+        2026 | 325.252 | 326.785 | 333.952
+        """
+        let artifact = """
+        The bulk endpoint was unavailable, but the official table supplied 333.952 as the latest
+        monthly benchmark, so the requested calculation was completed.
+        """
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)

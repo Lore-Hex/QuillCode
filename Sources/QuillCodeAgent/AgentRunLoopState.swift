@@ -368,11 +368,44 @@ struct AgentRunLoopState: Sendable {
                 among: requiredContractAuditWorkspacePaths
             )
             if completion.result.ok {
-                contractAuditedWorkspacePaths.formUnion(auditedPaths)
-                failedContractAuditWorkspacePaths.subtract(auditedPaths)
-                consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
-                removeFailedContractAuditCallSignatures(for: auditedPaths)
-                removeFailedContractAuditReceipts(for: auditedPaths)
+                let contradicted = Set(auditedPaths.filter { path in
+                    guard let content = currentArtifactText(
+                        at: path,
+                        workspaceRoot: workspaceRoot
+                    ), let evidenceReceipt = latestResearchEvidenceReceipt else {
+                        return false
+                    }
+                    return AgentArtifactContractAuditGate.evidenceContradiction(
+                        artifact: content,
+                        evidenceReceipt: evidenceReceipt
+                    ) != nil
+                })
+                let accepted = auditedPaths.subtracting(contradicted)
+                contractAuditedWorkspacePaths.formUnion(accepted)
+                failedContractAuditWorkspacePaths.subtract(accepted)
+                consumedContractAuditRepairReadbackWorkspacePaths.subtract(accepted)
+                removeFailedContractAuditCallSignatures(for: accepted)
+                removeFailedContractAuditReceipts(for: accepted)
+
+                if !contradicted.isEmpty {
+                    contractAuditedWorkspacePaths.subtract(contradicted)
+                    failedContractAuditWorkspacePaths.formUnion(contradicted)
+                    consumedContractAuditRepairReadbackWorkspacePaths.subtract(contradicted)
+                    let signature = ToolCallFingerprint.make(
+                        name: completion.call.name,
+                        argumentsJSON: completion.call.argumentsJSON
+                    )
+                    for path in contradicted {
+                        failedContractAuditCallSignaturesByWorkspacePath[path] = signature
+                        let content = currentArtifactText(at: path, workspaceRoot: workspaceRoot) ?? ""
+                        let issue = AgentArtifactContractAuditGate.evidenceContradiction(
+                            artifact: content,
+                            evidenceReceipt: latestResearchEvidenceReceipt ?? ""
+                        ) ?? "artifact conflicts with retained research evidence"
+                        failedContractAuditReceiptsByWorkspacePath[path] =
+                            "VALIDATION REJECTED: \(issue)"
+                    }
+                }
             } else {
                 failedContractAuditWorkspacePaths.formUnion(auditedPaths)
                 consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
@@ -515,6 +548,17 @@ struct AgentRunLoopState: Sendable {
         default:
             break
         }
+    }
+
+    private func currentArtifactText(at path: String, workspaceRoot: URL) -> String? {
+        let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+        if let content = latestWrittenTextContents.first(where: { storedPath, _ in
+            AgentArtifactVerificationGate.pathsMatch(storedPath, normalized)
+        })?.value {
+            return content
+        }
+        let url = workspaceRoot.appendingPathComponent(normalized)
+        return try? String(contentsOf: url, encoding: .utf8)
     }
 
     private mutating func recordExistingShellAuthoredArtifacts(workspaceRoot: URL) {
@@ -695,8 +739,10 @@ struct AgentRunLoopState: Sendable {
         )
             || name == ToolDefinition.subagentsRun.name
         if isResearchObservation {
-            let containsSemanticFailure = name == ToolDefinition.webFetch.name
-                && WebFetchSemanticFailure.description(in: completion.result.stdout) != nil
+            let containsSemanticFailure = Self.containsSemanticResearchFailure(
+                call: completion.call,
+                output: completion.result.stdout
+            )
             // Delegated results are new research observations just like fetched pages. If they
             // arrive after an artifact write, that artifact must be reconciled before completion.
             // This is especially important when one worker returns usable evidence alongside a
@@ -724,9 +770,17 @@ struct AgentRunLoopState: Sendable {
                     researchEvidenceReceipts.append(receipt)
                 }
                 if researchEvidenceReceipts.count > Self.maximumResearchEvidenceReceiptCount {
-                    researchEvidenceReceipts.removeFirst(
-                        researchEvidenceReceipts.count - Self.maximumResearchEvidenceReceiptCount
-                    )
+                    let removalCount = researchEvidenceReceipts.count
+                        - Self.maximumResearchEvidenceReceiptCount
+                    for _ in 0..<removalCount {
+                        guard let weakestIndex = researchEvidenceReceipts.indices.min(by: {
+                            Self.researchEvidenceRetentionScore(researchEvidenceReceipts[$0])
+                                < Self.researchEvidenceRetentionScore(
+                                    researchEvidenceReceipts[$1]
+                                )
+                        }) else { break }
+                        researchEvidenceReceipts.remove(at: weakestIndex)
+                    }
                 }
                 let prioritized = researchEvidenceReceipts.enumerated().sorted { left, right in
                     let leftDirect = left.element.toolName != ToolDefinition.subagentsRun.name
@@ -834,6 +888,36 @@ struct AgentRunLoopState: Sendable {
     }
 
     private static let maximumResearchEvidenceReceiptCount = 3
+
+    private static func researchEvidenceRetentionScore(
+        _ receipt: ResearchEvidenceReceipt
+    ) -> Int {
+        let directEvidenceBonus = receipt.toolName == ToolDefinition.subagentsRun.name
+            ? 0
+            : 1_000_000
+        return directEvidenceBonus + receipt.qualityScore
+    }
+
+    private static func containsSemanticResearchFailure(
+        call: ToolCall,
+        output: String
+    ) -> Bool {
+        if WebFetchSemanticFailure.description(in: output) != nil {
+            return true
+        }
+        guard call.name == ToolDefinition.shellRun.name else { return false }
+        let patterns = [
+            #"(?is)<title>\s*HTTP\s+Status\s+[45]\d\d\b"#,
+            #"(?is)<h1>\s*HTTP\s+Status\s+[45]\d\d\b"#,
+            #"(?is)<title>\s*(?:Access\s+Denied|Forbidden|Unauthorized)\s*</title>"#,
+            #"(?is)<h[12]>\s*(?:Access\s+Denied|Forbidden|Unauthorized)\s*</h[12]>"#,
+        ]
+        let range = NSRange(output.startIndex..., in: output)
+        return patterns.contains { pattern in
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+            return regex.firstMatch(in: output, range: range) != nil
+        }
+    }
 
     private mutating func recordResearchCheckpointProgress(
         _ completion: AgentToolStepCompletion
