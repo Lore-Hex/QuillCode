@@ -337,6 +337,41 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("one results-history or annual-report page per company", prompt)
         self.assertIn("remove checkpoint, progress, or future-tense completion language", prompt)
 
+    def test_travel_policy_fixture_materializes_source_and_reimbursement_checks(self):
+        row = self.rows[124]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            policy = (workspace / "inputs" / "current-travel-policy.md").read_text(
+                encoding="utf-8"
+            )
+            with (workspace / "inputs" / "records.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                claims = list(csv.DictReader(source))
+            source_map = (workspace / "inputs" / "source-map.md").read_text(
+                encoding="utf-8"
+            )
+
+        self.assertIn("Policy version: 3.2", policy)
+        self.assertIn("$0.70 per business mile", policy)
+        self.assertIn("up to $65 per", policy)
+        self.assertEqual(len(claims), 5)
+        self.assertEqual(claims[1]["expected_updated_mileage_reimbursement_usd"], "60.90")
+        self.assertEqual(claims[1]["expected_updated_meal_reimbursement_usd"], "75.00")
+        self.assertEqual(claims[2]["review_note"], "pre-effective-date claim")
+        self.assertIn("inputs/current-travel-policy.md", source_map)
+        self.assertIn("inputs/records.csv", source_map)
+        self.assertIn("inputs/current-travel-policy.md", PRIOR.required_source_paths(row))
+        self.assertIn("inputs/records.csv", PRIOR.required_source_paths(row))
+
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("official IRS source", prompt)
+        self.assertIn("effective 2026-01-01", prompt)
+        self.assertIn("preserve every unaffected provision", prompt)
+        self.assertIn("Do not call the company meal cap a GSA or IRS rate", prompt)
+        self.assertIn("all five claims", prompt)
+
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
 

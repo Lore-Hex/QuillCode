@@ -200,6 +200,7 @@ IMPLICIT_SOURCES = {
         ("web analytics export", "inputs/web-analytics.csv"),
     ],
     117: [("named competitor list", "inputs/named-competitors.md")],
+    125: [("current travel policy", "inputs/current-travel-policy.md")],
 }
 
 
@@ -533,6 +534,37 @@ def task_table(row, reference="", item_index=1, count=40):
             ("Japan", "JPY", "2026-07", 20300000),
         ]
 
+    if row["id"] == 125:
+        return [
+            (
+                "claim_id", "employee", "trip_date", "business_miles",
+                "meal_cost_usd", "receipt_attached",
+                "current_mileage_reimbursement_usd", "current_meal_reimbursement_usd",
+                "expected_updated_mileage_reimbursement_usd",
+                "expected_updated_meal_reimbursement_usd", "review_note",
+            ),
+            (
+                "TRV-125-001", "Priya Shah", "2026-01-08", 126, "64.20", "yes",
+                "88.20", "64.20", "91.35", "64.20", "apply 2026 mileage rate",
+            ),
+            (
+                "TRV-125-002", "Rafael Ortiz", "2026-01-19", 84, "82.40", "yes",
+                "58.80", "65.00", "60.90", "75.00", "apply both new limits",
+            ),
+            (
+                "TRV-125-003", "Jo Chen", "2025-12-18", 100, "71.10", "yes",
+                "70.00", "65.00", "70.00", "65.00", "pre-effective-date claim",
+            ),
+            (
+                "TRV-125-004", "Avery Lin", "2026-02-03", 0, "74.00", "yes",
+                "0.00", "65.00", "0.00", "74.00", "meal cap only",
+            ),
+            (
+                "TRV-125-005", "Priya Shah", "2026-03-11", 248, "97.00", "yes",
+                "173.60", "65.00", "179.80", "75.00", "apply both new limits",
+            ),
+        ]
+
     if "kpi-dashboard" in reference.casefold():
         return [
             ("Metric", "Q2", "Q3", "Owner"),
@@ -816,6 +848,42 @@ and period end date. Use official investor-relations releases or SEC filings as 
 primary sources. Atlas Labs values must be calculated from `inputs/records.csv`.
 """
 
+    if row["id"] == 125 and reference == "current travel policy":
+        return """# Atlas Labs Travel and Expense Policy
+
+Policy version: 3.2
+Effective date: 2025-01-01
+Policy owner: Priya Shah, Head of People Operations
+Approver: Rafael Ortiz, Chief Financial Officer
+
+## Scope and authorization
+This policy applies to employees traveling for approved Atlas Labs business. The
+employee's manager must authorize overnight travel before booking. Travelers must use
+the lowest reasonable fare and may not approve their own expense reports.
+
+## Personal vehicle mileage
+Approved business use of a personal vehicle for travel on or after 2025-01-01 is
+reimbursed at $0.70 per business mile. Commuting between home and the employee's
+regular work location is not reimbursable. Parking and tolls may be claimed separately
+with itemized receipts.
+
+## Meals
+Reasonable actual meal costs while traveling overnight are reimbursable up to $65 per
+traveler per calendar day. Alcohol and entertainment are not reimbursable. The cap is
+not a per diem and unused amounts cannot be carried to another day.
+
+## Lodging, receipts, and submission
+Use preferred hotels when available. Itemized receipts are required for lodging and
+for every other individual expense of $50 or more. Expense reports are due within 10
+calendar days after travel ends and must state the business purpose, destination, and
+dates. Finance may return incomplete or unsupported claims for correction.
+
+## Exceptions
+Rafael Ortiz must approve policy exceptions in writing before reimbursement. Preserve
+all provisions other than the mileage rate, meal cap, policy version, and effective
+date when issuing the requested update.
+"""
+
     key = f"{row['category']} {row['task']} {reference}".casefold()
     base = fixture_context(row)
     details = [
@@ -928,6 +996,8 @@ def required_source_paths(row):
         *(relative for _, relative in IMPLICIT_SOURCES.get(row["id"], [])),
     ]
     paths.extend(task_sources or ["inputs/records.csv"])
+    if row["id"] == 125:
+        paths.append("inputs/records.csv")
     task = row["task"].casefold()
     if "last quarter" in task and "memo" in task:
         paths.append("inputs/last-quarter-board-memo.md")
@@ -1221,8 +1291,10 @@ def write_fixture(row, workspace):
         mappings.append(
             f"- `{description}` -> `{relative}` ({count} materialized `{extension}` sources)"
         )
-    if not mappings:
+    if "inputs/records.csv" in required_source_paths(row):
         mappings.append("- task records -> `inputs/records.csv` (materialized evaluation source)")
+    if not mappings:
+        mappings.append("- no additional task source required")
     if row["id"] == 5:
         (inputs / "agenda.txt").write_text(
             "item-003.docx\nitem-001.docx\nitem-005.docx\nitem-002.docx\nitem-004.docx\n",
@@ -1341,6 +1413,18 @@ automation is visible in Quill Cowork's persisted automation state.
             "scale if one is needed to keep Atlas visible. Before finishing, inspect the saved "
             "HTML, verify all four same-row records and the chart, and remove checkpoint, progress, "
             "or future-tense completion language. "
+        )
+    elif row["id"] == 125:
+        task_specific_instruction = (
+            "Update the supplied current policy in full; do not replace it with a change memo or "
+            "research log. Use the current IRS standard business mileage rate effective for 2026 "
+            "from an official IRS source, cite the exact IRS URL next to the rate, and set the new "
+            "$75 daily meal cap. Make both changes effective 2026-01-01, increment the policy "
+            "version, preserve every unaffected provision and named owner/approver, and include a "
+            "short revision history. Use `inputs/records.csv` to verify the before/after treatment "
+            "of all five claims, including the pre-effective-date row. Do not call the company meal "
+            "cap a GSA or IRS rate. Remove draft, checkpoint, pending, next-pass, and future-work "
+            "language before readback. "
         )
     field_instruction = (
         "Because the requested deliverable is a reusable macro, named bracketed runtime "
