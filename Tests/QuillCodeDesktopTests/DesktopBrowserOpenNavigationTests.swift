@@ -94,6 +94,39 @@ final class DesktopBrowserOpenNavigationTests: XCTestCase {
         XCTAssertEqual(controller.renderedSnapshotRefreshCounts.pending, 0)
     }
 
+    func testRepeatedInspectionLexicalDeclarationsAreIsolated() async throws {
+        let root = try makeTempDirectory()
+        let page = root.appendingPathComponent("fixture.html")
+        try "<main><p>First</p><p>Second</p></main>".write(
+            to: page,
+            atomically: true,
+            encoding: .utf8
+        )
+        let tabID = UUID()
+        let controller = DesktopBrowserSessionWindowController(
+            snapshot: BrowserSessionSyncSnapshot(
+                tabs: [
+                    BrowserSessionTabSnapshot(
+                        id: tabID,
+                        title: "fixture.html",
+                        url: page,
+                        isActive: true
+                    ),
+                ],
+                activeTabID: tabID
+            )
+        )
+        defer { controller.close() }
+        _ = try await controller.navigateSelectedTab(to: page)
+
+        let source = "const rows = document.querySelectorAll('p'); rows.length"
+        let first = try await controller.evaluateJavaScriptInSelectedTab(source)
+        let second = try await controller.evaluateJavaScriptInSelectedTab(source)
+
+        XCTAssertEqual(first.valueDescription, "2")
+        XCTAssertEqual(second.valueDescription, "2")
+    }
+
     func testOpenNavigatesAndReturnsTheNavigatedPagesDOM() async throws {
         let presenter = NavigationRecordingPresenter()
         let controller = try makeController(presenter: presenter)
