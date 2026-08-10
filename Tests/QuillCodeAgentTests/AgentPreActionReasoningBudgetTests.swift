@@ -352,6 +352,73 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertLessThan(projected.messages.count, thread.messages.count)
     }
 
+    func testCorrectiveContextPinsSuccessfulResearchOutsideRecentWindow() throws {
+        func toolMessage(name: String, ok: Bool, stdout: String, url: String? = nil) throws
+            -> ChatMessage {
+            var arguments: [String: Any] = [:]
+            if let url { arguments["url"] = url }
+            let argumentsData = try JSONSerialization.data(withJSONObject: arguments)
+            let argumentsJSON = try XCTUnwrap(String(data: argumentsData, encoding: .utf8))
+            let payload: [String: Any] = [
+                "toolCall": [
+                    "name": name,
+                    "argumentsJSON": argumentsJSON,
+                ],
+                "result": [
+                    "ok": ok,
+                    "stdout": stdout,
+                    "stderr": "",
+                    "artifacts": [],
+                ],
+            ]
+            let data = try JSONSerialization.data(withJSONObject: payload)
+            return ChatMessage(
+                role: .tool,
+                content: try XCTUnwrap(String(data: data, encoding: .utf8))
+            )
+        }
+
+        let original = ChatMessage(role: .user, content: "Build the final revenue table.")
+        let delegated = try toolMessage(
+            name: ToolDefinition.subagentsRun.name,
+            ok: true,
+            stdout: "GitLab Q2 236000000 Q3 244400000 Q4 260400000 Q1 264200000"
+        )
+        let fetched = try toolMessage(
+            name: ToolDefinition.webFetch.name,
+            ok: true,
+            stdout: "monday.com Q1 revenue 351300000",
+            url: "https://ir.monday.com/q1-results"
+        )
+        let failedFetch = try toolMessage(
+            name: ToolDefinition.webFetch.name,
+            ok: false,
+            stdout: "untrusted partial value 999999999",
+            url: "https://example.com/failed"
+        )
+        let stale = (0..<12).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "stale-\(index) ", count: 1_000))
+        }
+        let recent = (0..<4).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "recent-\(index) ", count: 1_000))
+        }
+        let thread = ChatThread(
+            title: "recovery",
+            messages: [original, delegated, fetched, failedFetch] + stale + recent
+        )
+
+        let projected = AgentCorrectiveContext.projected(thread)
+        let projectedText = projected.messages.map(\.content).joined(separator: "\n")
+
+        XCTAssertEqual(projected.messages.first?.id, original.id)
+        XCTAssertTrue(projectedText.contains("Host-retained successful research evidence"))
+        XCTAssertTrue(projectedText.contains("GitLab Q2 236000000"))
+        XCTAssertTrue(projectedText.contains("monday.com Q1 revenue 351300000"))
+        XCTAssertTrue(projectedText.contains("https://ir.monday.com/q1-results"))
+        XCTAssertFalse(projectedText.contains("untrusted partial value"))
+        XCTAssertEqual(projected.messages.last?.id, recent.last?.id)
+    }
+
     private func eventStream(
         _ events: [AgentTextStreamEvent]
     ) -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
