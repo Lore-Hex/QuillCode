@@ -237,6 +237,7 @@ struct QuillCodeDesktopRootView: View {
             onSetModel: controller.setModel,
             onToggleModelFavorite: controller.toggleModelFavorite,
             onSaveSettings: controller.saveSettings,
+            onSetRunSpendLimit: controller.setRunSpendLimit,
             onSaveKeyboardShortcuts: controller.saveKeyboardShortcuts,
             onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
             agentImportActions: QuillCodeAgentImportActions(

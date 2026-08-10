@@ -33,6 +33,7 @@ public struct QuillCodeWorkspaceActions {
     let onSetModel: (String) -> Void
     let onToggleModelFavorite: (String) -> Void
     let onSaveSettings: (WorkspaceSettingsUpdate) -> Void
+    let onSetRunSpendLimit: (Double?) -> Void
     let onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     let onStartTrustedRouterSignIn: () -> Void
     let agentImport: QuillCodeAgentImportActions?
@@ -100,6 +101,7 @@ public struct QuillCodeWorkspaceActions {
         onSetModel: @escaping (String) -> Void,
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onSetRunSpendLimit: @escaping (Double?) -> Void = { _ in },
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void = { _ in },
         onStartTrustedRouterSignIn: @escaping () -> Void,
         agentImport: QuillCodeAgentImportActions? = nil,
@@ -164,6 +166,7 @@ public struct QuillCodeWorkspaceActions {
         self.onSetModel = onSetModel
         self.onToggleModelFavorite = onToggleModelFavorite
         self.onSaveSettings = onSaveSettings
+        self.onSetRunSpendLimit = onSetRunSpendLimit
         self.onSaveKeyboardShortcuts = onSaveKeyboardShortcuts
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.agentImport = agentImport

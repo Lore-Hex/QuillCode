@@ -79,11 +79,16 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Current provider account credit balance. This is intentionally separate from context-window
     /// usage and local spend limits because it comes directly from TrustedRouter's account endpoint.
     public var accountBalance: ProviderAccountBalanceSurface?
-    /// Pre-formatted spend chip (e.g. `Spend $0.0050 / $1.00`), or nil when the thread has no
+    /// Pre-formatted spend chip (e.g. `Task Limit $0.0050 / $1.00`), or nil when the thread has no
     /// priced provider usage. When present, renderers prefer this over the raw token-usage chip.
     public var spendStatusLabel: String?
     /// Tooltip/accessibility detail for `spendStatusLabel`, including unpriced-call and token context.
     public var spendStatusDetail: String?
+    /// Priced model spend accumulated by the selected thread. Kept numeric so native renderers can
+    /// offer safe limit adjustments without parsing localized presentation text.
+    public var threadSpendUSD: Double?
+    /// The persisted per-thread review threshold. Nil means model calls have no local spend fuse.
+    public var runSpendLimitUSD: Double?
     public var canNavigateBack: Bool
     public var canNavigateForward: Bool
 
@@ -122,6 +127,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         accountBalance: ProviderAccountBalanceSurface? = nil,
         spendStatusLabel: String? = nil,
         spendStatusDetail: String? = nil,
+        threadSpendUSD: Double? = nil,
+        runSpendLimitUSD: Double? = nil,
         canNavigateBack: Bool = false,
         canNavigateForward: Bool = false
     ) {
@@ -159,6 +166,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.accountBalance = accountBalance
         self.spendStatusLabel = spendStatusLabel
         self.spendStatusDetail = spendStatusDetail
+        self.threadSpendUSD = threadSpendUSD
+        self.runSpendLimitUSD = runSpendLimitUSD
         self.canNavigateBack = canNavigateBack
         self.canNavigateForward = canNavigateForward
     }

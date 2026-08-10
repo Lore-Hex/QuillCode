@@ -24,6 +24,11 @@ extension QuillCodeDesktopController {
         refresh()
     }
 
+    func setRunSpendLimit(_ value: Double?) {
+        settingsCoordinator.setRunSpendFuseUSD(value, on: model)
+        refresh()
+    }
+
     func refreshModelCatalog() async {
         await settingsCoordinator.refreshModelCatalog(on: model)
         refresh()

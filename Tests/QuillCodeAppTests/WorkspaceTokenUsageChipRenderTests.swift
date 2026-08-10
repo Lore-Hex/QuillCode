@@ -8,7 +8,9 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         tokenBudget: TokenBudgetSurface? = nil,
         accountBalance: ProviderAccountBalanceSurface? = nil,
         spendStatusLabel: String? = nil,
-        spendStatusDetail: String? = nil
+        spendStatusDetail: String? = nil,
+        threadSpendUSD: Double? = nil,
+        runSpendLimitUSD: Double? = nil
     ) -> TopBarSurface {
         TopBarSurface(
             appName: "QuillCode",
@@ -29,7 +31,9 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             tokenBudget: tokenBudget,
             accountBalance: accountBalance,
             spendStatusLabel: spendStatusLabel,
-            spendStatusDetail: spendStatusDetail
+            spendStatusDetail: spendStatusDetail,
+            threadSpendUSD: threadSpendUSD,
+            runSpendLimitUSD: runSpendLimitUSD
         )
     }
 
@@ -141,6 +145,8 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         object.removeValue(forKey: "accountBalance")
         object.removeValue(forKey: "spendStatusLabel")
         object.removeValue(forKey: "spendStatusDetail")
+        object.removeValue(forKey: "threadSpendUSD")
+        object.removeValue(forKey: "runSpendLimitUSD")
         object.removeValue(forKey: "modelIsLocked")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
@@ -150,6 +156,8 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertNil(decoded.accountBalance)
         XCTAssertNil(decoded.spendStatusLabel)
         XCTAssertNil(decoded.spendStatusDetail)
+        XCTAssertNil(decoded.threadSpendUSD)
+        XCTAssertNil(decoded.runSpendLimitUSD)
         XCTAssertFalse(decoded.modelIsLocked, "absent lock key must decode as unlocked (@QuillCodeDefaultFalse)")
     }
 
@@ -228,15 +236,17 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             makeTopBar(
                 usageStatusLabel: "1.5k ctx · ↑1k ↓500",
                 tokenBudget: makeTokenBudget(),
-                spendStatusLabel: "$0.0050 / $1.00",
-                spendStatusDetail: "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
+                spendStatusLabel: "Task Limit $0.0050 / $1.00",
+                spendStatusDetail: "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500",
+                threadSpendUSD: 0.005,
+                runSpendLimitUSD: 1
             ),
             commands: []
         )
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-spend""#))
-        XCTAssertTrue(html.contains("$0.0050 / $1.00"))
+        XCTAssertTrue(html.contains("Task Limit $0.0050 / $1.00"))
         XCTAssertTrue(html.contains("Latest usage: 1.5k ctx · ↑1k ↓500"))
         XCTAssertTrue(html.contains("topbar-spend-chip"))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))

@@ -6,6 +6,38 @@ import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopSettingsPersistenceTests: XCTestCase {
+    func testQuickSpendLimitPersistsWithoutChangingOtherConfiguration() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root)
+        let bootstrap = makeBootstrap(paths: paths)
+        let original = AppConfig(defaultModel: "acme/specialist", runSpendFuseUSD: 1)
+        try bootstrap.saveConfig(original)
+        let model = try bootstrap.makeModel()
+        let coordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
+
+        coordinator.setRunSpendFuseUSD(2, on: model)
+
+        let persisted = try ConfigStore(fileURL: paths.configFile).load()
+        XCTAssertEqual(model.root.config.runSpendFuseUSD, 2)
+        XCTAssertEqual(persisted.runSpendFuseUSD, 2)
+        XCTAssertEqual(persisted.defaultModel, original.defaultModel)
+    }
+
+    func testQuickSpendLimitRollsBackWhenPersistenceFails() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root)
+        let bootstrap = makeBootstrap(paths: paths)
+        try bootstrap.saveConfig(AppConfig(runSpendFuseUSD: 1))
+        let model = try bootstrap.makeModel()
+        let coordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
+        try replaceConfigFileWithDirectory(paths.configFile)
+
+        coordinator.setRunSpendFuseUSD(2, on: model)
+
+        XCTAssertEqual(model.root.config.runSpendFuseUSD, 1)
+        XCTAssertEqual(model.surface().runtimeIssue?.title, "A settings change is not saved")
+    }
+
     func testQuickConfigurationFailureRemainsVisibleUntilFullSnapshotSucceeds() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root)

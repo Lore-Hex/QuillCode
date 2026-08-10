@@ -93,6 +93,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             accountBalance: accountBalance,
             spendStatusLabel: spendStatus?.label,
             spendStatusDetail: spendStatus?.detail,
+            threadSpendUSD: spendStatus?.spentUSD,
+            runSpendLimitUSD: runSpendFuseUSD,
             canNavigateBack: canNavigateBack,
             canNavigateForward: canNavigateForward
         )
