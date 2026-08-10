@@ -18,6 +18,12 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
             in: "Put every company in the same <tr> as its values."
         ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "Restate every nominal revenue row with the selected CPI basis."
+        ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "Run a deterministic post-write validator against the report."
+        ))
         XCTAssertFalse(AgentArtifactContractAuditGate.requiresAudit(
             in: "Create a polished comparison report with a useful table."
         ))

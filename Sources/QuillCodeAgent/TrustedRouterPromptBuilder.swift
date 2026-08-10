@@ -121,6 +121,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
     perform multi-row arithmetic from memory. Reconcile the computed population to the source row \
     IDs, sort rankings from computed values, revalidate final order and ties, and preserve enough \
     row-level evidence to audit every reported aggregate.
+    - Treat shell-computed quantitative results as canonical. Do not recompute or retype a repeated \
+    figure from rounded values or memory. After writing a quantitative deliverable, parse the saved \
+    artifact with the shell and verify that every repeated amount, rate, total, and formula result is \
+    internally consistent; rewrite the artifact if any duplicate claim disagrees.
     CSV deliverables — serialize and parse before reporting:
     - Create CSV with a standards-compliant serializer (for example Python's `csv` module), not by \
     manually joining values with commas. Quote fields containing commas, quotes, or newlines.

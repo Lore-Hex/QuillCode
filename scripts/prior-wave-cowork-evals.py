@@ -28,6 +28,7 @@ import zlib
 import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -1460,6 +1461,11 @@ automation is visible in Quill Cowork's persisted automation state.
             "Keep full precision in calculations and round displayed dollars to the nearest "
             "dollar. Do not invent a 2025 missing-month value. Do not invent a full-year "
             "2026 CPI value. "
+            "Every fiscal-year row must include its nominal revenue, selected CPI basis, "
+            "recalculated real revenue, and growth result. After writing the deliverable, run "
+            "a deterministic post-write validator that parses it, independently recalculates "
+            "each real-revenue value from the stated full-precision CPI inputs, and rejects any "
+            "repeated dollar amount or growth result that disagrees with the canonical result. "
             "Before readback, remove duplicate or malformed Markdown table headers. "
         )
     field_instruction = (
@@ -2296,6 +2302,64 @@ def validate_task_126_real_revenue(path):
         int(value.replace(",", ""))
         for value in re.findall(r"\$\s*(\d[\d,]{5,})", text)
     }
+    cpi_values = {}
+    missing_cpi_years = []
+    for year in (2023, 2024, 2025, 2026):
+        candidates = []
+        pattern = re.compile(
+            rf"\b{year}\b[^\n]{{0,80}}?\b([23]\d{{2}}\.\d{{3,9}})\b"
+        )
+        for match in pattern.finditer(text):
+            raw_value = match.group(1)
+            try:
+                candidates.append((len(raw_value.partition(".")[2]), Decimal(raw_value)))
+            except InvalidOperation:
+                continue
+        if candidates:
+            cpi_values[year] = max(candidates, key=lambda candidate: candidate[0])[1]
+        else:
+            missing_cpi_years.append(year)
+
+    nominal_by_year = {2023: 4200000, 2024: 5100000, 2025: 6000000}
+    expected_real_by_year = {}
+    inconsistent_dollar_values = []
+    expected_growth_percentages = []
+    inconsistent_percentage_values = []
+    if not missing_cpi_years:
+        target_cpi = cpi_values[2026]
+        adjusted_by_year = {}
+        for year, nominal in nominal_by_year.items():
+            adjusted = Decimal(nominal) * target_cpi / cpi_values[year]
+            adjusted_by_year[year] = adjusted
+            expected_real_by_year[year] = int(adjusted.quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            ))
+        allowed_values = set(nominal_by_year.values()) | set(expected_real_by_year.values())
+        inconsistent_dollar_values = sorted(
+            value for value in dollar_values
+            if value >= 1_000_000
+            and not any(abs(value - allowed) <= 1 for allowed in allowed_values)
+        )
+        expected_growth_percentages = [
+            (Decimal(nominal_by_year[2024]) / nominal_by_year[2023] - 1) * 100,
+            (Decimal(nominal_by_year[2025]) / nominal_by_year[2024] - 1) * 100,
+            (Decimal(nominal_by_year[2025]) / nominal_by_year[2023] - 1) * 100,
+            (adjusted_by_year[2024] / adjusted_by_year[2023] - 1) * 100,
+            (adjusted_by_year[2025] / adjusted_by_year[2024] - 1) * 100,
+            (adjusted_by_year[2025] / adjusted_by_year[2023] - 1) * 100,
+        ]
+        percentage_values = {
+            Decimal(value)
+            for value in re.findall(r"(?<![\d.])([+-]?\d+(?:\.\d+)?)\s*%", text)
+        }
+        inconsistent_percentage_values = sorted(
+            value for value in percentage_values
+            if not any(
+                abs(value - expected) <= Decimal("0.02")
+                for expected in expected_growth_percentages
+            )
+        )
     revenue_table_headers = [
         line for line in text.splitlines()
         if line.lstrip().startswith("|")
@@ -2348,7 +2412,14 @@ def validate_task_126_real_revenue(path):
             and ("/" in text or "÷" in text)
         ),
         "growth comparison": bool(re.search(r"year[- ]over[- ]year|yoy", text, re.I)),
+        "cumulative growth comparison": bool(
+            re.search(r"cumulative", text, re.I)
+            and re.search(r"2023.{0,20}2025", compact_text, re.I)
+        ),
         "three adjusted amounts": len(dollar_values) >= 6,
+        "CPI values for deterministic recomputation": not missing_cpi_years,
+        "internally consistent dollar calculations": not inconsistent_dollar_values,
+        "internally consistent growth calculations": not inconsistent_percentage_values,
         "one well-formed revenue table": (
             len(revenue_table_headers) == 1
             and revenue_table_headers[0].count("|") >= 4
@@ -2358,7 +2429,10 @@ def validate_task_126_real_revenue(path):
     valid = not missing_years and not missing_nominal_revenue and not failed
     detail = (
         f"missing years={missing_years}; missing nominal revenue={missing_nominal_revenue}; "
-        f"failed checks={failed}; unique large dollar values={len(dollar_values)}"
+        f"failed checks={failed}; CPI values={cpi_values}; expected real={expected_real_by_year}; "
+        f"inconsistent dollar values={inconsistent_dollar_values}; "
+        f"inconsistent percentages={inconsistent_percentage_values}; "
+        f"unique large dollar values={len(dollar_values)}"
     )
     return valid, detail
 

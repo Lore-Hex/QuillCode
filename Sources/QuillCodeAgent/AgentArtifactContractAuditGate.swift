@@ -19,6 +19,8 @@ enum AgentArtifactContractAuditGate {
             #"(?is)\bfirst\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:cells?|columns?|rows?|fields?)\b"#,
             #"(?is)\b(?:same|single)\s+<(?:tr|td|th)\b"#,
             #"(?is)\b(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|section|email|slide|sheet|column|cell|series)\b.{0,120}\b(?:must|needs?\s+to|has\s+to|include|contain)\b"#,
+            #"(?is)\b(?:restate|convert|calculate|compute|reconcile|transform)\s+(?:each|every)\s+(?:[\w-]+\s+){0,4}(?:rows?|records?|entries?|items?)\b"#,
+            #"(?is)\b(?:deterministic|programmatic|machine[- ]checkable)\s+(?:post[- ]write\s+)?(?:validator|validation|audit)\b"#,
         ]
         let range = NSRange(userMessage.startIndex..., in: userMessage)
         return patterns.contains { pattern in

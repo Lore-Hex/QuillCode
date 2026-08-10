@@ -394,31 +394,54 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not invent a 2025 missing-month value", prompt)
         self.assertIn("latest published monthly 2026 index", prompt)
         self.assertIn("Do not invent a full-year 2026 CPI value", prompt)
+        self.assertIn("deterministic post-write validator", prompt)
+        self.assertIn("rejects any repeated dollar amount", prompt)
         self.assertEqual(PRIOR.minimum_source_citation_count(row), 1)
 
     def test_real_revenue_semantics_require_bls_basis_and_adjusted_values(self):
         artifact = """# Real revenue in 2026 dollars
 
-Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023 and
-2024 inputs are annual-average indexes. The BLS 2025 annual average is not
+Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023 (304.701583)
+and 2024 (313.688833) inputs are annual-average indexes. The BLS 2025 annual average is not
 published because October is unavailable, so 321.943 is an 11-observation
 observed-month proxy. The latest monthly 2026 index is the July benchmark, not
-a completed annual average.
+a completed annual average. Its value is 333.952.
 Source: https://www.bls.gov/cpi/data.htm
+
+2023 CPI basis: 304.701583
+2024 CPI basis: 313.688833
+2025 CPI basis: 321.943
+2026 CPI benchmark: 333.952
 
 Real revenue = nominal revenue x (latest 2026 CPI / selected CPI basis index).
 
-| Year | Nominal revenue | Real revenue | Year-over-year growth |
-| --- | ---: | ---: | ---: |
-| 2023 | $4,200,000 | $4,600,000 | n/a |
-| 2024 | $5,100,000 | $5,400,000 | 17.4% |
-| 2025 | $6,000,000 | $6,100,000 | 13.0% |
+| Year | Nominal revenue | Real revenue | Nominal YoY | Real YoY |
+| --- | ---: | ---: | ---: | ---: |
+| 2023 | $4,200,000 | $4,603,187 | n/a | n/a |
+| 2024 | $5,100,000 | $5,429,442 | 21.43% | 17.95% |
+| 2025 | $6,000,000 | $6,223,810 | 17.65% | 14.63% |
+
+Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
 """
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "result.md"
             path.write_text(artifact, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
+
+            contradictory = artifact + "\n- 2023 real revenue: $4,603,314\n"
+            path.write_text(contradictory, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("internally consistent dollar calculations", detail)
+            self.assertIn("4603314", detail)
+
+            contradictory_growth = artifact + "\n- Cumulative real growth: 99%\n"
+            path.write_text(contradictory_growth, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("internally consistent growth calculations", detail)
+            self.assertIn("99", detail)
 
             path.write_text(artifact.replace("CUUR0000SA0", "unknown series"), encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
@@ -435,9 +458,9 @@ Real revenue = nominal revenue x (latest 2026 CPI / selected CPI basis index).
             self.assertIn("2025 basis is not mislabeled", detail)
 
             duplicate_header = artifact.replace(
-                "| Year | Nominal revenue | Real revenue | Year-over-year growth |",
-                "| Year | Nominal revenue | Real revenue | Year-over-year growth |\n"
-                "| Year | Nominal revenue | Real revenue | Year-over-year growth |",
+                "| Year | Nominal revenue | Real revenue | Nominal YoY | Real YoY |",
+                "| Year | Nominal revenue | Real revenue | Nominal YoY | Real YoY |\n"
+                "| Year | Nominal revenue | Real revenue | Nominal YoY | Real YoY |",
             )
             path.write_text(duplicate_header, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)

@@ -356,6 +356,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("use the shell to compute and validate"))
         XCTAssertTrue(prompt.contains("Reconcile the computed population to the source row IDs"))
         XCTAssertTrue(prompt.contains("Do not perform multi-row arithmetic from memory"))
+        XCTAssertTrue(prompt.contains("Treat shell-computed quantitative results as canonical"))
+        XCTAssertTrue(prompt.contains("every repeated amount, rate, total, and formula result"))
     }
 
     func testPromptRequiresStandardsCompliantCSVAndParseBack() {
