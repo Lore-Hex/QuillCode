@@ -82,6 +82,11 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
+    public func setRunSpendFuseUSD(_ value: Double?) {
+        root.config.runSpendFuseUSD = RunSpendLedger.normalizedFuse(value)
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
     public func setKeyboardShortcutPreferences(_ preferences: KeyboardShortcutPreferences) {
         root.config.keyboardShortcuts = preferences
     }

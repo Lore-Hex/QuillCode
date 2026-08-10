@@ -40,6 +40,18 @@ struct QuillCodeDesktopSettingsCoordinator {
         persist(model.root.config, on: model)
     }
 
+    func setRunSpendFuseUSD(_ value: Double?, on model: QuillCodeWorkspaceModel) {
+        let previousValue = model.root.config.runSpendFuseUSD
+        model.setRunSpendFuseUSD(value)
+        do {
+            try bootstrap.saveConfig(model.root.config)
+            model.recordSettingsPersistenceSuccess([.configuration])
+        } catch {
+            model.setRunSpendFuseUSD(previousValue)
+            model.recordSettingsPersistenceFailure([.configuration])
+        }
+    }
+
     func refreshModelCatalog(on model: QuillCodeWorkspaceModel) async {
         let catalog = await bootstrap.fetchModelCatalog(config: model.root.config)
         model.setModelCatalog(catalog)

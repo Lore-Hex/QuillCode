@@ -106,6 +106,22 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         )
     }
 
+    func testQuickSpendLimitChangeDoesNotChangeTheSelectedThreadsModeOrModel() {
+        let thread = ChatThread(mode: .review, model: "acme/specialist")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(defaultModel: TrustedRouterDefaults.fastModel, mode: .auto),
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.setRunSpendFuseUSD(2)
+
+        XCTAssertEqual(model.root.config.runSpendFuseUSD, 2)
+        XCTAssertEqual(model.selectedThread?.mode, .review)
+        XCTAssertEqual(model.selectedThread?.model, "acme/specialist")
+        XCTAssertEqual(model.surface().topBar.runSpendLimitUSD, 2)
+    }
+
     func testBootstrapLoadsConfigAndPersistedThreads() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))

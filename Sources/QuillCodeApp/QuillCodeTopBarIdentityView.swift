@@ -1,8 +1,11 @@
 import SwiftUI
+import QuillCodeCore
 
 struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
+    var onSetSpendLimit: (Double?) -> Void = { _ in }
     @State private var showsKeyUsageDetails = false
+    @State private var showsSpendLimitDetails = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
@@ -82,9 +85,31 @@ struct QuillCodeTopBarIdentityView: View {
             }
 
             if let spendStatusLabel = topBar.spendStatusLabel {
-                statusChip(spendStatusLabel, tint: QuillCodePalette.green)
-                    .help(topBar.spendStatusDetail ?? spendStatusLabel)
-                    .accessibilityLabel("Thread spend: \(spendStatusLabel)")
+                Button {
+                    showsSpendLimitDetails.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        statusChip(spendStatusLabel, tint: QuillCodePalette.green)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(QuillCodePalette.green)
+                    }
+                    .contentShape(Rectangle())
+                    .fixedSize(horizontal: true, vertical: false)
+                }
+                .quillCodeCapsuleButtonTarget()
+                .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+                .layoutPriority(2)
+                .help("Adjust this task's spend limit")
+                .accessibilityLabel(spendStatusLabel)
+                .accessibilityHint("Shows controls to increase or decrease this task's spend limit")
+                .accessibilityIdentifier("quillcode-topbar-spend-limit")
+                .popover(isPresented: $showsSpendLimitDetails, arrowEdge: .bottom) {
+                    spendLimitPopover(
+                        spentUSD: topBar.threadSpendUSD ?? 0,
+                        limitUSD: topBar.runSpendLimitUSD
+                    )
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -129,6 +154,91 @@ struct QuillCodeTopBarIdentityView: View {
         .padding(14)
         .frame(width: 340)
         .background(QuillCodePalette.background)
+    }
+
+    private func spendLimitPopover(spentUSD: Double, limitUSD: Double?) -> some View {
+        let lowerLimit = SpendLimitAdjustment.decreasedLimit(
+            current: limitUSD,
+            spentUSD: spentUSD
+        )
+        let higherLimit = SpendLimitAdjustment.increasedLimit(
+            current: limitUSD,
+            spentUSD: spentUSD
+        )
+        return VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Spend limit")
+                    .font(.headline)
+                Text("Current task: \(RunSpendLedger.costLabel(spentUSD))")
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+
+            HStack(spacing: 10) {
+                spendLimitAdjustmentButton(
+                    systemName: "minus",
+                    label: "Decrease spend limit",
+                    isEnabled: lowerLimit != nil
+                ) {
+                    onSetSpendLimit(lowerLimit)
+                }
+
+                VStack(spacing: 2) {
+                    Text(limitUSD.map { RunSpendLedger.costLabel($0) } ?? "No limit")
+                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(QuillCodePalette.text)
+                    Text("per task")
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity)
+
+                spendLimitAdjustmentButton(
+                    systemName: "plus",
+                    label: "Increase spend limit",
+                    isEnabled: true
+                ) {
+                    onSetSpendLimit(higherLimit)
+                }
+            }
+
+            Text("QuillCode asks before the next paid model call after this task reaches the limit.")
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if limitUSD != nil {
+                Button("Remove limit") {
+                    onSetSpendLimit(nil)
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .foregroundStyle(QuillCodePalette.muted)
+                .quillCodeTextButtonTarget(minWidth: 104)
+                .accessibilityIdentifier("quillcode-spend-limit-remove")
+            }
+        }
+        .padding(14)
+        .frame(width: 300)
+        .background(QuillCodePalette.background)
+    }
+
+    private func spendLimitAdjustmentButton(
+        systemName: String,
+        label: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(QuillCodePalette.green)
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .quillCodeIconButtonTarget()
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier("quillcode-spend-limit-\(systemName)")
     }
 
     /// The context chip stays SHORT on purpose: "Context 70.4k / 200k" plus a small meter. Remaining,

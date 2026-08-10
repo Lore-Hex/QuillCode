@@ -78,6 +78,7 @@ public struct QuillCodeWorkspaceView: View {
         onSetModel: @escaping (String) -> Void,
         onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onSetRunSpendLimit: @escaping (Double?) -> Void = { _ in },
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void = { _ in },
         onStartTrustedRouterSignIn: @escaping () -> Void,
         agentImportActions: QuillCodeAgentImportActions? = nil,
@@ -154,6 +155,7 @@ public struct QuillCodeWorkspaceView: View {
             onSetModel: onSetModel,
             onToggleModelFavorite: onToggleModelFavorite,
             onSaveSettings: onSaveSettings,
+            onSetRunSpendLimit: onSetRunSpendLimit,
             onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             agentImport: agentImportActions,
@@ -195,6 +197,7 @@ public struct QuillCodeWorkspaceView: View {
                 topBar: surface.topBar,
                 commands: surface.commands,
                 leadingInset: surface.chrome.isSidebarVisible ? QuillCodeMetrics.sidebarWidth : 0,
+                onSetSpendLimit: actions.onSetRunSpendLimit,
                 onCommand: handleCommand
             )
             Divider()

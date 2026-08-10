@@ -4,6 +4,7 @@ struct QuillCodeTopBarView: View {
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
     var leadingInset: CGFloat = 0
+    var onSetSpendLimit: (Double?) -> Void = { _ in }
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -51,7 +52,10 @@ struct QuillCodeTopBarView: View {
     }
 
     private var identityGroup: some View {
-        QuillCodeTopBarIdentityView(topBar: topBar)
+        QuillCodeTopBarIdentityView(
+            topBar: topBar,
+            onSetSpendLimit: onSetSpendLimit
+        )
     }
 
     private var showsActivityHairline: Bool {

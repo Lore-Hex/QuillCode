@@ -4,6 +4,8 @@ import QuillCodeCore
 struct WorkspaceTopBarSpendStatus: Sendable, Hashable {
     var label: String
     var detail: String
+    var spentUSD: Double
+    var limitUSD: Double?
 }
 
 enum WorkspaceTopBarSpendStatusBuilder {
@@ -21,9 +23,15 @@ enum WorkspaceTopBarSpendStatusBuilder {
 
         let limitLabel = ledger.fuseUSD.map { " / \(RunSpendLedger.costLabel($0))" } ?? ""
         let unpricedSuffix = ledger.unpricedCallCount > 0 ? " + unpriced" : ""
-        let label = "\(RunSpendLedger.costLabel(ledger.totalUSD))\(unpricedSuffix)\(limitLabel)"
+        let prefix = ledger.fuseUSD == nil ? "Spend " : "Spend limit "
+        let label = "\(prefix)\(RunSpendLedger.costLabel(ledger.totalUSD))\(unpricedSuffix)\(limitLabel)"
         let detail = detailText(thread: thread, ledger: ledger)
-        return WorkspaceTopBarSpendStatus(label: label, detail: detail)
+        return WorkspaceTopBarSpendStatus(
+            label: label,
+            detail: detail,
+            spentUSD: ledger.totalUSD,
+            limitUSD: ledger.fuseUSD
+        )
     }
 
     private static func detailText(thread: ChatThread, ledger: RunSpendLedger) -> String {
