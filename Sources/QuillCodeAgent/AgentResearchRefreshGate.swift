@@ -54,10 +54,14 @@ enum AgentResearchRefreshGate {
             path: path,
             prompt: """
             Research-completion check: you successfully fetched live source evidence after the latest \
-            write of ./\(path). Update that exact deliverable now so it incorporates the relevant \
-            verified facts and citations, or explicitly records why the fetched evidence is unusable. \
-            Do this \(reason), then read ./\(path) back after the rewrite. Do not continue from the \
-            pre-research draft.
+            write of ./\(path). Rewrite that exact artifact as a complete current deliverable, not a \
+            progress update. Incorporate the relevant verified facts and exact source URLs, or state \
+            honestly why evidence is unusable or unavailable. Resolve every evidence gap possible \
+            from the current tool results. Remove TODO, pending, draft, checkpoint, in-progress, \
+            next-pass, and other future-work language. Do this \(reason), then read ./\(path) back \
+            after the rewrite. Treat the pre-research draft's structure as disposable. You may resume \
+            genuinely necessary research after readback, but do not describe that future work inside \
+            the deliverable.
             """
         )
     }
