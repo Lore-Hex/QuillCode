@@ -765,6 +765,52 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertLessThan(directRange.lowerBound, delegatedRange.lowerBound)
     }
 
+    func testCorrectiveContextKeepsStrongestFetchPerURLAndDropsSemanticFailures() throws {
+        func toolMessage(stdout: String, url: String) throws -> ChatMessage {
+            let argumentsData = try JSONSerialization.data(withJSONObject: ["url": url])
+            let argumentsJSON = try XCTUnwrap(String(data: argumentsData, encoding: .utf8))
+            let payload: [String: Any] = [
+                "toolCall": [
+                    "name": ToolDefinition.webFetch.name,
+                    "argumentsJSON": argumentsJSON,
+                ],
+                "result": ["ok": true, "stdout": stdout, "stderr": "", "artifacts": []],
+            ]
+            let data = try JSONSerialization.data(withJSONObject: payload)
+            return ChatMessage(
+                role: .tool,
+                content: try XCTUnwrap(String(data: data, encoding: .utf8))
+            )
+        }
+
+        let source = "https://example.gov/series"
+        let complete = try toolMessage(
+            stdout: "Year | Jan | Feb | Jun\n2026 | 325.252 | 326.785 | 333.952",
+            url: source
+        )
+        let truncated = try toolMessage(stdout: "2026 | 325.252", url: source)
+        let apiFailure = try toolMessage(
+            stdout: #"Fetched API\n\n{"status":"REQUEST_NOT_PROCESSED","message":"threshold"}"#,
+            url: "https://api.example.gov/data"
+        )
+        let original = ChatMessage(role: .user, content: "Build the CPI report.")
+        let stale = (0..<12).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "stale-\(index) ", count: 1_000))
+        }
+        let recent = (0..<4).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "recent-\(index) ", count: 1_000))
+        }
+
+        let projected = AgentCorrectiveContext.projected(
+            ChatThread(messages: [original, complete, truncated, apiFailure] + stale + recent)
+        )
+        let text = projected.messages.map(\.content).joined(separator: "\n")
+
+        XCTAssertTrue(text.contains("333.952"))
+        XCTAssertFalse(text.contains("REQUEST_NOT_PROCESSED"))
+        XCTAssertEqual(text.components(separatedBy: "[host.web.fetch (\(source))]").count, 2)
+    }
+
     func testCorrectiveContextPinsCompletedWorkerBeforeLongFailedWorkerOutput() throws {
         let failedNoise = String(repeating: "failed-worker-noise ", count: 1_200)
         let delegatedOutput = """

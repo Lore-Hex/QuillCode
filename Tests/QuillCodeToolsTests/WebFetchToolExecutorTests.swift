@@ -120,6 +120,19 @@ final class WebFetchToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains(#"{"name":"quill"}"#))
     }
 
+    func testHTTP200JSONFailureIsReportedAsToolFailure() {
+        let body = #"{"status":"REQUEST_NOT_PROCESSED","message":"daily threshold reached"}"#
+        let (executor, _) = makeExecutor(responses: [
+            htmlResponse(body, contentType: "application/json")
+        ])
+
+        let result = executor.fetch(urlString: "https://api.example.gov/data")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("REQUEST_NOT_PROCESSED") == true)
+        XCTAssertTrue(result.error?.contains("daily threshold reached") == true)
+    }
+
     func testSchemelessURLDefaultsToHTTPS() {
         let (executor, client) = makeExecutor(responses: [htmlResponse("<p>x</p>")])
         let result = executor.fetch(urlString: "example.com/docs")

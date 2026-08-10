@@ -114,6 +114,8 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(correction.prompt.contains("Never relabel a half-period"))
         XCTAssertTrue(correction.prompt.contains("underlying observations independently"))
         XCTAssertTrue(correction.prompt.contains("locate intended table fields by their headers"))
+        XCTAssertTrue(correction.prompt.contains("rightmost non-missing eligible period"))
+        XCTAssertTrue(correction.prompt.contains("selected period label and value"))
         XCTAssertTrue(correction.prompt.contains("expected values copied from the artifact"))
     }
 

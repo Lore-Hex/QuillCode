@@ -20,7 +20,10 @@ enum AgentArtifactContractAuditGate {
         underlying observations and disclose the observation count and any missing periods. A \
         validator must derive source aggregates from those underlying observations independently of \
         the artifact and must locate intended table fields by their headers, not by taking the first \
-        similar number or currency value from a row.
+        similar number or currency value from a row. For a latest-period claim, pair the ordered \
+        period headers with the row values and select the rightmost non-missing eligible period; \
+        exclude summary, half-period, subtotal, and projection columns, and assert both the selected \
+        period label and value.
         """
 
     static func requiresAudit(in userMessage: String) -> Bool {

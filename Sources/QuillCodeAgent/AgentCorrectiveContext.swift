@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 /// Projects a failed turn into a compact scratch context for action-only recovery. The durable
 /// thread remains untouched; the correction keeps the original request and the most recent tool
@@ -14,6 +15,18 @@ enum AgentCorrectiveContext {
         var toolName: String
         var source: String?
         var stdout: String
+
+        var sourceKey: String? {
+            guard toolName == ToolDefinition.webFetch.name, let source else { return nil }
+            return AgentCitationIntegrityGate.normalize(source)
+        }
+
+        var qualityScore: Int {
+            let structuredLineCount = stdout.split(separator: "\n").filter { line in
+                line.contains("|") || line.contains("\t")
+            }.count
+            return stdout.count + min(structuredLineCount, 100) * 250
+        }
     }
 
     private struct DelegatedResearchOutput: Decodable {
@@ -79,9 +92,8 @@ enum AgentCorrectiveContext {
         from messages: [ChatMessage]
     ) -> String {
         let parsed = messages.compactMap(successfulResearchEvidence)
-        let prioritized = Array(
-            parsed.filter { $0.toolName == ToolDefinition.webFetch.name }.reversed()
-        ) + Array(parsed.filter { $0.toolName == ToolDefinition.subagentsRun.name }.reversed())
+        let prioritized = strongestDirectEvidence(from: parsed)
+            + Array(parsed.filter { $0.toolName == ToolDefinition.subagentsRun.name }.reversed())
 
         var entries: [String] = []
         var retainedCharacters = 0
@@ -110,6 +122,30 @@ enum AgentCorrectiveContext {
         """
     }
 
+    private static func strongestDirectEvidence(
+        from evidence: [ResearchEvidence]
+    ) -> [ResearchEvidence] {
+        var retained: [(index: Int, evidence: ResearchEvidence)] = []
+        var indexBySource: [String: Int] = [:]
+
+        for (index, observation) in evidence.enumerated()
+            where observation.toolName == ToolDefinition.webFetch.name {
+            guard let sourceKey = observation.sourceKey else {
+                retained.append((index, observation))
+                continue
+            }
+            if let retainedIndex = indexBySource[sourceKey] {
+                if observation.qualityScore >= retained[retainedIndex].evidence.qualityScore {
+                    retained[retainedIndex] = (index, observation)
+                }
+            } else {
+                indexBySource[sourceKey] = retained.count
+                retained.append((index, observation))
+            }
+        }
+        return retained.sorted { $0.index > $1.index }.map(\.evidence)
+    }
+
     private static func successfulResearchEvidence(
         from message: ChatMessage
     ) -> ResearchEvidence? {
@@ -125,6 +161,11 @@ enum AgentCorrectiveContext {
               let stdout = result["stdout"] as? String,
               !stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return nil }
+
+        if toolName == ToolDefinition.webFetch.name,
+           WebFetchSemanticFailure.description(in: stdout) != nil {
+            return nil
+        }
 
         var source: String?
         if let argumentsJSON = toolCall["argumentsJSON"] as? String,

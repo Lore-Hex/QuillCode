@@ -204,6 +204,13 @@ public struct WebFetchToolExecutor: Sendable {
             declaredCharset: WebFetchResponseDecoder.charset(of: contentType),
             sniffHTMLMeta: classification == .html
         )
+        if classification != .html,
+           let semanticFailure = WebFetchSemanticFailure.description(in: text) {
+            return Self.failure(
+                "\(finalURL.absoluteString) returned HTTP \(response.statusCode) but the request failed: "
+                    + semanticFailure
+            )
+        }
 
         var content: String
         var converterTruncated = false

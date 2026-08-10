@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 struct AgentRunLoopState: Sendable {
     private(set) var toolResults: [ToolResult] = []
@@ -19,7 +20,13 @@ struct AgentRunLoopState: Sendable {
     /// ledger. Corrective synthesis and validation prompts can surface exact evidence again after
     /// long transcripts have diluted the original tool observations.
     private(set) var latestResearchEvidenceReceipt: String?
-    private var researchEvidenceReceipts: [String] = []
+    private struct ResearchEvidenceReceipt: Sendable {
+        var sourceKey: String
+        var toolName: String
+        var text: String
+        var qualityScore: Int
+    }
+    private var researchEvidenceReceipts: [ResearchEvidenceReceipt] = []
     private(set) var writtenWorkspacePaths: Set<String> = []
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
@@ -603,28 +610,46 @@ struct AgentRunLoopState: Sendable {
         )
             || name == ToolDefinition.subagentsRun.name
         if isResearchObservation {
+            let containsSemanticFailure = name == ToolDefinition.webFetch.name
+                && WebFetchSemanticFailure.description(in: completion.result.stdout) != nil
             // Delegated results are new research observations just like fetched pages. If they
             // arrive after an artifact write, that artifact must be reconciled before completion.
             // This is especially important when one worker returns usable evidence alongside a
             // partial/failed worker: the parent should preserve what it learned, not silently bless
             // the pre-delegation draft.
             if AgentResearchCheckpointGate.isDirectResearchCollectionCall(completion.call),
-               name != ToolDefinition.webSearch.name {
+               name != ToolDefinition.webSearch.name,
+               !containsSemanticFailure {
                 didFetchSuccessfully = true
             }
             if name != ToolDefinition.webSearch.name,
+               !containsSemanticFailure,
                let receipt = Self.researchEvidenceReceipt(
-                toolName: name,
+                call: completion.call,
                 output: completion.result.stdout
             ) {
-                researchEvidenceReceipts.removeAll(where: { $0 == receipt })
-                researchEvidenceReceipts.append(receipt)
+                if let existingIndex = researchEvidenceReceipts.firstIndex(where: {
+                    $0.sourceKey == receipt.sourceKey
+                }) {
+                    if receipt.qualityScore >= researchEvidenceReceipts[existingIndex].qualityScore {
+                        researchEvidenceReceipts.remove(at: existingIndex)
+                        researchEvidenceReceipts.append(receipt)
+                    }
+                } else {
+                    researchEvidenceReceipts.append(receipt)
+                }
                 if researchEvidenceReceipts.count > Self.maximumResearchEvidenceReceiptCount {
                     researchEvidenceReceipts.removeFirst(
                         researchEvidenceReceipts.count - Self.maximumResearchEvidenceReceiptCount
                     )
                 }
-                latestResearchEvidenceReceipt = researchEvidenceReceipts.joined(
+                let prioritized = researchEvidenceReceipts.enumerated().sorted { left, right in
+                    let leftDirect = left.element.toolName != ToolDefinition.subagentsRun.name
+                    let rightDirect = right.element.toolName != ToolDefinition.subagentsRun.name
+                    if leftDirect != rightDirect { return leftDirect }
+                    return left.offset < right.offset
+                }.map(\.element.text)
+                latestResearchEvidenceReceipt = prioritized.joined(
                     separator: "\n\n--- next successful research observation ---\n\n"
                 )
             }
@@ -665,14 +690,20 @@ struct AgentRunLoopState: Sendable {
         })
     }
 
-    private static func researchEvidenceReceipt(toolName: String, output: String) -> String? {
+    private static func researchEvidenceReceipt(
+        call: ToolCall,
+        output: String
+    ) -> ResearchEvidenceReceipt? {
+        let toolName = call.name
         let receiptOutput: String
+        var observedURL: String?
         if toolName == ToolDefinition.browserScript.name,
            let data = output.data(using: .utf8),
            let script = try? JSONDecoder().decode(BrowserScriptToolOutput.self, from: data) {
             let value = script.value.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !value.isEmpty else { return nil }
             receiptOutput = "Page: \(script.title)\nURL: \(script.url)\nExtracted value:\n\(value)"
+            observedURL = script.url
         } else {
             receiptOutput = output
         }
@@ -689,7 +720,32 @@ struct AgentRunLoopState: Sendable {
                 + "\n[...middle of evidence receipt omitted...]\n"
                 + String(trimmed.suffix(half))
         }
-        return "Successful \(toolName) observation:\n\(bounded)"
+        if observedURL == nil,
+           let arguments = try? ToolArguments(call.argumentsJSON) {
+            observedURL = arguments.string("url")
+        }
+        if observedURL == nil {
+            observedURL = AgentCitationIntegrityGate.allURLs(in: receiptOutput).first
+        }
+        let isDelegated = toolName == ToolDefinition.subagentsRun.name
+        let callFingerprint = ToolCallFingerprint.make(
+            name: toolName,
+            argumentsJSON: call.argumentsJSON
+        ).value
+        let sourceKey = if !isDelegated, let observedURL {
+            "direct:\(AgentCitationIntegrityGate.normalize(observedURL))"
+        } else {
+            (isDelegated ? "delegated:" : "direct:") + callFingerprint
+        }
+        let structuredLineCount = trimmed.split(separator: "\n").filter { line in
+            line.contains("|") || line.contains("\t")
+        }.count
+        return ResearchEvidenceReceipt(
+            sourceKey: sourceKey,
+            toolName: toolName,
+            text: "Successful \(toolName) observation:\n\(bounded)",
+            qualityScore: trimmed.count + min(structuredLineCount, 100) * 250
+        )
     }
 
     private static let maximumResearchEvidenceReceiptCount = 3

@@ -504,6 +504,47 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(receipt.contains("official observation 4"))
     }
 
+    func testResearchEvidenceLedgerKeepsStrongestObservationForRepeatedURL() throws {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: fetch,
+                stdout: "Year | Jan | Feb | Mar\n2026 | 325.252 | 326.785 | 333.952"
+            ),
+            workspaceRoot: root
+        ) { _ in "complete-fetch" }
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "2026 | 325.252"),
+            workspaceRoot: root
+        ) { _ in "short-fetch" }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("333.952"))
+        XCTAssertEqual(receipt.components(separatedBy: "Successful host.web.fetch observation").count, 2)
+    }
+
+    func testSemanticAPIFailureDoesNotBecomeSuccessfulResearchEvidence() {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://api.example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: fetch,
+                stdout: #"Fetched https://api.example.gov/data (HTTP 200).\n\n{"status":"REQUEST_NOT_PROCESSED","message":"threshold"}"#
+            ),
+            workspaceRoot: root
+        ) { _ in "semantic-failure" }
+
+        XCTAssertNil(state.latestResearchEvidenceReceipt)
+        XCTAssertFalse(state.didFetchSuccessfully)
+    }
+
     func testSearchSnippetsDoNotDisplaceFetchedResearchEvidence() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(
