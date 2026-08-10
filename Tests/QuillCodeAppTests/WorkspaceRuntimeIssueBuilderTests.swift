@@ -138,6 +138,22 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.prometheusModelDisplayName) == true)
     }
 
+    func testOversizedResponseOffersFocusedModelRecovery() {
+        let issue = WorkspaceRuntimeIssueBuilder.issue(
+            from: "The model response exceeded the 16 MiB action safety limit.",
+            config: AppConfig()
+        )
+
+        XCTAssertEqual(issue?.severity, .warning)
+        XCTAssertEqual(issue?.title, "Model response was too large")
+        XCTAssertEqual(issue?.actionLabel, "Switch model")
+        XCTAssertEqual(issue?.recovery, RuntimeRecoveryTelemetry(
+            route: .modelPicker,
+            reason: .malformedModelAction
+        ))
+        XCTAssertTrue(issue?.message.contains("narrower request") == true)
+    }
+
     func testRejectedKeyIssueUsesSettingsRecoveryTelemetry() {
         let issue = WorkspaceRuntimeIssueBuilder.issue(
             from: "HTTP 401 invalid api key",

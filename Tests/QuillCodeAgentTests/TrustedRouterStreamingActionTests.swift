@@ -46,6 +46,78 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(action, .say("hello"))
     }
 
+    func testCollectActionCoalescesRapidVisibleDraftsAndFlushesFinalText() async throws {
+        let finalText = String(repeating: "x", count: 4_096)
+        let events = [AgentTextStreamEvent.text(#"{"type":"say","text":""#)]
+            + finalText.map { .text(String($0)) }
+            + [.text(#""}"#)]
+        var drafts: [String] = []
+
+        let action = try await AgentActionStreamCollector.collect(
+            from: eventStream(events),
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: { drafts.append($0) },
+            onUsage: nil,
+            onReasoning: nil,
+            maximumActionUTF8Bytes: 32 * 1_024,
+            previewIntervalNanoseconds: 50_000_000,
+            nowNanoseconds: { 1 }
+        )
+
+        XCTAssertEqual(action, .say(finalText))
+        XCTAssertEqual(drafts.count, 2)
+        XCTAssertEqual(drafts.first, "x")
+        XCTAssertEqual(drafts.last, finalText)
+    }
+
+    func testCollectActionFlushesLatestSafePreviewBeforeStreamFailure() async {
+        var drafts: [String] = []
+        let brokenStream = AsyncThrowingStream<AgentTextStreamEvent, Error> { continuation in
+            continuation.yield(.text(#"{"type":"say","text":""#))
+            continuation.yield(.text("hel"))
+            continuation.yield(.text("lo"))
+            continuation.finish(throwing: StreamingProbeError.disconnected)
+        }
+
+        do {
+            _ = try await AgentActionStreamCollector.collect(
+                from: brokenStream,
+                emptyError: AgentError.emptyStreamingResponse,
+                onVisibleAssistantText: { drafts.append($0) },
+                onUsage: nil,
+                onReasoning: nil,
+                maximumActionUTF8Bytes: 1_024,
+                previewIntervalNanoseconds: 50_000_000,
+                nowNanoseconds: { 1 }
+            )
+            XCTFail("Expected the provider stream failure")
+        } catch StreamingProbeError.disconnected {
+            XCTAssertEqual(drafts, ["hel", "hello"])
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testCollectActionRejectsResponseBeyondUTF8ByteBudget() async {
+        do {
+            _ = try await AgentActionStreamCollector.collect(
+                from: eventStream([.text(String(repeating: "x", count: 33))]),
+                emptyError: AgentError.emptyStreamingResponse,
+                onVisibleAssistantText: nil,
+                onUsage: nil,
+                onReasoning: nil,
+                maximumActionUTF8Bytes: 32,
+                previewIntervalNanoseconds: 50_000_000,
+                nowNanoseconds: { 1 }
+            )
+            XCTFail("Expected the response budget to reject the stream")
+        } catch let AgentError.streamingActionTooLarge(maximumBytes) {
+            XCTAssertEqual(maximumBytes, 32)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testCollectActionPublishesReasoningSummariesSeparatelyFromText() async throws {
         var reasoning: [String] = []
         let action = try await AgentActionStreamCollector.collect(
@@ -92,6 +164,16 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(accumulator.text, "First second")
     }
 
+    func testReasoningAccumulatorCoalescesRapidProgressAndFlushesFinalSummary() {
+        var accumulator = AgentReasoningStreamAccumulator()
+
+        XCTAssertEqual(accumulator.appendThrottled("First", nowNanoseconds: 1), "First")
+        XCTAssertNil(accumulator.appendThrottled(" second", nowNanoseconds: 2))
+        XCTAssertNil(accumulator.appendThrottled(" third", nowNanoseconds: 3))
+        XCTAssertEqual(accumulator.finalPendingSummary(), "First second third")
+        XCTAssertNil(accumulator.finalPendingSummary())
+    }
+
     func testStreamingPreviewExposesOnlySayText() {
         XCTAssertEqual(
             AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),
@@ -118,4 +200,8 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
             continuation.finish()
         }
     }
+}
+
+private enum StreamingProbeError: Error {
+    case disconnected
 }

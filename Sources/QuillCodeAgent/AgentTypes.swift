@@ -30,9 +30,10 @@ public enum AgentError: Error, CustomStringConvertible {
     case emptyStreamingResponse
     case promisedWorkWithoutToolAction
     case tooManyToolSteps(Int)
+    case missingNamedDeliverable(String)
     // Appended last: never insert enum cases mid-list — discriminants shift and stale incremental
     // builds misread persisted values.
-    case missingNamedDeliverable(String)
+    case streamingActionTooLarge(maximumBytes: Int)
 
     public var description: String {
         switch self {
@@ -44,6 +45,12 @@ public enum AgentError: Error, CustomStringConvertible {
             return "The agent reached the tool-step limit (\(limit)) before returning a final answer."
         case .missingNamedDeliverable(let path):
             return "The run ended without creating the task-required file \(path)."
+        case .streamingActionTooLarge(let maximumBytes):
+            let mebibyte = 1_024 * 1_024
+            let limit = maximumBytes >= mebibyte && maximumBytes.isMultiple(of: mebibyte)
+                ? "\(maximumBytes / mebibyte) MiB"
+                : "\(maximumBytes) bytes"
+            return "The model response exceeded the \(limit) action safety limit."
         }
     }
 }

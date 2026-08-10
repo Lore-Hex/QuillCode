@@ -26,12 +26,19 @@ extension AgentRunner {
                 },
                 onReasoning: { fragment in
                     sawReasoning = true
-                    guard let summary = reasoning.append(fragment) else { return }
+                    guard let summary = reasoning.appendThrottled(
+                        fragment,
+                        nowNanoseconds: DispatchTime.now().uptimeNanoseconds
+                    ) else { return }
                     publishReasoningSummary(summary, in: &draftThread)
                     await onProgress?(draftThread)
                 }
             )
 
+            if let summary = reasoning.finalPendingSummary() {
+                publishReasoningSummary(summary, in: &draftThread)
+                await onProgress?(draftThread)
+            }
             thread = draftThread
             if let latestUsage {
                 thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: thread.model))
@@ -43,6 +50,10 @@ extension AgentRunner {
             // Failed completions still cost tokens and may have published visible reasoning. Commit
             // both to the durable thread before classifying the failure so the spend fuse and UI
             // never lose accounting for corrective attempts.
+            if let summary = reasoning.finalPendingSummary() {
+                publishReasoningSummary(summary, in: &draftThread)
+                await onProgress?(draftThread)
+            }
             thread = draftThread
             if let latestUsage {
                 thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: thread.model))
@@ -66,8 +77,34 @@ struct AgentReasoningStreamAccumulator {
 
     private(set) var text = ""
     private var lastPublishedText = ""
+    private var lastPublishedNanoseconds: UInt64?
 
     mutating func append(_ fragment: String) -> String? {
+        guard let presentation = appendFragment(fragment) else { return nil }
+        lastPublishedText = presentation
+        return presentation
+    }
+
+    mutating func appendThrottled(_ fragment: String, nowNanoseconds: UInt64) -> String? {
+        guard let presentation = appendFragment(fragment) else { return nil }
+        if let lastPublishedNanoseconds,
+           nowNanoseconds >= lastPublishedNanoseconds,
+           nowNanoseconds - lastPublishedNanoseconds < AgentStreamingProgressCadence.minimumIntervalNanoseconds {
+            return nil
+        }
+        self.lastPublishedNanoseconds = nowNanoseconds
+        lastPublishedText = presentation
+        return presentation
+    }
+
+    mutating func finalPendingSummary() -> String? {
+        let presentation = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !presentation.isEmpty, presentation != lastPublishedText else { return nil }
+        lastPublishedText = presentation
+        return presentation
+    }
+
+    private mutating func appendFragment(_ fragment: String) -> String? {
         guard !fragment.isEmpty else { return nil }
 
         if fragment.count > Self.maximumCharacters {
@@ -83,7 +120,6 @@ struct AgentReasoningStreamAccumulator {
 
         let presentation = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !presentation.isEmpty, presentation != lastPublishedText else { return nil }
-        lastPublishedText = presentation
         return presentation
     }
 }

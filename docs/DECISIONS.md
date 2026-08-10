@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-10: model streams publish at presentation cadence
+
+- **Decision:** Provider token cadence is no longer desktop presentation cadence. Visible assistant
+  drafts and reasoning summaries publish at most every 50 milliseconds while preserving an immediate
+  first update and an exact final flush on both successful and failed streams.
+- **Memory and CPU boundary:** A streamed action is limited to 16 MiB of UTF-8. The collector stops
+  before appending an over-limit chunk, and non-`say` actions stop repeated preview parsing as soon as
+  their action type is known. This bounds retained response data and removes provider-token-driven
+  parsing and full-thread copying that cannot become visible.
+- **Recovery:** An over-limit response becomes a focused warning with narrower-request guidance and a
+  direct model-picker action. Usage and the latest bounded reasoning summary remain committed on
+  failure, and the newest safe visible draft is not discarded when a provider disconnects.
+- **Evidence:** `TrustedRouterStreamingActionTests` deterministically reduces a 4,096-fragment answer
+  to two draft publications under one cadence window, verifies success and failure final flushes, and
+  rejects UTF-8 overflow. `WorkspaceRuntimeIssueBuilderTests` and `ParityAgentStreamingGateTests`
+  protect the recovery surface, shared cadence, final-flush ownership, and response limit.
+
 ## 2026-08-10: live composer drafts checkpoint outside large transcripts
 
 - **Decision:** The desktop synchronizes its live composer binding into model memory immediately, then
