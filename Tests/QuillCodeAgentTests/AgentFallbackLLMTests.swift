@@ -160,7 +160,7 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 5)
     }
 
-    func testBoundedFinalizationPromotesFallbackAfterPhaseInvalidAction() async throws {
+    func testBoundedFinalizationKeepsPrimaryAfterOnePhaseInvalidAction() async throws {
         let root = try makeTempDirectory()
         let reportPath = "outputs/report.md"
         let lateResearch = ToolCall(
@@ -178,14 +178,13 @@ final class AgentFallbackLLMTests: XCTestCase {
             name: ToolDefinition.fileRead.name,
             argumentsJSON: ToolArguments.json(["path": reportPath])
         )
-        let primary = ScriptedState([.success(.tool(lateResearch))])
-        let fallback = ScriptedState([
-            .success(.tool(lateResearch)),
+        let primary = ScriptedState([
             .success(.tool(lateResearch)),
             .success(.tool(write)),
             .success(.tool(read)),
             .success(.say("Completed and verified outputs/report.md.")),
         ])
+        let fallback = ScriptedState([.success(.say("fallback should not run"))])
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
             maxToolSteps: 10,
@@ -205,13 +204,67 @@ final class AgentFallbackLLMTests: XCTestCase {
             try String(contentsOf: root.appendingPathComponent(reportPath)),
             "# Report\n\nBest available evidence synthesized.\n"
         )
+        XCTAssertFalse(result.thread.events.contains {
+            $0.summary == AgentRunner.boundedFinalizationFallbackSwitchNotice
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected a non-finalization action (tool host.web.fetch)")
+        })
+        let primaryCalls = await primary.calls()
+        let fallbackCalls = await fallback.calls()
+        XCTAssertEqual(primaryCalls, 4)
+        XCTAssertEqual(fallbackCalls, 0)
+    }
+
+    func testBoundedFinalizationPromotesFallbackAfterRepeatedPhaseInvalidActions() async throws {
+        let root = try makeTempDirectory()
+        let reportPath = "outputs/report.md"
+        let lateResearch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/late-research"])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": reportPath,
+                "content": "# Report\n\nBest available evidence synthesized.\n",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": reportPath])
+        )
+        let primary = ScriptedState([
+            .success(.tool(lateResearch)),
+            .success(.tool(lateResearch)),
+        ])
+        let fallback = ScriptedState([
+            .success(.tool(write)),
+            .success(.tool(read)),
+            .success(.say("Completed and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0,
+            fallbackLLM: ScriptedClient(state: fallback)
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md and verify the saved output by reading it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true])
         XCTAssertTrue(result.thread.events.contains {
             $0.summary == AgentRunner.boundedFinalizationFallbackSwitchNotice
         })
         let primaryCalls = await primary.calls()
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(primaryCalls, 1)
-        XCTAssertEqual(fallbackCalls, 5)
+        XCTAssertEqual(primaryCalls, 2)
+        XCTAssertEqual(fallbackCalls, 3)
     }
 
     func testFallbackAlsoFailingStaysFatalAcrossBoundedStartupRecovery() async {

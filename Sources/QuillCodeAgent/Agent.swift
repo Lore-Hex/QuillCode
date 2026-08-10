@@ -34,9 +34,9 @@ public struct AgentRunner: Sendable {
         + "switching to the fallback model for this step."
     static let reasoningFallbackSwitchNotice = "Self-healing: the model repeatedly exhausted its "
         + "reasoning budget without acting; switching to the fallback model for this step."
-    static let boundedFinalizationFallbackSwitchNotice = "Self-healing: the selected model rejected "
-        + "the required bounded-finalization action; switching closure to the fallback model and "
-        + "retaining the selected route as standby."
+    static let boundedFinalizationFallbackSwitchNotice = "Self-healing: the selected model "
+        + "repeatedly rejected the required bounded-finalization action; switching closure to the "
+        + "fallback model and retaining the selected route as standby."
     static let promisedWorkCorrectionLimit = 2
     /// A long-running task can encounter passive or empty model turns after many different tools.
     /// Keep this budget scoped to the latest completed tool instead of consuming one allowance for
@@ -714,13 +714,26 @@ public struct AgentRunner: Sendable {
                         userMessage: userMessage,
                         phase: runLoop.boundedRunFinalizationPhase(at: path)
                     )
+                    let rejectedAction = switch resolvedAction {
+                    case .tool(let call):
+                        "tool \(call.name)"
+                    case .say:
+                        "terminal say"
+                    }
                     next.events.append(.init(
                         kind: .notice,
-                        summary: "Self-healing: rejected a non-finalization action during the "
-                            + "bounded run's closure window for ./\(path)."
+                        summary: "Self-healing: rejected a non-finalization action "
+                            + "(\(rejectedAction)) during the bounded run's closure window "
+                            + "for ./\(path)."
                     ))
+                    // A phase-invalid action is not a route failure. Give the selected model the
+                    // exact-path corrective prompt before promoting a fallback; switching after the
+                    // first miss discards the route that already owns the evidence and gives a cold
+                    // fallback the shortest, most context-heavy turn in the run.
                     if let fallback = actionRunner.fallbackLLM,
-                       !hasPromotedFallbackRoute {
+                       !hasPromotedFallbackRoute,
+                       correctiveTurnBudget.consecutiveTurns
+                            >= AgentCorrectiveTurnBudget.limit - 1 {
                         let displacedLLM = actionRunner.llm
                         actionRunner.llm = fallback
                         actionRunner.fallbackLLM = displacedLLM
