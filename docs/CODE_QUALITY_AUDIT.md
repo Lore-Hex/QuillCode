@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-10 Crash-Safe Composer Draft Checkpoints
+
+Overall grade after this slice: **A+ crash recovery, A+ persistence boundaries, A+ typing-path cost**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash recovery | A+ | Unsent text survives abrupt exits after a short debounce, with immediate deactivate/quit flushes and pending-first-message recovery. |
+| Ownership safety | A+ | Every delayed write is bound to its original chat identity and cannot cross a rapid selection change. |
+| Persistence architecture | A+ | Small private sidecars avoid serializing large transcripts while typing; tombstones, one-time new-chat baselines, and full-thread fallback keep recovery authoritative. |
+| Privacy and bounds | A+ | One-MiB draft bounds, bounded no-follow reads, owner/schema checks, `0700`/`0600` permissions, and runtime-context guards keep confidential/side text memory-only. |
+| Runtime behavior | A+ | Live model synchronization prevents unrelated background refreshes from erasing text during the debounce window. |
+| Regression evidence | A+ | Focused store, model lifecycle, desktop debounce, lifecycle notification, fallback, deletion, relaunch, and parity tests cover the complete boundary. |
+
+Validation:
+
+- Focused checkpoint, lifecycle, path, and desktop parity boundary: 29 tests, 0 failures
+- Authoritative full Swift suite: 5,804 tests, 5 skipped, 0 failures
+- Packaged writer terminated by `SIGKILL` (status 137); a fresh packaged process restored the exact
+  unsent text and persisted a tombstone after clearing it
+- Packaged direct-executable, Launch Services, live-window, accessibility, interaction, screenshot,
+  and Computer Use smokes passed
+- Packaged performance: 277.41 ms median launch-ready, 98.62 MiB initial, 155.12 MiB
+  post-interaction, and 159.81 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-10 Durable Update Reminders
 
 Overall grade after this slice: **A+ interruption UX, A+ update freshness, A+ bounded persistence**.

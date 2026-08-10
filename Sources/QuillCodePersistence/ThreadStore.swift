@@ -105,6 +105,16 @@ public struct JSONThreadStore: Sendable {
         try FileManager.default.removeItem(at: url)
     }
 
+    public func contains(_ id: UUID) -> Bool {
+        guard let values = try? fileURL(for: id).resourceValues(forKeys: [
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+        ]) else {
+            return false
+        }
+        return values.isRegularFile == true && values.isSymbolicLink != true
+    }
+
     public func list() throws -> [ChatThread] {
         listing().threads
     }

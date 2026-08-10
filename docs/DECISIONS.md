@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-10: live composer drafts checkpoint outside large transcripts
+
+- **Decision:** The desktop synchronizes its live composer binding into model memory immediately, then
+  debounces durable writes for 350 milliseconds. App deactivation and termination flush pending work.
+  Every delayed request retains its original optional thread identity and is ignored if selection has
+  changed before it runs.
+- **Persistence:** Standard drafts use private `0600` per-thread records beneath a `0700` directory.
+  Records are schema-checked, owner-checked, symlink-safe on read, and bounded to one MiB of draft text.
+  A nil draft is a tombstone, so a stale full-thread snapshot cannot resurrect sent or cleared text.
+  The first checkpoint makes an unsaved new chat durable; later typing does not serialize its transcript.
+- **Recovery:** A pending first message without a thread owner has a separate checkpoint and transfers
+  to the created chat. Oversized or unavailable sidecar storage removes stale checkpoint authority and
+  falls back to the established atomic full-thread save. Deleting a chat removes both stores.
+- **Privacy:** Confidential and side-conversation drafts remain memory-only. The same runtime-context
+  guard that excludes their transcripts also excludes checkpoint files.
+- **Evidence:** `ComposerDraftCheckpointStoreTests`,
+  `WorkspaceComposerDraftIntegrationTests`,
+  `QuillCodeDesktopComposerDraftCheckpointCoordinatorTests`, and
+  `ParityDesktopGateTests/testDesktopCrashRecoveryCheckpointsLiveComposerDrafts` cover storage bounds,
+  permissions, malformed/symlink rejection, burst coalescing, lifecycle flushes, relaunch, tombstones,
+  fallback, cleanup, selection races, and confidential-session exclusion.
+
 ## 2026-08-09: releases update from the untouched previous public app
 
 - **Decision:** Download Builds captures the current public manifest and matching arm64 and x86_64

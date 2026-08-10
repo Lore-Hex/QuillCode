@@ -174,6 +174,7 @@ public final class QuillCodeWorkspaceModel {
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
+        composerDraftStore: ComposerDraftCheckpointStore? = nil,
         threadLoadIssue: WorkspaceThreadLoadIssue? = nil,
         startupLoadIssue: WorkspaceStartupLoadIssue? = nil,
         projectStore: JSONProjectStore? = nil,
@@ -227,6 +228,7 @@ public final class QuillCodeWorkspaceModel {
         self.threadPersistenceIssueTracker = threadPersistenceIssueTracker
         self.threadPersistence = WorkspaceThreadPersistence(
             store: threadStore,
+            composerDraftStore: composerDraftStore,
             issueTracker: threadPersistenceIssueTracker
         )
         let registryPersistenceIssueTracker = WorkspaceRegistryPersistenceIssueTracker()

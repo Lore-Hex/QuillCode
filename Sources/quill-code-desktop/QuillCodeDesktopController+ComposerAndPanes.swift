@@ -4,6 +4,9 @@ import QuillCodeApp
 @MainActor
 extension QuillCodeDesktopController {
     func send() {
+        composerDraftCheckpointCoordinator.flush(on: model)
+        isComposerDraftBindingSideEffectsSuppressed = true
+        defer { isComposerDraftBindingSideEffectsSuppressed = false }
         if composerCoordinator.openBrowserSessionFromSlashIfNeeded(
             draft: &draft,
             model: model,
@@ -26,6 +29,9 @@ extension QuillCodeDesktopController {
     }
 
     func retryLastTurn() {
+        composerDraftCheckpointCoordinator.flush(on: model)
+        isComposerDraftBindingSideEffectsSuppressed = true
+        defer { isComposerDraftBindingSideEffectsSuppressed = false }
         composerCoordinator.retryLastTurn(
             draft: &draft,
             model: model,

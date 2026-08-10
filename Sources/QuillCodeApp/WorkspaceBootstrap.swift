@@ -42,6 +42,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             unreadableDataKinds.append(.configuration)
         }
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let composerDraftStore = ComposerDraftCheckpointStore(directory: paths.composerDraftsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
@@ -135,6 +136,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
+            composerDraftStore: composerDraftStore,
             startupLoadIssue: WorkspaceStartupLoadIssue(
                 loadedThreadCount: threads.count,
                 threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
