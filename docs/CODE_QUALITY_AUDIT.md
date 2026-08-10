@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-09 Window-Independent Application Services
+
+Overall grade after this slice: **A+ update reliability, A+ background ownership, A+ lifecycle isolation**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Application ownership | A+ | Normal app entry starts process-lifetime services before SwiftUI scene ownership. Automatic update scheduling, interrupted-update recovery, installation relocation, and notification actions no longer depend on a workspace view appearing. |
+| Mode isolation | A+ | Update-helper, updater-smoke, relocation-smoke, evaluation, window-smoke, and render-smoke branches still return before application services start, preserving deterministic side-effect-free fixtures. |
+| Idempotence | A+ | The integration test starts application services twice without a window, observes one recovery task and no premature network check, and preserves the one-per-build relocation presentation. Existing updater and relocation controllers remain the single owners of their repeat-call guards. |
+| UI lifecycle | A+ | Only keyboard event monitoring remains tied to view appearance and disappearance. Notification registration is process-owned and accepts only the exact packaged Quill Cowork bundle identity, so XCTest and bare executable hosts cannot replace their notification delegate. |
+
+Validation:
+
+- Focused application-service, updater, relocation, desktop-controller, and parity suites
+  (58 tests, 0 failures)
+- Full `swift test` (5,741 tests, 5 skipped, 0 failures)
+- Deterministic code-quality grader: every source, test, and script module remains A+
+- Optimized release performance across three fresh processes: 261.82 ms selected median
+  launch-ready, 90.52 MiB initial, 149.39 MiB post-interaction, 152.89 MiB repeated, and
+  3.50 MiB repeated growth; all three attempts passed every budget
+- Complete packaged direct, Launch Services, live-window, Accessibility, 186 click-probe, and
+  repeated-interaction smoke passed with one workspace window
+- Native-resolution first-run screenshot inspected with no clipped, overlapping, or displaced controls
+
 ## 2026-08-09 Window-Independent Updater Launch Handshake
 
 Overall grade after this slice: **A+ update resilience, A+ rollback integrity, A+ lifecycle ownership**.

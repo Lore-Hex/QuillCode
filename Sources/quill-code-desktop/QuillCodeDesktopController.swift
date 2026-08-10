@@ -52,7 +52,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let installationLocationController: QuillCodeDesktopInstallationLocationController
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
-    // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
+    // Retained here because UNUserNotificationCenter.delegate is weak; nil until app services start.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
 
     init(
@@ -195,16 +195,23 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
+    /// Starts services that belong to the application process rather than any SwiftUI scene. The
+    /// ordinary app entry point calls this once; the owned controllers keep repeat calls idempotent.
+    func startApplicationServices() {
+        installApprovalNotificationHandling()
+        installationLocationController.startIfNeeded()
+        updateController.startAutomaticChecks()
+    }
+
     /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
-    /// back into the workspace. Called once when the real window appears (never in headless smoke),
-    /// and idempotent so repeated onAppear calls are no-ops.
-    func installApprovalNotificationHandling() {
+    /// back into the workspace. This can run before a window exists and remains idempotent.
+    private func installApprovalNotificationHandling() {
         guard approvalNotificationDelegate == nil else { return }
-        // UNUserNotificationCenter.current() requires a real application bundle. In a bare-executable
-        // context (the headless render smoke) it throws "bundleProxyForCurrentProcess is nil"; only the
-        // packaged .app has a bundle identifier. Notifications can't be delivered without a bundle
-        // anyway, so skip registration when there isn't one.
-        guard Bundle.main.bundleIdentifier != nil else { return }
+        // Only the packaged product owns these categories. Bare executables and XCTest bundles must
+        // not replace the notification delegate of their host process.
+        guard Bundle.main.bundleIdentifier == updateController.configuration?.bundleIdentifier else {
+            return
+        }
         let delegate = QuillCodeApprovalNotificationDelegate(
             onDecision: { [weak self] requestID, approve, threadID in
                 self?.decideNotificationApproval(requestID: requestID, approve: approve, threadID: threadID)
