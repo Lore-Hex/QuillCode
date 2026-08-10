@@ -106,45 +106,58 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 2, "fallback owns both the tool action and finalization")
     }
 
-    func testPromotedFallbackFailureCanRecoverThroughPriorRoute() async throws {
+    func testStandbyRecoveryDoesNotDisplaceEstablishedFallbackRoute() async throws {
         let root = try makeTempDirectory()
-        try Data("grounded context".utf8).write(to: root.appendingPathComponent("input.txt"))
+        try Data("first context".utf8).write(to: root.appendingPathComponent("input-1.txt"))
+        try Data("second context".utf8).write(to: root.appendingPathComponent("input-2.txt"))
         let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)
         let primary = ScriptedState(
-            Self.alwaysEmpty + [.success(.say("selected route rescued finalization"))]
+            Self.alwaysEmpty + [.success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: #"{"path":"input-2.txt"}"#
+            )))]
         )
         let fallback = ScriptedState([
             .success(.tool(.init(
                 name: ToolDefinition.fileRead.name,
-                argumentsJSON: #"{"path":"input.txt"}"#
+                argumentsJSON: #"{"path":"input-1.txt"}"#
             ))),
             .failure(overrun),
             .failure(overrun),
             .failure(overrun),
+            .success(.say("established fallback route finalized both files")),
         ])
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
-            maxToolSteps: 3,
+            maxToolSteps: 4,
             fallbackLLM: ScriptedClient(state: fallback),
             emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
         )
 
         let result = try await runner.send(
-            "Read input.txt, then summarize its contents.",
+            "Read input-1.txt and input-2.txt, then summarize their contents.",
             in: ChatThread(title: "t"),
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.thread.messages.last?.content, "selected route rescued finalization")
+        XCTAssertEqual(result.toolResults.count, 2)
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "established fallback route finalized both files"
+        )
         XCTAssertEqual(
             result.thread.events.filter { $0.summary.contains("promoting that route") }.count,
-            2,
-            "each route is promoted only after it successfully recovers the active step"
+            1,
+            "the first recovered route remains established for the run"
         )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("keeping the established route active")
+        })
         let primaryCalls = await primary.calls()
         let fallbackCalls = await fallback.calls()
         XCTAssertEqual(primaryCalls, 8)
-        XCTAssertEqual(fallbackCalls, 4)
+        XCTAssertEqual(fallbackCalls, 5)
     }
 
     func testFallbackAlsoFailingStaysFatalAcrossBoundedStartupRecovery() async {

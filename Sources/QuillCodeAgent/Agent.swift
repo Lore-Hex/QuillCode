@@ -311,6 +311,10 @@ public struct AgentRunner: Sendable {
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
             runLoop.seedSourceGrounding(userMessage: userMessage)
             var autoReviewCircuit = AutoReviewCircuitBreaker()
+            /// Once a standby route recovers a failed step, keep it as the primary route for the
+            /// rest of the run. A later standby rescue may complete that step without causing the
+            /// two clients to trade ownership repeatedly.
+            var hasPromotedFallbackRoute = false
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
@@ -350,14 +354,23 @@ public struct AgentRunner: Sendable {
                                    && ($0.summary == Self.fallbackSwitchNotice
                                        || $0.summary == Self.reasoningFallbackSwitchNotice)
                            }) {
-                            let displacedLLM = actionRunner.llm
-                            actionRunner.llm = fallback
-                            actionRunner.fallbackLLM = displacedLLM
-                            next.events.append(.init(
-                                kind: .notice,
-                                summary: "Self-healing: the fallback model completed the step; "
-                                    + "promoting that route and retaining the prior route as standby."
-                            ))
+                            if !hasPromotedFallbackRoute {
+                                let displacedLLM = actionRunner.llm
+                                actionRunner.llm = fallback
+                                actionRunner.fallbackLLM = displacedLLM
+                                hasPromotedFallbackRoute = true
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: the fallback model completed the step; "
+                                        + "promoting that route and retaining the prior route as standby."
+                                ))
+                            } else {
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: the standby route completed the step; "
+                                        + "keeping the established route active for subsequent actions."
+                                ))
+                            }
                             next.updatedAt = Date()
                             await onProgress?(next)
                         }
