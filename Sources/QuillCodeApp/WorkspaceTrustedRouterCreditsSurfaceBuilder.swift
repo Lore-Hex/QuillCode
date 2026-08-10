@@ -245,7 +245,7 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
     }
 
     private static func money(_ value: Double, currency: String?) -> String {
-        let amount = decimalLabel(value)
+        let amount = decimalLabel(value, fractionDigits: currency == "JPY" ? 0 : 2)
         switch currency {
         case "USD": return "$\(amount)"
         case "EUR": return "€\(amount)"
@@ -256,16 +256,14 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
         }
     }
 
-    private static func decimalLabel(_ value: Double) -> String {
-        let normalized = abs(value) < 0.00005 ? 0 : value
-        var label = String(
-            format: "%.4f",
+    private static func decimalLabel(_ value: Double, fractionDigits: Int) -> String {
+        let roundingThreshold = 0.5 / pow(10, Double(fractionDigits))
+        let normalized = abs(value) < roundingThreshold ? 0 : value
+        return String(
+            format: "%.*f",
             locale: Locale(identifier: "en_US_POSIX"),
+            fractionDigits,
             normalized
         )
-        while label.last == "0", label.split(separator: ".").last?.count ?? 0 > 2 {
-            label.removeLast()
-        }
-        return label
     }
 }

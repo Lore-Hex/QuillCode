@@ -25,9 +25,9 @@ final class WorkspaceTrustedRouterCreditsSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(surface.visibleLimits.map(\.periodLabel), ["Today", "Week", "Month", "Total"])
         XCTAssertEqual(surface.visibleLimits.map(\.usageLabel), [
             "$1.25 / $40.00",
-            "$2.6439 / $200.00",
-            "$2.6439 / $800.00",
-            "$86.0903 used"
+            "$2.64 / $200.00",
+            "$2.64 / $800.00",
+            "$86.09 used"
         ])
         XCTAssertEqual(surface.visibleLimits.last?.remainingLabel, "No total cap")
         XCTAssertTrue(surface.detailLabel.contains("Updated 1m ago"))
@@ -58,10 +58,10 @@ final class WorkspaceTrustedRouterCreditsSurfaceBuilderTests: XCTestCase {
             "Recent key-limit history: Today $2.00 / $40.00 updated 1m ago; Today $1.00 / $40.00 updated 1h ago."
         )
         XCTAssertTrue(surface.detailLabel.contains("Recent key-limit history"))
-        XCTAssertTrue(surface.accessibilityLabel.contains("Week: $2.6439 / $200.00"))
+        XCTAssertTrue(surface.accessibilityLabel.contains("Week: $2.64 / $200.00"))
     }
 
-    func testStaleSurfaceRetainsPreciseUsageAndFailureReason() throws {
+    func testStaleSurfaceRoundsUsageAndRetainsFailureReason() throws {
         let snapshot = try makeSnapshot(
             lifetimeUsage: 0.0123,
             dailyUsage: 0.0123,
@@ -80,7 +80,7 @@ final class WorkspaceTrustedRouterCreditsSurfaceBuilderTests: XCTestCase {
             now: now
         ).surface())
 
-        XCTAssertEqual(surface.amountLabel, "Today €0.0123 / €40.00")
+        XCTAssertEqual(surface.amountLabel, "Today €0.01 / €40.00")
         XCTAssertEqual(surface.tone, .warning)
         XCTAssertTrue(surface.detailLabel.contains("Network unavailable."))
     }

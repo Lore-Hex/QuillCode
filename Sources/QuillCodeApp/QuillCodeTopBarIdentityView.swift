@@ -68,9 +68,11 @@ struct QuillCodeTopBarIdentityView: View {
                             .foregroundStyle(accountBalance.tone.quillCodeTint)
                     }
                     .contentShape(Rectangle())
+                    .fixedSize(horizontal: true, vertical: false)
                 }
                 .quillCodeCapsuleButtonTarget()
                 .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+                .layoutPriority(2)
                 .help("Show TrustedRouter key usage and limits")
                 .accessibilityLabel(accountBalance.accessibilityLabel)
                 .accessibilityHint("Shows daily, weekly, monthly, and total key usage")
