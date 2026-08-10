@@ -390,6 +390,8 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         prompt = PRIOR.build_prompt(row)
         self.assertIn("CUUR0000SA0", prompt)
         self.assertIn("annual-average indexes for 2023", prompt)
+        self.assertIn("observed-month proxy, never an annual average", prompt)
+        self.assertIn("Do not invent a 2025 missing-month value", prompt)
         self.assertIn("latest published monthly 2026 index", prompt)
         self.assertIn("Do not invent a full-year 2026 CPI value", prompt)
         self.assertEqual(PRIOR.minimum_source_citation_count(row), 1)
@@ -397,12 +399,14 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
     def test_real_revenue_semantics_require_bls_basis_and_adjusted_values(self):
         artifact = """# Real revenue in 2026 dollars
 
-Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023,
-2024, and 2025 inputs are annual-average indexes; the latest monthly 2026 index
-is the July benchmark, not a completed annual average.
+Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023 and
+2024 inputs are annual-average indexes. The BLS 2025 annual average is not
+published because October is unavailable, so 321.943 is an 11-observation
+observed-month proxy. The latest monthly 2026 index is the July benchmark, not
+a completed annual average.
 Source: https://www.bls.gov/cpi/data.htm
 
-Real revenue = nominal revenue x (latest 2026 CPI / annual-average CPI).
+Real revenue = nominal revenue x (latest 2026 CPI / selected CPI basis index).
 
 | Year | Nominal revenue | Real revenue | Year-over-year growth |
 | --- | ---: | ---: | ---: |
@@ -420,6 +424,25 @@ Real revenue = nominal revenue x (latest 2026 CPI / annual-average CPI).
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertFalse(valid)
             self.assertIn("series", detail)
+
+            mislabeled = artifact.replace(
+                "an 11-observation\nobserved-month proxy",
+                "an annual average (11 months, October missing)",
+            )
+            path.write_text(mislabeled, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("2025 basis is not mislabeled", detail)
+
+            duplicate_header = artifact.replace(
+                "| Year | Nominal revenue | Real revenue | Year-over-year growth |",
+                "| Year | Nominal revenue | Real revenue | Year-over-year growth |\n"
+                "| Year | Nominal revenue | Real revenue | Year-over-year growth |",
+            )
+            path.write_text(duplicate_header, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("one well-formed revenue table", detail)
 
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])

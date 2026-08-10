@@ -1445,16 +1445,22 @@ automation is visible in Quill Cowork's persisted automation state.
     elif row["id"] == 126:
         task_specific_instruction = (
             "Use the official BLS CPI-U U.S. city average, All items, not seasonally "
-            "adjusted series `CUUR0000SA0`. Use its annual-average indexes for 2023, "
-            "2024, and 2025, and the latest published monthly 2026 index as the target "
+            "adjusted series `CUUR0000SA0`. Use its annual-average indexes for 2023 and "
+            "2024. For 2025, first check whether BLS publishes a calendar-year annual "
+            "average. If it does not because a monthly observation is unavailable, compute "
+            "the arithmetic mean of the published 2025 monthly indexes, state the observation "
+            "count and missing month, and label the result an observed-month proxy, never an "
+            "annual average. Use the latest published monthly 2026 index as the target "
             "2026-dollar benchmark. Explicitly name that 2026 month and disclose that it "
             "is a monthly benchmark rather than a completed annual average. Cite the exact "
             "official BLS URL next to the CPI figures. Restate every nominal revenue row in "
             "`inputs/records.csv` with `real revenue = nominal revenue x (latest 2026 CPI / "
-            "that year's annual-average CPI)`. Show nominal and real dollars, CPI basis, "
+            "that year's selected CPI basis index)`. Show nominal and real dollars, CPI basis, "
             "nominal and real year-over-year growth, and cumulative 2023-to-2025 growth. "
             "Keep full precision in calculations and round displayed dollars to the nearest "
-            "dollar. Do not invent a full-year 2026 CPI value. "
+            "dollar. Do not invent a 2025 missing-month value. Do not invent a full-year "
+            "2026 CPI value. "
+            "Before readback, remove duplicate or malformed Markdown table headers. "
         )
     field_instruction = (
         "Because the requested deliverable is a reusable macro, named bracketed runtime "
@@ -2280,6 +2286,7 @@ def validate_task_126_real_revenue(path):
         return False, f"could not read real-revenue analysis: {error}"
 
     normalized = re.sub(r"[$,\s]", "", text).casefold()
+    compact_text = re.sub(r"\s+", " ", text)
     missing_years = [year for year in ("2023", "2024", "2025", "2026") if year not in text]
     missing_nominal_revenue = [
         value for value in ("4200000", "5100000", "6000000")
@@ -2289,10 +2296,45 @@ def validate_task_126_real_revenue(path):
         int(value.replace(",", ""))
         for value in re.findall(r"\$\s*(\d[\d,]{5,})", text)
     }
+    revenue_table_headers = [
+        line for line in text.splitlines()
+        if line.lstrip().startswith("|")
+        and "year" in line.casefold()
+        and "nominal" in line.casefold()
+        and "real" in line.casefold()
+    ]
+    mislabeled_2025_average = bool(
+        re.search(
+            r"2025.{0,80}annual[- ]average\s*\([^)]*(?:11|partial|missing)",
+            compact_text,
+            re.I,
+        )
+        or re.search(
+            r"2025.{0,120}annual[- ]average.{0,100}(?:uses|computed from).{0,10}11",
+            compact_text,
+            re.I,
+        )
+        or re.search(r"\ban annual[- ]average\s*\([^)]*11", compact_text, re.I)
+    )
     checks = {
         "series": "cuur0000sa0" in text.casefold(),
         "official BLS URL": bool(re.search(r"https?://(?:[a-z0-9-]+\.)?bls\.gov/", text, re.I)),
         "annual-average basis": bool(re.search(r"annual[- ]average", text, re.I)),
+        "2025 unavailable annual average": bool(
+            re.search(
+                r"2025.{0,100}annual[- ]average.{0,100}"
+                r"(?:unavailable|not (?:available|published)|cannot be calculated)",
+                compact_text,
+                re.I,
+            )
+        ),
+        "2025 observed-month proxy": bool(
+            re.search(r"2025", text)
+            and re.search(r"11[- ](?:month|observation)|11 (?:published|observed) months", text, re.I)
+            and re.search(r"observed[- ]month proxy|partial[- ]year proxy", text, re.I)
+            and re.search(r"october", text, re.I)
+        ),
+        "2025 basis is not mislabeled": not mislabeled_2025_average,
         "not seasonally adjusted basis": bool(re.search(r"not seasonally adjusted", text, re.I)),
         "2026 monthly benchmark disclosure": bool(
             re.search(r"2026", text)
@@ -2307,6 +2349,10 @@ def validate_task_126_real_revenue(path):
         ),
         "growth comparison": bool(re.search(r"year[- ]over[- ]year|yoy", text, re.I)),
         "three adjusted amounts": len(dollar_values) >= 6,
+        "one well-formed revenue table": (
+            len(revenue_table_headers) == 1
+            and revenue_table_headers[0].count("|") >= 4
+        ),
     }
     failed = [name for name, passed in checks.items() if not passed]
     valid = not missing_years and not missing_nominal_revenue and not failed
