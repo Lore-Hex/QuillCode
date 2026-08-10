@@ -323,6 +323,14 @@ def matched_task_terms(row, text):
     ]
 
 
+def minimum_source_citation_count(row):
+    # Task 125 has one external fact: the IRS mileage rate. Its other authorities
+    # are the two supplied workspace sources, so one primary IRS URL is sufficient.
+    if row["id"] == 125:
+        return 1
+    return 2
+
+
 def source_grounding_anchors(row, workspace):
     ignored = {
         "and", "atlas", "complete", "confirmed", "context", "evaluation", "file",
@@ -2475,8 +2483,13 @@ def grade(row, workspace, report, source_hashes):
             f"matched {grounded[:12]}; required 2 task-specific source anchors",
         )
     if row["capabilityNeeded"] == "Web research":
-        citations = re.findall(r"https?://[^\s)>\]]+", combined_text)
-        add("source citations", len(set(citations)) >= 2, f"{len(set(citations))} unique URLs")
+        citations = set(re.findall(r"https?://[^\s)>\]]+", combined_text))
+        required_citations = minimum_source_citation_count(row)
+        add(
+            "source citations",
+            len(citations) >= required_citations,
+            f"{len(citations)} unique URLs; required {required_citations}",
+        )
     placeholders = unresolved_placeholders(row, artifact_text)
     add("no template placeholders", not placeholders, repr(placeholders))
     return checks, artifact

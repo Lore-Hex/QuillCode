@@ -372,6 +372,10 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not call the company meal cap a GSA or IRS rate", prompt)
         self.assertIn("all five claims", prompt)
 
+    def test_travel_policy_allows_one_authoritative_external_citation(self):
+        self.assertEqual(PRIOR.minimum_source_citation_count(self.rows[124]), 1)
+        self.assertEqual(PRIOR.minimum_source_citation_count(self.rows[123]), 2)
+
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
 
