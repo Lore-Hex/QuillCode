@@ -52,6 +52,10 @@ struct AgentRunLoopState: Sendable {
     /// to consume the rest of a bounded run.
     private var failedContractAuditCallSignaturesByWorkspacePath:
         [String: ToolCallFingerprint] = [:]
+    /// Exact failed validator output survives readback and artifact rewrites until a later audit
+    /// passes. Repair prompts can therefore act on named assertion failures even after compaction
+    /// or a model rewrite that changes formatting without fixing the underlying values.
+    private var failedContractAuditReceiptsByWorkspacePath: [String: String] = [:]
     /// Task-named text deliverables whose latest write predates a successful live-page fetch.
     /// Terminal completion is gated until a later write incorporates or dispositions that evidence;
     /// the ordinary readback gate then verifies the refreshed artifact.
@@ -226,6 +230,13 @@ struct AgentRunLoopState: Sendable {
         }
     }
 
+    func failedContractAuditReceipt(at path: String) -> String? {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+        return failedContractAuditReceiptsByWorkspacePath.first(where: { storedPath, _ in
+            AgentArtifactVerificationGate.pathsMatch(storedPath, normalizedPath)
+        })?.value
+    }
+
     func pendingArtifactReadbackPath() -> String? {
         pendingArtifactReadbackWorkspacePaths.sorted().first
     }
@@ -357,6 +368,7 @@ struct AgentRunLoopState: Sendable {
                 failedContractAuditWorkspacePaths.subtract(auditedPaths)
                 consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
                 removeFailedContractAuditCallSignatures(for: auditedPaths)
+                removeFailedContractAuditReceipts(for: auditedPaths)
             } else {
                 failedContractAuditWorkspacePaths.formUnion(auditedPaths)
                 consumedContractAuditRepairReadbackWorkspacePaths.subtract(auditedPaths)
@@ -366,6 +378,8 @@ struct AgentRunLoopState: Sendable {
                 )
                 for path in auditedPaths {
                     failedContractAuditCallSignaturesByWorkspacePath[path] = signature
+                    failedContractAuditReceiptsByWorkspacePath[path] =
+                        Self.failedContractAuditReceipt(from: completion.result)
                 }
                 return
             }
@@ -397,12 +411,19 @@ struct AgentRunLoopState: Sendable {
             unverifiedWrittenWorkspacePaths.insert(normalized)
             markResearchArtifactRefreshed(normalized)
         case ToolDefinition.fileWrite.name:
-            invalidateContractAudit(for: normalized)
+            let content = (try? ToolArguments(completion.call.argumentsJSON))?.string("content")
+            let previousContent = latestWrittenTextContents[normalized]
+            let preservesFailedReplay = previousContent.map { previous in
+                content.map { Self.auditSemanticFingerprint($0) }
+                    == Self.auditSemanticFingerprint(previous)
+            } ?? false
+            invalidateContractAudit(
+                for: normalized,
+                preservingFailedReplay: preservesFailedReplay
+            )
             unverifiedWrittenWorkspacePaths.insert(normalized)
             markResearchArtifactRefreshed(normalized)
-            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
-               let content = arguments.string("content") {
-                let previousContent = latestWrittenTextContents[normalized]
+            if let content {
                 if previousContent != nil,
                    previousContent != content {
                     let repairedAuditPaths = requiredContractAuditWorkspacePaths.filter { path in
@@ -500,19 +521,24 @@ struct AgentRunLoopState: Sendable {
         }
     }
 
-    private mutating func invalidateContractAudit(for writtenPath: String) {
+    private mutating func invalidateContractAudit(
+        for writtenPath: String,
+        preservingFailedReplay: Bool = false
+    ) {
         contractAuditedWorkspacePaths = Set(contractAuditedWorkspacePaths.filter {
             !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
         })
-        failedContractAuditWorkspacePaths = Set(failedContractAuditWorkspacePaths.filter {
-            !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
-        })
-        consumedContractAuditRepairReadbackWorkspacePaths = Set(
-            consumedContractAuditRepairReadbackWorkspacePaths.filter {
+        if !preservingFailedReplay {
+            failedContractAuditWorkspacePaths = Set(failedContractAuditWorkspacePaths.filter {
                 !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
-            }
-        )
-        removeFailedContractAuditCallSignatures(for: [writtenPath])
+            })
+            consumedContractAuditRepairReadbackWorkspacePaths = Set(
+                consumedContractAuditRepairReadbackWorkspacePaths.filter {
+                    !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
+                }
+            )
+            removeFailedContractAuditCallSignatures(for: [writtenPath])
+        }
     }
 
     private mutating func removeFailedContractAuditCallSignatures<S: Sequence>(
@@ -525,6 +551,56 @@ struct AgentRunLoopState: Sendable {
                     AgentArtifactVerificationGate.pathsMatch($0, storedPath)
                 })
             }
+    }
+
+    private mutating func removeFailedContractAuditReceipts<S: Sequence>(
+        for paths: S
+    ) where S.Element == String {
+        let paths = Array(paths)
+        failedContractAuditReceiptsByWorkspacePath =
+            failedContractAuditReceiptsByWorkspacePath.filter { storedPath, _ in
+                !paths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, storedPath)
+                })
+            }
+    }
+
+    private static func failedContractAuditReceipt(from result: ToolResult) -> String {
+        var sections: [String] = []
+        if let exitCode = result.exitCode {
+            sections.append("exit code: \(exitCode)")
+        }
+        if !result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append("stdout:\n\(result.stdout)")
+        }
+        if !result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append("stderr:\n\(result.stderr)")
+        }
+        if let error = result.error,
+           !error.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append("error:\n\(error)")
+        }
+        let receipt = sections.isEmpty ? "validator failed without diagnostic output" :
+            sections.joined(separator: "\n")
+        let maximumCharacters = 8_000
+        guard receipt.count > maximumCharacters else { return receipt }
+        let half = maximumCharacters / 2
+        return String(receipt.prefix(half))
+            + "\n[failed validator output truncated]\n"
+            + String(receipt.suffix(half))
+    }
+
+    private static func auditSemanticFingerprint(_ content: String) -> String {
+        var normalized = content.precomposedStringWithCompatibilityMapping.lowercased()
+        let punctuationReplacements = [
+            "\u{2013}": "-", "\u{2014}": "-", "\u{2212}": "-", "\u{00D7}": "x",
+            "\u{2018}": "'", "\u{2019}": "'", "\u{201C}": "\"", "\u{201D}": "\"",
+        ]
+        for (source, replacement) in punctuationReplacements {
+            normalized = normalized.replacingOccurrences(of: source, with: replacement)
+        }
+        normalized = normalized.replacingOccurrences(of: "*", with: "")
+        return normalized.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
     private mutating func recordSuccessfulFileReads(paths: [String], output: String) {

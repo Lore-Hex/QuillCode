@@ -1133,7 +1133,8 @@ public struct AgentRunner: Sendable {
                     path: path,
                     tools: tools,
                     correctionCount: artifactContractAuditCorrectionCounts[path, default: 0],
-                    evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                    evidenceReceipt: runLoop.latestResearchEvidenceReceipt,
+                    failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                    ) {
                     controlledSourceGroundingFinalization = nil
                     artifactContractAuditCorrectionCounts[path, default: 0] += 1
@@ -1220,7 +1221,10 @@ public struct AgentRunner: Sendable {
                        runLoop.boundedRunFinalizationPhase(at: path) == .audit,
                        runLoop.isUnchangedFailedContractAuditReplay(activeCall, at: path) {
                         pendingRepeatNudge = AgentBoundedRunFinalizationGate
-                            .failedAuditReplayCorrectionPrompt(path: path)
+                            .failedAuditReplayCorrectionPrompt(
+                                path: path,
+                                failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
+                            )
                         next.events.append(.init(
                             kind: .notice,
                             summary: "Self-healing: rejected an unchanged failed validator for "
@@ -1512,7 +1516,8 @@ public struct AgentRunner: Sendable {
                             tools: tools,
                             correctionCount:
                                 artifactContractAuditCorrectionCounts[path, default: 0],
-                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt,
+                            failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                            ) {
                             artifactContractAuditCorrectionCounts[path, default: 0] += 1
                             pendingRepeatNudge = correction.prompt

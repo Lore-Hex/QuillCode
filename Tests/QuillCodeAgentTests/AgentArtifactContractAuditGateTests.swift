@@ -120,6 +120,20 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(correction.prompt.contains("expected values copied from the artifact"))
     }
 
+    func testCorrectionRetainsNamedFailedValidatorAssertions() throws {
+        let correction = try XCTUnwrap(AgentArtifactContractAuditGate.correction(
+            path: "outputs/report.md",
+            tools: [.shellRun],
+            correctionCount: 1,
+            failedAuditReceipt: "VALIDATION FAILED\n2025: expected $6,223,810"
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("authoritative record of the audit failure"))
+        XCTAssertTrue(correction.prompt.contains("2025: expected $6,223,810"))
+        XCTAssertTrue(correction.prompt.contains("typography-, whitespace-, or Markdown-only"))
+        XCTAssertTrue(correction.prompt.contains("until a subsequent validator execution passes"))
+    }
+
     func testRunnerRequiresAuditAndReauditsAfterRewrite() async throws {
         let root = try makeWorkspace()
         let firstWrite = ToolCall(

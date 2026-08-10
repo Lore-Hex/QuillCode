@@ -149,6 +149,13 @@ final class AgentRunLoopStateTests: XCTestCase {
                 "content": "# Report\n",
             ])
         )
+        let repairedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nRepaired content.\n",
+            ])
+        )
         let validator = shellCall(
             "python3 -c \"assert False\" outputs/report.md # QuillCode validator"
         )
@@ -178,7 +185,7 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
 
         _ = state.recordCompletedStep(
-            completed(call: write, stdout: "rewrote"),
+            completed(call: repairedWrite, stdout: "rewrote"),
             workspaceRoot: root
         ) { _ in "rewrite" }
         XCTAssertFalse(state.needsContractAuditRepairReadback(at: "outputs/report.md"))
@@ -235,6 +242,65 @@ final class AgentRunLoopStateTests: XCTestCase {
             completed(call: repairedHelper, stdout: "wrote repaired helper"), workspaceRoot: root
         ) { _ in "repaired-helper" }
         XCTAssertFalse(state.isUnchangedFailedContractAuditReplay(validator, at: "outputs/report.md"))
+    }
+
+    func testFailedContractAuditReceiptSurvivesReadbackAndTypographyOnlyRewriteUntilPass() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and run a deterministic validator against it."
+        )
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nReal revenue: **$6,220,578** - 35.1% x baseline.\n",
+            ])
+        )
+        let typographyOnlyRewrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nReal revenue: $6,220,578 \u{2014} 35.1% \u{00D7} baseline.\n",
+            ])
+        )
+        let validator = shellCall(
+            "python3 scripts/validate_report.py outputs/report.md # QuillCode validator"
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: initialWrite, stdout: "wrote"), workspaceRoot: root
+        ) { _ in "write" }
+        _ = state.recordCompletedStep(
+            completed(
+                call: validator,
+                stdout: "VALIDATION FAILED\n - 2025: real $6,223,810 not found",
+                ok: false
+            ),
+            workspaceRoot: root
+        ) { _ in "failed-audit" }
+
+        XCTAssertTrue(state.failedContractAuditReceipt(at: "./outputs/report.md")?.contains(
+            "2025: real $6,223,810 not found"
+        ) == true)
+
+        _ = state.recordCompletedStep(
+            completed(call: fileReadCall("outputs/report.md"), stdout: "saved artifact"),
+            workspaceRoot: root
+        ) { _ in "read" }
+        _ = state.recordCompletedStep(
+            completed(call: typographyOnlyRewrite, stdout: "rewrote"), workspaceRoot: root
+        ) { _ in "typography-only-rewrite" }
+
+        XCTAssertTrue(state.isUnchangedFailedContractAuditReplay(
+            validator,
+            at: "outputs/report.md"
+        ))
+        XCTAssertNotNil(state.failedContractAuditReceipt(at: "outputs/report.md"))
+
+        _ = state.recordCompletedStep(
+            completed(call: validator, stdout: "PASS"), workspaceRoot: root
+        ) { _ in "passed-audit" }
+        XCTAssertNil(state.failedContractAuditReceipt(at: "outputs/report.md"))
     }
 
     func testRenderedChartNeedsLaterSuccessfulRead() {
