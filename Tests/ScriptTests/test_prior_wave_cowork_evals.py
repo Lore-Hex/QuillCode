@@ -425,6 +425,7 @@ Real revenue = nominal revenue x (latest 2026 CPI / selected CPI basis index).
 | 2025 | $6,000,000 | $6,223,810 | 17.65% | 14.63% |
 
 Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
+General price inflation is roughly 9.6% over the selected CPI basis window.
 """
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "result.md"
@@ -468,6 +469,20 @@ Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
             path.write_text(production_precision_audit, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
+
+            labeled_inline_bases = production_precision_audit.replace(
+                "# Real revenue in 2026 dollars",
+                "# Real revenue in 2026-dollar terms",
+            ) + (
+                "\nCPI basis used for deflation (full precision): "
+                "2026 benchmark = 333.952; 2023 basis = 304.7015833333333333333333333333333333333; "
+                "2024 basis = 313.6888333333333333333333333333333333333; "
+                "2025 basis = 321.943.\n"
+            )
+            path.write_text(labeled_inline_bases, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+            self.assertIn("2026: Decimal('333.952')", detail)
 
             rounded_summary = artifact.replace(
                 "The BLS 2025 annual average is not\npublished because October is unavailable, so 321.943 is an 11-observation\nobserved-month proxy.",

@@ -2314,16 +2314,39 @@ def validate_task_126_real_revenue(path):
     }
     cpi_values = {}
     missing_cpi_years = []
+    year_matches = list(re.finditer(r"\b(2023|2024|2025|2026)\b", text))
     for year in (2023, 2024, 2025, 2026):
         candidates = []
-        for year_match in re.finditer(rf"\b{year}\b[^\n]*", text):
-            for raw_value in re.findall(r"\b[23]\d{2}\.\d{3,}\b", year_match.group(0)):
+        for index, year_match in enumerate(year_matches):
+            if int(year_match.group(1)) != year:
+                continue
+            next_year_offset = (
+                year_matches[index + 1].start()
+                if index + 1 < len(year_matches)
+                else len(text)
+            )
+            clause = text[year_match.end():min(next_year_offset, year_match.end() + 300)]
+            for value_match in re.finditer(r"\b[23]\d{2}\.\d{3,}\b", clause):
+                raw_value = value_match.group(0)
                 try:
-                    candidates.append((len(raw_value.partition(".")[2]), Decimal(raw_value)))
+                    nearby_context = text[
+                        max(0, year_match.start() - 40):year_match.end() + value_match.start()
+                    ]
+                    has_cpi_label = bool(re.search(
+                        r"cpi|index|basis|benchmark|proxy|annual[- ]average",
+                        nearby_context,
+                        re.I,
+                    ))
+                    candidates.append((
+                        has_cpi_label,
+                        len(raw_value.partition(".")[2]),
+                        -value_match.start(),
+                        Decimal(raw_value),
+                    ))
                 except InvalidOperation:
                     continue
         if candidates:
-            cpi_values[year] = max(candidates, key=lambda candidate: candidate[0])[1]
+            cpi_values[year] = max(candidates, key=lambda candidate: candidate[:3])[3]
         else:
             missing_cpi_years.append(year)
 
@@ -2356,13 +2379,20 @@ def validate_task_126_real_revenue(path):
             (adjusted_by_year[2025] / adjusted_by_year[2024] - 1) * 100,
             (adjusted_by_year[2025] / adjusted_by_year[2023] - 1) * 100,
         ]
-        percentage_values = [
-            (Decimal(value), bool(approximation))
-            for approximation, value in re.findall(
-                r"(?<![\d.])(~\s*)?([+-]?\d+(?:\.\d+)?)\s*%",
-                text,
-            )
-        ]
+        percentage_values = []
+        for percentage_match in re.finditer(
+            r"(?<![\d.])(~\s*)?([+-]?\d+(?:\.\d+)?)\s*%",
+            text,
+        ):
+            nearby_prefix = text[
+                max(0, percentage_match.start() - 45):percentage_match.start()
+            ]
+            if re.search(r"\binflation\b[^.!?\n]{0,35}$", nearby_prefix, re.I):
+                continue
+            percentage_values.append((
+                Decimal(percentage_match.group(2)),
+                bool(percentage_match.group(1)),
+            ))
         inconsistent_percentage_values = sorted(
             value for value, is_approximate in percentage_values
             if not any(
@@ -2461,7 +2491,7 @@ def validate_task_126_real_revenue(path):
             and re.search(r"monthly|month", text, re.I)
             and re.search(r"latest|benchmark", text, re.I)
         ),
-        "real-dollar basis": bool(re.search(r"2026[- ]dollars|2026 dollars", text, re.I)),
+        "real-dollar basis": bool(re.search(r"\b2026[- ]dollars?\b", text, re.I)),
         "adjustment formula": bool(
             re.search(r"real\s+revenue", text, re.I)
             and re.search(r"nominal\s+revenue", text, re.I)
