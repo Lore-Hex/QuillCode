@@ -4,30 +4,45 @@ import QuillCodeApp
 extension QuillCodeDesktopController {
     func refresh() {
         progressRefreshScheduler.flush { [weak self] in
-            self?.refreshNow()
+            self?.refreshNow(progressScope: nil)
         }
     }
 
-    func scheduleProgressRefresh() {
-        progressRefreshScheduler.schedule { [weak self] in
-            self?.refreshNow()
+    func scheduleProgressRefresh(_ scope: WorkspaceProgressSurfaceScope) {
+        progressRefreshScheduler.schedule(scope) { [weak self] coalescedScope in
+            self?.refreshNow(progressScope: coalescedScope)
         }
     }
 
-    private func refreshNow() {
-        computerUseCoordinator.refreshStatus(on: model)
+    private func refreshNow(progressScope: WorkspaceProgressSurfaceScope?) {
+        if progressScope == nil || progressScope?.contains(.agent) == true {
+            computerUseCoordinator.refreshStatus(on: model)
+        }
         var nextSurface = surface
         var nextDraft = draft
         var nextTerminalDraft = terminalDraft
         var nextBrowserAddressDraft = browserAddressDraft
-        modelStateCoordinator.refreshState(
-            from: model,
-            surface: &nextSurface,
-            draft: &nextDraft,
-            terminalDraft: &nextTerminalDraft,
-            browserAddressDraft: &nextBrowserAddressDraft,
-            isComposerTaskRunning: tasks.isSendRunning(threadID: model.selectedThread?.id)
-        )
+        let isComposerTaskRunning = tasks.isSendRunning(threadID: model.selectedThread?.id)
+        if let progressScope {
+            modelStateCoordinator.refreshProgressState(
+                from: model,
+                scope: progressScope,
+                surface: &nextSurface,
+                draft: &nextDraft,
+                terminalDraft: &nextTerminalDraft,
+                browserAddressDraft: &nextBrowserAddressDraft,
+                isComposerTaskRunning: isComposerTaskRunning
+            )
+        } else {
+            modelStateCoordinator.refreshState(
+                from: model,
+                surface: &nextSurface,
+                draft: &nextDraft,
+                terminalDraft: &nextTerminalDraft,
+                browserAddressDraft: &nextBrowserAddressDraft,
+                isComposerTaskRunning: isComposerTaskRunning
+            )
+        }
         if nextSurface != surface {
             surface = nextSurface
         }

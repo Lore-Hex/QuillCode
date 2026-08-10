@@ -43,7 +43,7 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "terminalCoordinator.recallPreviousCommand")
         Self.assertSource(terminalCoordinatorText, contains: "tasks.startIfIdle(.terminal")
         Self.assertSource(terminalCoordinatorText, contains: "onStateChange: progressRefresh")
-        Self.assertSource(terminalControllerText, contains: "self?.scheduleProgressRefresh()")
+        Self.assertSource(terminalControllerText, contains: "self?.scheduleProgressRefresh(.terminal)")
         Self.assertSource(smokeRunnerText, contains: "QuillCodeDesktopTerminalRetentionSmoke.verify")
         Self.assertSource(terminalSmokeText, contains: "entry.stdout.contains(\"output truncated\")")
         Self.assertSource(terminalSmokeText, contains: "outputByteCount < maximumPublishedOutputBytes")
@@ -68,6 +68,34 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, excludes: "tasks.cancel([.send, .terminal, .browserPreview])")
         Self.assertSource(controllerText, excludes: "model.cancelActiveWork()")
         Self.assertSource(controllerText, excludes: "model.disconnectAll()")
+    }
+
+    func testDesktopProgressRefreshScopesOwnTheirProjectionBoundaries() throws {
+        let refreshText = try Self.desktopSourceText(named: "QuillCodeDesktopController+Refresh.swift")
+        let schedulerText = try Self.desktopSourceText(named: "QuillCodeDesktopProgressRefreshScheduler.swift")
+        let composerText = try Self.desktopSourceText(named: "QuillCodeDesktopController+ComposerAndPanes.swift")
+        let terminalText = try Self.desktopSourceText(named: "QuillCodeDesktopController+Terminal.swift")
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+
+        Self.assertSource(refreshText, contains: "modelStateCoordinator.refreshProgressState(")
+        Self.assertSource(refreshText, contains: "progressRefreshScheduler.flush")
+        Self.assertSource(schedulerText, contains: "pendingScope.formUnion(scope)")
+        Self.assertSource(composerText, contains: "scheduleProgressRefresh(.agent)")
+        Self.assertSource(terminalText, contains: "scheduleProgressRefresh(.terminal)")
+        Self.assertSource(surfaceText, contains: "func progressSurface(")
+        Self.assertSource(surfaceText, contains: "agentProgressSurface().apply(to: &next)")
+        Self.assertSource(surfaceText, contains: "next.terminal = terminalSurface()")
+
+        let progressImplementation = try XCTUnwrap(
+            surfaceText.components(separatedBy: "func progressSurface(").dropFirst().first
+        ).components(separatedBy: "private func agentProgressSurface()").first ?? ""
+        XCTAssertFalse(progressImplementation.contains("surface()"))
+        XCTAssertFalse(progressImplementation.contains("WorkspaceProjectConfigurationLoader"))
+
+        let agentImplementation = try XCTUnwrap(
+            surfaceText.components(separatedBy: "private func agentProgressSurface()").dropFirst().first
+        ).components(separatedBy: "private func terminalSurface()").first ?? ""
+        XCTAssertFalse(agentImplementation.contains("WorkspaceProjectConfigurationLoader"))
     }
 
 }
