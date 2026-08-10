@@ -111,6 +111,7 @@ struct QuillCodeDesktopApp: App {
         let controller = QuillCodeDesktopController(
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
+        controller.startApplicationServices()
         _controller = StateObject(wrappedValue: controller)
     }
 
@@ -188,10 +189,6 @@ struct QuillCodeDesktopRootView: View {
                     ) { result in
                         controller.handleImageImport(result)
                     }
-            }
-            .task {
-                controller.installationLocationController.startIfNeeded()
-                controller.updateController.startAutomaticChecks()
             }
     }
 
@@ -316,16 +313,11 @@ private struct QuillCodeDesktopCommandBindings: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onAppear(perform: installBindings)
+            .onAppear(perform: installShortcutMonitor)
             .onDisappear(perform: removeBindings)
             .onChange(of: controller.surface.settings.keyboardShortcuts) { _, _ in
                 installShortcutMonitor()
             }
-    }
-
-    private func installBindings() {
-        controller.installApprovalNotificationHandling()
-        installShortcutMonitor()
     }
 
     private func removeBindings() {

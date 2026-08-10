@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-09: process services start at application entry
+
+- **Decision:** The ordinary `QuillCodeDesktopApp` entry path calls
+  `QuillCodeDesktopController.startApplicationServices` before handing the controller to SwiftUI.
+  The method owns notification action registration, the installation-location check, interrupted
+  update recovery, and automatic update scheduling.
+- **Window independence:** None of these services depends on `QuillCodeDesktopRootView.task` or
+  command-binding `onAppear`. macOS may restore the menu-bar process without creating its workspace
+  window, and process responsibilities must still run in that state.
+- **Mode isolation:** Helper and smoke launch modes return before application services start, so
+  deterministic test processes do not schedule updates, inspect installation location, or register
+  notification actions.
+- **View boundary:** The local keyboard monitor remains in a view modifier because its lifetime must
+  follow the visible workspace. Notification registration instead accepts only the packaged product
+  bundle identifier and remains idempotent for the process lifetime.
+
 ## 2026-08-09: verified-update launch acknowledgment belongs to app entry
 
 - **Decision:** `QuillCodeDesktopApp.init` acknowledges a validated updater launch token exactly
