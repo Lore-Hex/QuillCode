@@ -47,9 +47,9 @@ struct AgentRunLoopState: Sendable {
     /// bytes that failed instead of reconstructing a long artifact from diluted context.
     private var failedContractAuditWorkspacePaths: Set<String> = []
     private var consumedContractAuditRepairReadbackWorkspacePaths: Set<String> = []
-    /// Exact failed audit commands remain blocked until either the audited deliverable or its
-    /// validator helper changes. A repair read alone must not permit an unchanged broken validator
-    /// to consume the rest of a bounded run.
+    /// A failed audit remains blocked until either the audited deliverable or its validator helper
+    /// changes. The stored signature marks an unrepaired failure; the next shell spelling is not
+    /// trusted to prove progress because quoting or comments can change without changing behavior.
     private var failedContractAuditCallSignaturesByWorkspacePath:
         [String: ToolCallFingerprint] = [:]
     /// Exact failed validator output survives readback and artifact rewrites until a later audit
@@ -220,13 +220,8 @@ struct AgentRunLoopState: Sendable {
             among: [normalizedPath]
         )
         guard !auditedPaths.isEmpty else { return false }
-        let signature = ToolCallFingerprint.make(
-            name: call.name,
-            argumentsJSON: call.argumentsJSON
-        )
-        return failedContractAuditCallSignaturesByWorkspacePath.contains { storedPath, stored in
+        return failedContractAuditCallSignaturesByWorkspacePath.contains { storedPath, _ in
             AgentArtifactVerificationGate.pathsMatch(storedPath, normalizedPath)
-                && stored == signature
         }
     }
 
@@ -453,8 +448,7 @@ struct AgentRunLoopState: Sendable {
             unverifiedWrittenWorkspacePaths.insert(normalized)
             markResearchArtifactRefreshed(normalized)
             if let content {
-                if previousContent != nil,
-                   previousContent != content {
+                if previousContent != content {
                     let repairedAuditPaths = requiredContractAuditWorkspacePaths.filter { path in
                         AgentBoundedRunFinalizationGate.validatorHelperExecutionCall(
                             after: completion.call,

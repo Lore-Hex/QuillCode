@@ -274,6 +274,43 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertFalse(state.isUnchangedFailedContractAuditReplay(validator, at: "outputs/report.md"))
     }
 
+    func testFailedContractAuditBlocksCosmeticallyChangedReplayUntilRepair() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and run a deterministic validator against it."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n",
+            ])
+        )
+        let failedValidator = shellCall(
+            "python3 'outputs/validate.py' 'outputs/report.md' # QuillCode validator"
+        )
+        let cosmeticReplay = shellCall(
+            "python3 'outputs/validate.py' 'outputs/report.md'"
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"), workspaceRoot: root
+        ) { _ in "write" }
+        _ = state.recordCompletedStep(
+            completed(call: failedValidator, stdout: "wrong aggregate", ok: false),
+            workspaceRoot: root
+        ) { _ in "failed-audit" }
+        _ = state.recordCompletedStep(
+            completed(call: fileReadCall("outputs/report.md"), stdout: "# Report\n"),
+            workspaceRoot: root
+        ) { _ in "repair-read" }
+
+        XCTAssertTrue(state.isUnchangedFailedContractAuditReplay(
+            cosmeticReplay,
+            at: "outputs/report.md"
+        ))
+    }
+
     func testFailedContractAuditReceiptSurvivesReadbackAndTypographyOnlyRewriteUntilPass() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

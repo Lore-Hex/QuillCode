@@ -534,7 +534,7 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.stopReason, .finished)
     }
 
-    func testBoundedRunFinalizationRejectsUnchangedFailedValidatorReplay() async throws {
+    func testBoundedRunFinalizationRejectsCosmeticallyChangedFailedValidatorReplay() async throws {
         let root = try makeTempDirectory()
         let validatorCapture = ToolCallCapture()
         let initialWrite = ToolCall(
@@ -562,16 +562,16 @@ final class AgentToolLoopTests: XCTestCase {
                 "content": "assert len(open('outputs/report.md').read().splitlines()) == 3\nprint('PASS')",
             ])
         )
-        let unchangedValidator = ToolCall(
+        let cosmeticReplay = ToolCall(
             name: ToolDefinition.shellRun.name,
             argumentsJSON: ToolArguments.json([
-                "cmd": "python3 'scripts/validate_report.py' 'outputs/report.md' # QuillCode validator",
+                "cmd": "python3 'scripts/validate_report.py' 'outputs/report.md'",
             ])
         )
         let runner = AgentRunner(
             llm: SequenceLLMClient(actions: [
                 .tool(initialWrite), .tool(initialValidatorWrite), .tool(repairRead),
-                .tool(unchangedValidator), .tool(repairedValidatorWrite),
+                .tool(cosmeticReplay), .tool(repairedValidatorWrite),
             ]),
             toolExecutionOverride: { call, _ in
                 guard call.name == ToolDefinition.shellRun.name else { return nil }
