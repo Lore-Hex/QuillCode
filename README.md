@@ -7,7 +7,7 @@
 
 [Download for Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) · [Download for Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
-![Quill Cowork desktop app showing TrustedRouter onboarding](docs/images/quill-cowork-desktop.png)
+![Quill Cowork showing a code review with TrustedRouter billing limits expanded](docs/images/quill-cowork-desktop.png)
 
 Quill Cowork combines project-aware chat, local tools, Git workflows, Computer Use, automations,
 plugins, and a full workspace terminal in one SwiftUI desktop app. It is built natively in Swift
@@ -25,6 +25,8 @@ with automatic rollback.
 - Add skills, plugins, hooks, and MCP servers while keeping approvals and workspace boundaries
   visible.
 - Choose from the live TrustedRouter model catalog or use Quill Cowork's named model profiles.
+- Track TrustedRouter usage across daily, weekly, monthly, and total limits, then set a **Task Limit**
+  directly from the top bar before a long-running task spends more than intended.
 
 ## Install on macOS
 
