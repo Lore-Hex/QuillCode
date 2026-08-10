@@ -53,6 +53,11 @@ not attach project paths, transcripts, or credentials. After an unexpected exit,
 launch identifies whether the prior session ended during startup or while running, warns that active
 command work may be incomplete, and offers the same privacy-safe report path.
 
+Choosing **Remind Me Tomorrow** defers only that exact update for 24 hours, including across app
+restarts. A newer build appears on the normal check cadence, and **Check for Updates...** always
+overrides the reminder. The app reopens its already-verified update state at the deadline without an
+extra network request.
+
 ## Downloads
 
 | Platform | Artifact | Status |

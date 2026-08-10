@@ -266,6 +266,14 @@ active-helper grace period on launch, the app also removes only its exact hidden
 interrupted install; symlinks, lookalikes, and unexpected app identities are never
 treated as updater-owned staging.
 
+The update sheet's **Remind Me Tomorrow** action persists a bounded record for only the exact
+channel, commit, version, and build being dismissed. Automatic checks keep their normal cadence so
+a different build can appear immediately, while the same build stays quiet for 24 hours across app
+restarts. At the deadline, the app presents the cached verified release without making a redundant
+request. A user-initiated **Check for Updates...** clears the reminder. Expired, malformed,
+oversized, mismatched, and implausibly future-dated records fail open and cannot suppress updates.
+The reminder record contains public release identity only, never project or account data.
+
 ## Tester Install Notes
 
 The macOS tester app is ad-hoc signed but not notarized yet. Testers may need to

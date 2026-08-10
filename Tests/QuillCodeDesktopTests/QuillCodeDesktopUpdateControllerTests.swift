@@ -226,6 +226,85 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertFalse(controller.isPresented)
     }
 
+    func testDismissedAutomaticReleaseStaysHiddenAndManualCheckOverridesDeferral() async throws {
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: checker,
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(testerInterval: 0.03),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+        try await waitUntil { controller.state == .updateAvailable(release) && controller.isPresented }
+        controller.dismiss()
+        XCTAssertFalse(controller.isPresented)
+
+        try await waitUntil { await checker.callCount >= 2 }
+        try await waitUntil { controller.state == .updateAvailable(release) && !controller.isPresented }
+
+        controller.checkForUpdates()
+        try await waitUntil { await checker.callCount >= 3 }
+        try await waitUntil { controller.state == .updateAvailable(release) && controller.isPresented }
+    }
+
+    func testNewAutomaticReleaseBypassesPersistedDeferral() async throws {
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        let oldRelease = makeRelease(version: "0.2.0", build: "7")
+        let newRelease = makeRelease(version: "0.2.0", build: "8")
+        QuillCodeDesktopUpdateReminderStore(defaults: defaults).recordDeferral(
+            oldRelease,
+            configuration: configuration,
+            now: Date()
+        )
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: configuration,
+            checker: UpdateCheckerSpy(result: .updateAvailable(newRelease)),
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+
+        try await waitUntil { controller.state == .updateAvailable(newRelease) }
+        XCTAssertTrue(controller.isPresented)
+    }
+
+    func testReminderDeadlineRepresentsCachedReleaseBeforeLongChannelInterval() async throws {
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        QuillCodeDesktopUpdateReminderStore(
+            defaults: defaults,
+            reminderInterval: 0.08
+        ).recordDeferral(
+            release,
+            configuration: configuration,
+            now: Date()
+        )
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: configuration,
+            checker: checker,
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(testerInterval: 1),
+            reminderInterval: 0.08,
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+        try await waitUntil { await checker.callCount >= 1 }
+        XCTAssertFalse(controller.isPresented)
+
+        try await waitUntil(timeout: .milliseconds(500)) { controller.isPresented }
+        let callCount = await checker.callCount
+        XCTAssertEqual(callCount, 1)
+    }
+
     func testManualSuccessReschedulesPendingAutomaticCheck() async throws {
         let checker = UpdateCheckerSpy(
             result: .upToDate(latestVersion: "0.1.0", latestBuild: "42")
