@@ -237,6 +237,10 @@ public struct AgentRunner: Sendable {
             let runStartedAt = Date()
             var hasEnteredBoundedRunFinalization = false
             var boundedRunFinalizationPath: String?
+            /// Mechanical closure actions do not need another model turn once the model has
+            /// authored a validator. They still execute through the normal tool and safety path.
+            var pendingBoundedRunFinalizationAction: AgentAction?
+            var autoReadbackAfterContractAuditPath: String?
             var hasEmittedModelAction = false
             var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
@@ -435,8 +439,13 @@ public struct AgentRunner: Sendable {
                 } else {
                     .synthesis
                 }
+                let isControlledBoundedRunFinalizationAction =
+                    pendingBoundedRunFinalizationAction != nil
                 let action: AgentAction
-                if let controlledSourceGroundingFinalization {
+                if let controlledAction = pendingBoundedRunFinalizationAction {
+                    pendingBoundedRunFinalizationAction = nil
+                    action = controlledAction
+                } else if let controlledSourceGroundingFinalization {
                     action = controlledSourceGroundingFinalization
                 } else {
                     do {
@@ -685,7 +694,8 @@ public struct AgentRunner: Sendable {
                     resolvedAction,
                     deliverablePath: path,
                     phase: runLoop.boundedRunFinalizationPhase(at: path)
-                   ), !(isSemanticArtifactCorrection
+                   ), !isControlledBoundedRunFinalizationAction,
+                   !(isSemanticArtifactCorrection
                         && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
                             resolvedAction,
                             deliverablePath: path
@@ -1826,6 +1836,67 @@ public struct AgentRunner: Sendable {
                                 toolResults: runLoop.toolResults,
                                 stopReason: .flailDetected(reason: reason.message)
                             )
+                        }
+                        if let path = boundedRunFinalizationPath,
+                           completion.result.ok,
+                           let validatorCall = AgentBoundedRunFinalizationGate
+                            .validatorHelperExecutionCall(
+                                after: completion.call,
+                                deliverablePath: path
+                            ), runLoop.boundedRunFinalizationPhase(at: path) == .audit {
+                            pendingBoundedRunFinalizationAction = .tool(validatorCall)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: executed the authored validator helper "
+                                    + "without spending another model turn."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        } else if let path = boundedRunFinalizationPath,
+                                  completion.result.ok,
+                                  !AgentArtifactContractAuditGate.auditedPaths(
+                                    for: completion.call,
+                                    among: [AgentArtifactVerificationGate.normalizedPath(path)]
+                                  ).isEmpty {
+                            switch runLoop.boundedRunFinalizationPhase(at: path) {
+                            case .readback:
+                                autoReadbackAfterContractAuditPath = path
+                                pendingBoundedRunFinalizationAction = .say(
+                                    "Completed and verified `\(path)`."
+                                )
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: the deterministic audit passed; "
+                                        + "advanced through terminal quality gates without "
+                                        + "spending another model turn."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            case .complete:
+                                pendingBoundedRunFinalizationAction = .say(
+                                    "Completed and verified `\(path)`."
+                                )
+                            case .synthesize, .audit:
+                                break
+                            }
+                        } else if let path = autoReadbackAfterContractAuditPath,
+                                  completion.result.ok,
+                                  AgentBoundedRunFinalizationGate.allows(
+                                    .tool(completion.call),
+                                    deliverablePath: path,
+                                    phase: .readback
+                                  ), runLoop.boundedRunFinalizationPhase(at: path) == .complete {
+                            autoReadbackAfterContractAuditPath = nil
+                            pendingBoundedRunFinalizationAction = .say(
+                                "Completed and verified `\(path)`."
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the audited artifact readback succeeded; "
+                                    + "completed the bounded run without another model turn."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
                         }
                     }
                 }

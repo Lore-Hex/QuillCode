@@ -60,6 +60,39 @@ enum AgentBoundedRunFinalizationGate {
         return isReadback(call, deliverablePath: deliverablePath)
     }
 
+    static func validatorHelperExecutionCall(
+        after call: ToolCall,
+        deliverablePath: String
+    ) -> ToolCall? {
+        guard isValidatorHelperWrite(call, deliverablePath: deliverablePath),
+              let arguments = try? ToolArguments(call.argumentsJSON),
+              let helperPath = arguments.string("path")
+        else { return nil }
+
+        let interpreter: String
+        switch URL(fileURLWithPath: helperPath).pathExtension.lowercased() {
+        case "py":
+            interpreter = "python3"
+        case "js", "mjs", "cjs":
+            interpreter = "node"
+        case "rb":
+            interpreter = "ruby"
+        case "pl":
+            interpreter = "perl"
+        default:
+            return nil
+        }
+
+        let normalizedHelper = AgentArtifactVerificationGate.normalizedPath(helperPath)
+        let normalizedDeliverable = AgentArtifactVerificationGate.normalizedPath(deliverablePath)
+        let command = "\(interpreter) \(shellQuoted(normalizedHelper)) "
+            + "\(shellQuoted(normalizedDeliverable)) # QuillCode validator"
+        return ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": command])
+        )
+    }
+
     static func correctionPrompt(
         path: String,
         userMessage: String,
@@ -177,6 +210,10 @@ enum AgentBoundedRunFinalizationGate {
             normalizedContent.contains($0)
         }
         return namesTarget && hasValidation
+    }
+
+    private static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
 
     private static func originalRequestExcerpt(_ userMessage: String) -> String {

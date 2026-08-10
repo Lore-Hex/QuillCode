@@ -15,6 +15,7 @@ enum AgentArtifactVerificationGate {
         let patterns = [
             #"(?is)\bafter\s+(?:writing|saving|creating|producing|generating)\b.{0,120}\bread\b.{0,80}\b(?:back|verify|confirm)\b"#,
             #"(?is)\bread\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b.{0,40}\b(?:back|verify|confirm)\b"#,
+            #"(?is)\bread\s+(?:it|that|this)\s+back\b"#,
             #"(?is)\bverify\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b"#,
         ]
         let range = NSRange(userMessage.startIndex..., in: userMessage)

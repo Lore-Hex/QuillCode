@@ -298,20 +298,9 @@ final class AgentToolLoopTests: XCTestCase {
                 """,
             ])
         )
-        let validatorRun = ToolCall(
-            name: ToolDefinition.shellRun.name,
-            argumentsJSON: ToolArguments.json([
-                "cmd": "python3 scripts/validate_report.py outputs/report.md",
-            ])
-        )
-        let read = ToolCall(
-            name: ToolDefinition.fileRead.name,
-            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
-        )
         let runner = AgentRunner(
             llm: SequenceLLMClient(actions: [
                 .tool(deliverableWrite), .tool(research), .tool(validatorWrite),
-                .tool(validatorRun), .tool(read), .say("Completed and verified the report."),
             ]),
             toolExecutionOverride: { call, _ in
                 if call.name == ToolDefinition.webFetch.name {
@@ -337,17 +326,100 @@ final class AgentToolLoopTests: XCTestCase {
 
         let researchCallCount = await researchCapture.count
         let validatorCallCount = await validatorCapture.count
+        let validatorCall = await validatorCapture.call
         XCTAssertEqual(researchCallCount, 0)
         let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
         XCTAssertEqual(validatorCallCount, 1, eventSummary)
         XCTAssertEqual(
+            (try? ToolArguments(validatorCall?.argumentsJSON ?? "{}").string("cmd")),
+            "python3 'scripts/validate_report.py' 'outputs/report.md' # QuillCode validator"
+        )
+        XCTAssertEqual(
             result.thread.messages.last?.content,
-            "Completed and verified the report.",
+            "Completed and verified `outputs/report.md`.",
             eventSummary
         )
         XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("authored validator helper")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("audit passed")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("artifact readback succeeded")
+        })
+        XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("rejected a non-finalization action")
         })
+    }
+
+    func testBoundedRunFinalizationReturnsFailedValidatorToModelForRepair() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\n",
+            ])
+        )
+        let repairedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let initialValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 3",
+            ])
+        )
+        let repairedValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 3\nprint('PASS')",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(initialWrite), .tool(initialValidatorWrite),
+                .tool(repairedWrite), .tool(repairedValidatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                let attempt = await validatorCapture.count
+                if attempt == 1 {
+                    return ToolResult(ok: false, stderr: "expected exactly two data rows")
+                }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows. After writing, read the saved "
+                + "output back and verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(validatorCallCount, 2)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "name,value\nalpha,1\nbeta,2\n"
+        )
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/report.md`."
+        )
+        XCTAssertEqual(result.stopReason, .finished)
     }
 
     func testAgentRedirectsFourthSerialResearchCallIntoEarlyDelegation() async throws {

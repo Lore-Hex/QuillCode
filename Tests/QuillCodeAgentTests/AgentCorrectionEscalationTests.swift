@@ -187,14 +187,14 @@ final class AgentCorrectionEscalationTests: XCTestCase {
             .map { "[\($0.offset)] \($0.element)" }
             .joined(separator: "\n---\n")
         XCTAssertEqual(result.stopReason, .finished, diagnostics)
-        XCTAssertEqual(result.toolResults.map(\.ok), [true, true], diagnostics)
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true, true], diagnostics)
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "Completed and verified outputs/report.md.",
+            "Completed and verified `outputs/report.md`.",
             diagnostics
         )
-        XCTAssertTrue(prompts.contains {
-            $0.contains("requested deliverable, deterministic audit, and readback are complete")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("audited artifact readback succeeded")
         }, diagnostics)
         XCTAssertTrue(prompts[1].contains("reserved validation window"), diagnostics)
         XCTAssertEqual(auditPrompts.count, AgentCorrectiveTurnBudget.limit + 1)
@@ -258,8 +258,10 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         XCTAssertEqual(result.stopReason, .finished, diagnostics)
         XCTAssertEqual(result.toolResults.map(\.ok), [true, true, true], diagnostics)
         XCTAssertEqual(result.thread.messages.last?.content, "Completed and verified `outputs/report.md`.")
-        XCTAssertTrue(try XCTUnwrap(prompts.last).contains("limits facts to supplied sources"))
-        XCTAssertFalse(try XCTUnwrap(prompts.last).contains("Do not call another tool"))
+        let sourceAuditPrompt = try XCTUnwrap(prompts.first {
+            $0.contains("limits facts to supplied sources")
+        })
+        XCTAssertFalse(sourceAuditPrompt.contains("Do not call another tool"))
     }
 
     func testExhaustedPromisedWorkAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
