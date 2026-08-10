@@ -228,6 +228,9 @@ public struct AgentRunner: Sendable {
             var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
+            /// Gate-specific limits cannot safely bound their combined effect. Keep one monotonic
+            /// budget across consecutive corrective turns and reset it only after a tool executes.
+            var correctiveTurnBudget = AgentCorrectiveTurnBudget()
             /// A premature read of a task-named output is redirected once per path. A repeated
             /// attempt is allowed to execute normally so this guard can never create a loop.
             var preWriteVerificationNudgedPaths = Set<String>()
@@ -321,6 +324,25 @@ public struct AgentRunner: Sendable {
             actionLoop: for _ in 0..<limit {
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
+                if repeatNudge != nil, !correctiveTurnBudget.beginCorrectiveTurn() {
+                    let reason = "the model did not produce an executable tool action after "
+                        + "\(AgentCorrectiveTurnBudget.limit) consecutive corrective turns"
+                    appendAssistantMessage(
+                        "Stopped because \(reason). The partial workspace results were preserved.",
+                        to: &next
+                    )
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: stopped the run because \(reason)."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    return AgentRunResult(
+                        thread: next,
+                        toolResults: runLoop.toolResults,
+                        stopReason: .flailDetected(reason: reason)
+                    )
+                }
                 let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
                     .startup
                 } else if runLoop.requiresGroundedSynthesisReasoningBudget() {
@@ -1576,6 +1598,7 @@ public struct AgentRunner: Sendable {
                         // The model emitted and executed a new concrete action. Recovery for the next
                         // turn starts fresh even when this tool reports a failure: its feedback is new
                         // information the model must be allowed to act on.
+                        correctiveTurnBudget.recordExecutedTool()
                         exhaustedActionContinuationAttempts = 0
                         if let auditPath = pendingSourceGroundingAuditPath {
                             if completion.result.ok,

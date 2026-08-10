@@ -143,6 +143,7 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
     }
 
     func testPostCheckpointSynthesisDoesNotInterruptWritesAndIsBounded() {
+        XCTAssertEqual(AgentResearchCheckpointGate.finalizationCorrectionLimitPerPath, 2)
         XCTAssertNil(AgentResearchCheckpointGate.finalizationCorrection(
             path: "outputs/revenue.html",
             proposedToolRisk: .append,

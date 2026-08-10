@@ -16,7 +16,7 @@ enum AgentResearchCheckpointGate {
     static let maximumPostDraftResearchWeight = 15
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
-    static let finalizationCorrectionLimitPerPath = 8
+    static let finalizationCorrectionLimitPerPath = 2
 
     static func earlyDelegationCorrection(
         path: String?,

@@ -151,6 +151,44 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 2)
     }
 
+    func testReasoningFallbackDoesNotResetCorrectionBudget() async {
+        let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)
+        let primary = ScriptedState([
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+        ])
+        let fallback = ScriptedState([
+            .failure(overrun),
+            .success(.say("too late")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            fallbackLLM: ScriptedClient(state: fallback)
+        )
+        var thread = ChatThread(title: "bounded fallback")
+
+        do {
+            _ = try await runner.nextAction(
+                thread: &thread,
+                userMessage: "Write the requested artifact.",
+                tools: [ToolDefinition.fileWrite],
+                workspaceRoot: FileManager.default.temporaryDirectory,
+                onProgress: nil
+            )
+            XCTFail("expected the shared reasoning budget to be exhausted")
+        } catch is AgentPreActionReasoningBudgetExceededError {
+            // Expected: the fallback gets one action attempt, not a fresh correction budget.
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        let primaryCalls = await primary.recorded().count
+        let fallbackCalls = await fallback.recorded().count
+        XCTAssertEqual(primaryCalls, 3)
+        XCTAssertEqual(fallbackCalls, 1)
+    }
+
     func testLongReasoningAfterFirstToolActionIsAllowed() async throws {
         let root = try makeTempDirectory()
         let inputs = root.appendingPathComponent("inputs", isDirectory: true)

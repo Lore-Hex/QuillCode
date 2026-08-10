@@ -223,7 +223,6 @@ extension AgentRunner {
                     if let fallback = fallbackLLM, !usedFallback {
                         usedFallback = true
                         activeLLM = fallback
-                        attempt = 0
                         pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
                             preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
                         )
