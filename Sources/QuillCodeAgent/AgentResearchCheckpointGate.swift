@@ -41,8 +41,11 @@ enum AgentResearchCheckpointGate {
             prompt: """
             The serial pre-draft research limit for ./\(path) has been reached. Do not perform \
             another direct search or fetch. Launch host.subagents.run now with two to four precise, \
-            independent research workers so named entities or evidence tracks are investigated in \
-            parallel. Require each worker to return the requested facts, exact source URLs, and a \
+            independent, research-only workers so named entities or evidence tracks are investigated \
+            in parallel. Do not assign any worker to draft, synthesize, validate, or write \
+            ./\(path), and do not make one worker consume another worker's results; the coordinator \
+            owns reconciliation after the parallel batch. Require each worker to return requested \
+            facts that appear in successful tool output, exact source URLs, and a \
             clear blocked status for any missing evidence; a promise to continue is not a completed \
             worker result. After the batch returns, reconcile every requested entity into ./\(path), \
             then read the artifact back. Respond with host.subagents.run now.

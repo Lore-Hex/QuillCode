@@ -98,7 +98,11 @@ struct AgentWorkspaceSubagentWorker: Sendable {
         _ job: WorkspaceSubagentJob,
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> WorkspaceSubagentWorkerResult {
-        let prompt = WorkspaceSubagentPromptBuilder.prompt(objective: job.objective, job: job)
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: job.objective,
+            job: job,
+            parentEvidence: WorkspaceSubagentEvidenceDigest.summary(from: parentThread)
+        )
         let thread = WorkspaceSubagentThreadBuilder.thread(
             for: job,
             inheriting: parentThread
@@ -205,9 +209,10 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             )
         }
         let status = WorkspaceSubagentTerminalStatus.status(for: assistantText)
-        let summaryWithEvidence = status == .failed
-            ? Self.appendingEvidence(WorkspaceSubagentEvidenceDigest.summary(from: thread), to: finalSummary)
-            : finalSummary
+        let summaryWithEvidence = Self.appendingEvidence(
+            WorkspaceSubagentEvidenceDigest.summary(from: thread),
+            to: finalSummary
+        )
         return WorkspaceSubagentWorkerResult(
             status: status,
             summary: summaryWithEvidence,
@@ -312,7 +317,11 @@ private enum WorkspaceSubagentWorkerError: LocalizedError {
 }
 
 enum WorkspaceSubagentPromptBuilder {
-    static func prompt(objective: String, job: WorkspaceSubagentJob) -> String {
+    static func prompt(
+        objective: String,
+        job: WorkspaceSubagentJob,
+        parentEvidence: String? = nil
+    ) -> String {
         """
         You are the "\(job.name)" subagent collaborating on this objective:
         \(objective)
@@ -320,6 +329,7 @@ enum WorkspaceSubagentPromptBuilder {
         Your role: \(job.role)
         \(groupPathSection(for: job))
         \(priorResultsSection(job.priorResults))
+        \(parentEvidenceSection(parentEvidence))
         The objective provides context, but your role defines your ownership boundary.
         Do not create or modify a parent deliverable named only in the objective unless
         your role explicitly assigns that deliverable to you. Research-only roles must
@@ -334,7 +344,10 @@ enum WorkspaceSubagentPromptBuilder {
         Do not finish while any recoverable part of your assigned role remains.
         Use the available tools now instead of returning a plan or "next steps".
         For research work, preserve each useful fact with its source URL as soon
-        as you find it. Prefer direct evidence gathering over building helper
+        as you find it. A URL by itself does not ground a factual or numeric claim:
+        only report a value as verified when that exact value appears in successful
+        tool output. If it cannot be obtained, report it as unavailable rather than
+        substituting memory or an estimate. Prefer direct evidence gathering over building helper
         scripts unless the role explicitly requires automation. If two focused
         fetches of the same page produce no new evidence, switch to another
         source or extraction method instead of rewriting the query again.
@@ -373,6 +386,20 @@ enum WorkspaceSubagentPromptBuilder {
 
         Results from the prerequisite subagents you depend on:
         \(lines)
+
+        """
+    }
+
+    private static func parentEvidenceSection(_ evidence: String?) -> String {
+        guard let evidence, !evidence.isEmpty else { return "" }
+        return """
+
+        Grounded evidence already collected by the coordinator:
+        \(evidence)
+
+        Preserve and build on this evidence. Successful tool output is stronger than model memory
+        or an unsupported sibling summary; do not contradict it. Re-fetch a source before changing
+        a value that appears here.
 
         """
     }

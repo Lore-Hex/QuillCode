@@ -52,7 +52,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             WorkspaceSubagentJob(name: "Builder", role: "create the marker", objective: "prepare fixture")
         )
 
-        XCTAssertEqual(summary, "COMPLETE: Created subagent.txt and verified the write.")
+        XCTAssertTrue(summary.hasPrefix("COMPLETE: Created subagent.txt and verified the write."))
+        XCTAssertTrue(summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(summary.contains("host.file.write: Wrote"))
         XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "hello from subagent\n")
     }
 
@@ -121,7 +123,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
 
         let resumed = try await worker.resume(pause, job: job)
 
-        XCTAssertEqual(resumed.summary, "COMPLETE: Done.")
+        XCTAssertTrue(resumed.summary.hasPrefix("COMPLETE: Done."))
+        XCTAssertTrue(resumed.summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(resumed.summary.contains("host.file.write: Wrote"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
         XCTAssertTrue(resumed.transcript.contains { $0.kind == .tool && $0.statusLabel == "Done" })
     }
@@ -189,6 +193,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Do not merely announce what you intend to do"))
         XCTAssertTrue(prompt.contains("Do not finish while any recoverable part"))
         XCTAssertTrue(prompt.contains("preserve each useful fact with its source URL"))
+        XCTAssertTrue(prompt.contains("exact value appears in successful"))
         XCTAssertTrue(prompt.contains("two focused"))
         XCTAssertTrue(prompt.contains("switch to another"))
         XCTAssertTrue(prompt.contains("source or extraction method instead of rewriting the query again"))
@@ -197,6 +202,18 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("BLOCKED:"))
         XCTAssertFalse(prompt.contains("any remaining next steps"))
         XCTAssertFalse(prompt.contains(#"{"type":"say""#))
+    }
+
+    func testPromptIncludesCoordinatorGroundedEvidence() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "calculate real revenue",
+            job: WorkspaceSubagentJob(name: "Researcher", role: "verify CPI"),
+            parentEvidence: "host.web.fetch: 2025 annual CPI average = 321.943"
+        )
+
+        XCTAssertTrue(prompt.contains("Grounded evidence already collected by the coordinator:"))
+        XCTAssertTrue(prompt.contains("2025 annual CPI average = 321.943"))
+        XCTAssertTrue(prompt.contains("Successful tool output is stronger than model memory"))
     }
 
     func testExplicitBlockedResultIsNotReportedAsDone() async throws {
