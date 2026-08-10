@@ -381,7 +381,7 @@ extension QuillCodeWorkspaceModel {
             expectedThreadID: expectedThreadID,
             composer: composer
         ) else { return }
-        updateThreadFromAgentRun(progress.thread)
+        updateThreadFromAgentProgress(progress.thread)
         updateAgentRun(threadID: expectedThreadID, status: progress.agentStatus)
     }
 

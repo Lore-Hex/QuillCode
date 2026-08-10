@@ -1,25 +1,26 @@
 # Code Quality Audit
 
-## 2026-08-10 Copy-On-Write Agent Progress
+## 2026-08-10 Independently Owned Agent Progress Histories
 
-Overall grade after this slice: **A+ progress efficiency, A+ memory scaling, A+ durable repair**.
+Overall grade after this slice: **A+ progress ownership, A+ memory scaling, A+ structural recovery**.
 
 | Area | Grade | Notes |
 | --- | --- | --- |
-| Main-actor cost | A+ | Presentation-cadence agent updates no longer scan or rebuild the complete event history. |
-| Memory scaling | A+ | Already-compact snapshots and persistence passes preserve Swift array copy-on-write storage instead of allocating transcript-sized event buffers. |
-| Producer invariant | A+ | Streaming reasoning updates replace the current notice in place and append only when a new semantic burst starts. |
-| Durable repair | A+ | Save, direct load, and listing still compact legacy consecutive reasoning notices, rewrite repaired histories, and avoid allocating for healthy logs. |
-| Regression evidence | A+ | Core and model 50,000-event tests check shared storage and exact IDs; parity gates protect both producer and consumer boundaries. |
+| Main-actor cost | A+ | Matching histories reconcile in place with no temporary history array; structural identity changes use one detached rebuild. |
+| Memory scaling | A+ | The model and producer keep independent buffers, so neither side causes the other's next streamed mutation to clone the complete transcript. |
+| State ownership | A+ | Live instructions, memories, goals, drafts, attachments, and follow-up queues cannot be rolled back by a stale send-start snapshot. |
+| Structural recovery | A+ | Appends, in-place updates, truncation, compaction, and reordered identities all produce exact snapshot semantics without retaining producer storage. |
+| Regression evidence | A+ | A two-tick 50,000-event test checks both buffer addresses and exact values; structural and parity gates protect fallback and routing. |
 
 Validation:
 
-- `swift test --filter 'WorkspaceComposerIntegrationTests/testAgentRunSnapshotReusesAlreadyCompactEventStorage|ThreadEventLogCompactorTests|JSONThreadStoreTests|ParityAgentStreamingGateTests|ParityWorkspaceThreadMutationModelGateTests'`
-- `swift test --disable-sandbox` (5,811 tests; 5 skipped; 0 failures)
+- `swift test --filter 'WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent|WorkspaceComposerIntegrationTests/testAgentProgressReconcilesStructuralHistoryWithoutSharingProducerStorage|ThreadEventLogCompactorTests|JSONThreadStoreTests|ParityAgentStreamingGateTests|ParityWorkspaceThreadMutationModelGateTests'`
+- `swift test --disable-sandbox` (5,813 tests; 5 skipped; 0 failures)
 - Packaged direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
   accessibility, and two interaction-sweep smokes passed
-- Packaged performance: 289.53 ms median launch-ready, 98.44 MiB initial, 158.64 MiB
-  post-interaction, and 163.16 MiB repeated-interaction memory across 3/3 passing processes
+- Optimized packaged performance: 263.64 ms median launch-ready, 90.42 MiB initial, 149.52 MiB
+  post-interaction, and 153.95 MiB repeated-interaction memory with 4.44 MiB repeated-sweep
+  growth across 3/3 passing processes
 - `python3 scripts/grade-code-quality.py --root .`
 - `git diff --check`
 
