@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_ZIP=""
 MANIFEST_PATH=""
+SOURCE_MANIFEST_PATH=""
 ARTIFACT_DIR="${QUILLCODE_UPDATER_SMOKE_ARTIFACT_DIR:-}"
 TEMP_ROOT="${TMPDIR:-/tmp}"
 SMOKE_ROOT="$(mktemp -d "${TEMP_ROOT%/}/quillcode-packaged-updater.XXXXXX")"
@@ -22,7 +23,10 @@ cleanup() {
     mkdir -p "$ARTIFACT_DIR"
     [[ -f "$REPORT_PATH" ]] && cp "$REPORT_PATH" "$ARTIFACT_DIR/updater-stage.json"
     [[ -f "$LOG_PATH" ]] && cp "$LOG_PATH" "$ARTIFACT_DIR/updater.log"
-    printf 'status=%s\n' "$status" > "$ARTIFACT_DIR/manifest.txt"
+    [[ -n "$SOURCE_MANIFEST_PATH" && -f "$SOURCE_MANIFEST_PATH" ]] &&
+      cp "$SOURCE_MANIFEST_PATH" "$ARTIFACT_DIR/source-manifest.json"
+    printf 'status=%s\nsource_mode=%s\n' \
+      "$status" "${SOURCE_MODE:-unknown}" > "$ARTIFACT_DIR/manifest.txt"
   fi
   rm -rf "$SMOKE_ROOT"
   exit "$status"
@@ -39,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       MANIFEST_PATH="$2"
       shift 2
       ;;
+    --source-manifest)
+      SOURCE_MANIFEST_PATH="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 2
@@ -50,8 +58,9 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "packaged-macos-updater-smoke.sh must run on macOS." >&2
   exit 2
 fi
-if [[ ! -f "$APP_ZIP" || ! -f "$MANIFEST_PATH" ]]; then
-  echo "Usage: packaged-macos-updater-smoke.sh --app-zip APP_ZIP --manifest MANIFEST_JSON" >&2
+if [[ ! -f "$APP_ZIP" || ! -f "$MANIFEST_PATH" ||
+      ( -n "$SOURCE_MANIFEST_PATH" && ! -f "$SOURCE_MANIFEST_PATH" ) ]]; then
+  echo "Usage: packaged-macos-updater-smoke.sh --app-zip APP_ZIP --manifest TARGET_JSON [--source-manifest SOURCE_JSON]" >&2
   exit 2
 fi
 
@@ -80,15 +89,46 @@ APP_BASE_NAME="$(basename "$APP_BUNDLE" .app)"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST")"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$EXECUTABLE_NAME"
-SOURCE_BUILD=$((EXPECTED_BUILD - 1))
 
 codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $SOURCE_BUILD" "$INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set :QuillCodeBuildCommit 0000000000000000000000000000000000000000" "$INFO_PLIST"
-codesign --force --deep --sign - "$APP_BUNDLE"
-codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 
-echo "==> Updating packaged Quill Cowork $EXPECTED_VERSION ($SOURCE_BUILD) to ($EXPECTED_BUILD)"
+if [[ -n "$SOURCE_MANIFEST_PATH" ]]; then
+  SOURCE_MODE="previous-public-build"
+  SOURCE_VERSION="$(plutil -extract version raw "$SOURCE_MANIFEST_PATH")"
+  SOURCE_BUILD="$(plutil -extract build raw "$SOURCE_MANIFEST_PATH")"
+  SOURCE_COMMIT="$(plutil -extract commit raw "$SOURCE_MANIFEST_PATH")"
+  SOURCE_CHANNEL="$(plutil -extract channel raw "$SOURCE_MANIFEST_PATH")"
+  if [[ ! "$SOURCE_BUILD" =~ ^[0-9]+$ ]] || (( SOURCE_BUILD >= EXPECTED_BUILD )); then
+    echo "Previous public updater source must have a lower numeric build." >&2
+    exit 2
+  fi
+  if [[ ! "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ || "$SOURCE_CHANNEL" != "$EXPECTED_CHANNEL" ]]; then
+    echo "Previous public updater source has an invalid commit or channel." >&2
+    exit 2
+  fi
+  ACTUAL_SOURCE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
+  ACTUAL_SOURCE_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
+  ACTUAL_SOURCE_COMMIT="$(/usr/libexec/PlistBuddy -c 'Print :QuillCodeBuildCommit' "$INFO_PLIST")"
+  ACTUAL_SOURCE_CHANNEL="$(/usr/libexec/PlistBuddy -c 'Print :QuillCodeUpdateChannel' "$INFO_PLIST")"
+  if [[ "$ACTUAL_SOURCE_VERSION" != "$SOURCE_VERSION" ||
+        "$ACTUAL_SOURCE_BUILD" != "$SOURCE_BUILD" ||
+        "$ACTUAL_SOURCE_COMMIT" != "$SOURCE_COMMIT" ||
+        "$ACTUAL_SOURCE_CHANNEL" != "$SOURCE_CHANNEL" ]]; then
+    echo "Previous public app metadata disagrees with its captured manifest." >&2
+    exit 1
+  fi
+else
+  SOURCE_MODE="synthetic-first-release"
+  SOURCE_VERSION="$EXPECTED_VERSION"
+  SOURCE_BUILD=$((EXPECTED_BUILD - 1))
+  SOURCE_COMMIT="0000000000000000000000000000000000000000"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $SOURCE_BUILD" "$INFO_PLIST"
+  /usr/libexec/PlistBuddy -c "Set :QuillCodeBuildCommit $SOURCE_COMMIT" "$INFO_PLIST"
+  codesign --force --deep --sign - "$APP_BUNDLE"
+  codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+fi
+
+echo "==> Updating $SOURCE_MODE Quill Cowork $SOURCE_VERSION ($SOURCE_BUILD) to $EXPECTED_VERSION ($EXPECTED_BUILD)"
 CFFIXED_USER_HOME="$SMOKE_ROOT/home" HOME="$SMOKE_ROOT/home" \
   "$APP_EXECUTABLE" \
     --native-updater-smoke \
@@ -115,6 +155,7 @@ fi
 
 if [[ "$(plutil -extract ok raw "$REPORT_PATH")" != "true" ]] ||
    [[ "$(plutil -extract sourceBuild raw "$REPORT_PATH")" != "$SOURCE_BUILD" ]] ||
+   [[ "$(plutil -extract sourceVersion raw "$REPORT_PATH")" != "$SOURCE_VERSION" ]] ||
    [[ "$(plutil -extract targetBuild raw "$REPORT_PATH")" != "$EXPECTED_BUILD" ]] ||
    [[ "$(plutil -extract targetCommit raw "$REPORT_PATH")" != "$EXPECTED_COMMIT" ]]; then
   echo "Packaged updater smoke stage report disagrees with the public manifest." >&2
@@ -149,10 +190,19 @@ if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" || "$ACTUAL_CHANNEL" != "$EXPECTE
 fi
 codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 
-UPDATED_PID="$(pgrep -f "$APP_EXECUTABLE --quillcode-update-handshake" | head -n 1 || true)"
-if [[ -z "$UPDATED_PID" ]]; then
+UPDATED_PIDS="$(pgrep -f "$EXECUTABLE_NAME --quillcode-update-handshake" || true)"
+PUBLIC_APP_PARENT="${APP_PARENT#/private}"
+for candidate_pid in $UPDATED_PIDS; do
+  candidate_command="$(ps -p "$candidate_pid" -o command= 2>/dev/null || true)"
+  if [[ "$candidate_command" == *"$APP_PARENT"* ||
+        "$candidate_command" == *"$PUBLIC_APP_PARENT"* ]]; then
+    UPDATED_PID="$candidate_pid"
+    break
+  fi
+done
+if [[ -z "$UPDATED_PID" ]] || ! kill -0 "$UPDATED_PID" 2>/dev/null; then
   echo "Updated app did not remain running after its launch handshake." >&2
   exit 1
 fi
 
-echo "Verified packaged Quill Cowork updater: $SOURCE_BUILD -> $EXPECTED_BUILD ($EXPECTED_COMMIT)."
+echo "Verified $SOURCE_MODE Quill Cowork updater: $SOURCE_BUILD -> $EXPECTED_BUILD ($EXPECTED_COMMIT)."

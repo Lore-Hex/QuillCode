@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-09: releases update from the untouched previous public app
+
+- **Decision:** Download Builds captures the current public manifest and matching arm64 and x86_64
+  updater archives before publication begins. GitHub upload state, bounded size, release digest,
+  manifest identity, commit, architecture, URL, and SHA-256 must agree before the snapshot is kept.
+- **Release ordering:** Tester or stable publication depends on the capture job, while release-asset
+  assembly downloads only packaging artifacts. The prior binaries therefore cannot be mistaken for
+  new release assets and cannot be captured after a moving release changes.
+- **Compatibility proof:** Native post-publication jobs update the untouched captured app through its
+  real embedded channel feed to the newly published build, then require exact source/target metadata,
+  activation, signature, relaunch, process liveness, and staging cleanup.
+- **First release:** A missing channel release is recorded explicitly and permits the existing
+  synthetic one-build-behind smoke. Once a public source is available, the workflow cannot rewrite or
+  re-sign it to manufacture the upgrade path.
+- **Evidence:** Transactional capture modules, stateful fake-GitHub tests for success, absence,
+  corruption, and preflight rejection, workflow ordering assertions, and both native updater runners.
+
 ## 2026-08-09: moving tester publication retains a verified rollback snapshot
 
 - **Decision:** Tester assets upload under run-scoped candidate names and must match GitHub's

@@ -55,21 +55,37 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         Self.assertSource(script, containsAll: [
             "--native-updater-smoke",
             "--updater-smoke-report",
+            "--source-manifest",
+            "SOURCE_MODE=\"previous-public-build\"",
+            "SOURCE_MODE=\"synthetic-first-release\"",
+            "Previous public app metadata disagrees with its captured manifest.",
             "codesign --verify --deep --strict",
             "CFBundleVersion $SOURCE_BUILD",
+            "sourceVersion",
             "targetCommit",
             "STAGING_APPS",
+            "PUBLIC_APP_PARENT=\"${APP_PARENT#/private}\"",
+            "kill -0 \"$UPDATED_PID\"",
             "Updated app did not remain running"
         ])
         Self.assertSource(workflow, containsAll: [
+            "capture-updater-source:",
+            "Capture previous public updater sources",
+            "scripts/capture-public-updater-source.py",
+            "name: quillcode-prior-updater-sources",
+            "pattern: quillcode-*-downloads*",
+            "needs: [macos, linux, capture-updater-source]",
             "verify-updater:",
             "runner: macos-15",
             "runner: macos-15-intel",
             "runs-on: ${{ matrix.runner }}",
             "arch: arm64",
             "arch: x86_64",
-            "needs: [publish, verify-published, promote-stable]",
+            "needs: [publish, verify-published, promote-stable, capture-updater-source]",
+            "needs.capture-updater-source.result == 'success'",
             "needs.promote-stable.result == 'success'",
+            "sourceAvailable raw",
+            "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
             "scripts/packaged-macos-updater-smoke.sh",
             "quillcode-public-updater-smoke-${{ matrix.arch }}"
         ])
