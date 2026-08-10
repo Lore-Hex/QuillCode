@@ -407,7 +407,7 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 Official BLS CPI-U series CUUR0000SA0 is not seasonally adjusted. The 2023 (304.701583)
 and 2024 (313.688833) inputs are annual-average indexes. The BLS 2025 annual average is not
 published because October is unavailable, so 321.943 is an 11-observation
-observed-month proxy. The latest monthly 2026 index is the July benchmark, not
+observed-month proxy. The latest monthly 2026 index is the June benchmark, not
 a completed annual average. Its value is 333.952.
 Source: https://www.bls.gov/cpi/data.htm
 
@@ -432,6 +432,19 @@ General price inflation is roughly 9.6% over the selected CPI basis window.
             path.write_text(artifact, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
+
+            wrong_source_basis = artifact.replace(
+                "304.701583", "306.996"
+            ).replace(
+                "313.688833", "315.233"
+            ).replace(
+                "321.943", "324.000"
+            )
+            path.write_text(wrong_source_basis, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("source-correct CPI values", detail)
+            self.assertIn("source CPI mismatches", detail)
 
             full_precision_audit = artifact.replace(
                 "2023 CPI basis: 304.701583\n"

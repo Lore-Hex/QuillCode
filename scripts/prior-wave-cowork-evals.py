@@ -2292,6 +2292,14 @@ def validate_task_117_revenue_chart(path):
     return valid, detail
 
 
+TASK_126_EXPECTED_CPI_BY_YEAR = {
+    2023: Decimal("304.7015833333333333333333333333333333333"),
+    2024: Decimal("313.6888333333333333333333333333333333333"),
+    2025: Decimal("321.943"),
+    2026: Decimal("333.952"),
+}
+
+
 def validate_task_126_real_revenue(path):
     try:
         text = path.read_text(encoding="utf-8")
@@ -2370,59 +2378,59 @@ def validate_task_126_real_revenue(path):
         else:
             missing_cpi_years.append(year)
 
+    source_cpi_mismatches = {
+        year: cpi_values[year]
+        for year, expected in TASK_126_EXPECTED_CPI_BY_YEAR.items()
+        if year in cpi_values and abs(cpi_values[year] - expected) > Decimal("0.0005")
+    }
     nominal_by_year = {2023: 4200000, 2024: 5100000, 2025: 6000000}
-    expected_real_by_year = {}
-    inconsistent_dollar_values = []
-    expected_growth_percentages = []
-    inconsistent_percentage_values = []
-    if not missing_cpi_years:
-        target_cpi = cpi_values[2026]
-        adjusted_by_year = {}
-        for year, nominal in nominal_by_year.items():
-            adjusted = Decimal(nominal) * target_cpi / cpi_values[year]
-            adjusted_by_year[year] = adjusted
-            expected_real_by_year[year] = int(adjusted.quantize(
-                Decimal("1"),
-                rounding=ROUND_HALF_UP,
-            ))
-        allowed_values = set(nominal_by_year.values()) | set(expected_real_by_year.values())
-        inconsistent_dollar_values = sorted(
-            value for match, value in dollar_mentions
-            if value >= 1_000_000
-            and not is_labeled_dollar_delta(match)
-            and not any(abs(value - allowed) <= 1 for allowed in allowed_values)
-        )
-        expected_growth_percentages = [
-            (Decimal(nominal_by_year[2024]) / nominal_by_year[2023] - 1) * 100,
-            (Decimal(nominal_by_year[2025]) / nominal_by_year[2024] - 1) * 100,
-            (Decimal(nominal_by_year[2025]) / nominal_by_year[2023] - 1) * 100,
-            (adjusted_by_year[2024] / adjusted_by_year[2023] - 1) * 100,
-            (adjusted_by_year[2025] / adjusted_by_year[2024] - 1) * 100,
-            (adjusted_by_year[2025] / adjusted_by_year[2023] - 1) * 100,
+    target_cpi = TASK_126_EXPECTED_CPI_BY_YEAR[2026]
+    adjusted_by_year = {
+        year: Decimal(nominal) * target_cpi / TASK_126_EXPECTED_CPI_BY_YEAR[year]
+        for year, nominal in nominal_by_year.items()
+    }
+    expected_real_by_year = {
+        year: int(adjusted.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        for year, adjusted in adjusted_by_year.items()
+    }
+    allowed_values = set(nominal_by_year.values()) | set(expected_real_by_year.values())
+    inconsistent_dollar_values = sorted(
+        value for match, value in dollar_mentions
+        if value >= 1_000_000
+        and not is_labeled_dollar_delta(match)
+        and not any(abs(value - allowed) <= 1 for allowed in allowed_values)
+    )
+    expected_growth_percentages = [
+        (Decimal(nominal_by_year[2024]) / nominal_by_year[2023] - 1) * 100,
+        (Decimal(nominal_by_year[2025]) / nominal_by_year[2024] - 1) * 100,
+        (Decimal(nominal_by_year[2025]) / nominal_by_year[2023] - 1) * 100,
+        (adjusted_by_year[2024] / adjusted_by_year[2023] - 1) * 100,
+        (adjusted_by_year[2025] / adjusted_by_year[2024] - 1) * 100,
+        (adjusted_by_year[2025] / adjusted_by_year[2023] - 1) * 100,
+    ]
+    percentage_values = []
+    for percentage_match in re.finditer(
+        r"(?<![\d.])(~\s*)?([+-]?\d+(?:\.\d+)?)\s*%",
+        text,
+    ):
+        nearby_prefix = text[
+            max(0, percentage_match.start() - 45):percentage_match.start()
         ]
-        percentage_values = []
-        for percentage_match in re.finditer(
-            r"(?<![\d.])(~\s*)?([+-]?\d+(?:\.\d+)?)\s*%",
-            text,
-        ):
-            nearby_prefix = text[
-                max(0, percentage_match.start() - 45):percentage_match.start()
-            ]
-            if re.search(r"\binflation\b[^.!?\n]{0,35}$", nearby_prefix, re.I):
-                continue
-            percentage_values.append((
-                Decimal(percentage_match.group(2)),
-                bool(percentage_match.group(1)),
-            ))
-        inconsistent_percentage_values = sorted(
-            value for value, is_approximate in percentage_values
-            if not any(
-                abs(value - expected) <= (
-                    Decimal("0.5") if is_approximate else Decimal("0.02")
-                )
-                for expected in expected_growth_percentages
+        if re.search(r"\binflation\b[^.!?\n]{0,35}$", nearby_prefix, re.I):
+            continue
+        percentage_values.append((
+            Decimal(percentage_match.group(2)),
+            bool(percentage_match.group(1)),
+        ))
+    inconsistent_percentage_values = sorted(
+        value for value, is_approximate in percentage_values
+        if not any(
+            abs(value - expected) <= (
+                Decimal("0.5") if is_approximate else Decimal("0.02")
             )
+            for expected in expected_growth_percentages
         )
+    )
     revenue_table_headers = [
         line for line in text.splitlines()
         if line.lstrip().startswith("|")
@@ -2525,6 +2533,7 @@ def validate_task_126_real_revenue(path):
         ),
         "three adjusted amounts": len(dollar_values) >= 6,
         "CPI values for deterministic recomputation": not missing_cpi_years,
+        "source-correct CPI values": not source_cpi_mismatches,
         "internally consistent dollar calculations": not inconsistent_dollar_values,
         "internally consistent growth calculations": not inconsistent_percentage_values,
         "one well-formed revenue table": (
@@ -2538,6 +2547,7 @@ def validate_task_126_real_revenue(path):
     detail = (
         f"missing years={missing_years}; missing nominal revenue={missing_nominal_revenue}; "
         f"failed checks={failed}; CPI values={cpi_values}; expected real={expected_real_by_year}; "
+        f"source CPI mismatches={source_cpi_mismatches}; "
         f"inconsistent dollar values={inconsistent_dollar_values}; "
         f"inconsistent percentages={inconsistent_percentage_values}; "
         f"malformed table header lines={malformed_table_headers}; "
