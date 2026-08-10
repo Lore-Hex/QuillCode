@@ -79,6 +79,13 @@ struct QuillCodeTerminalPaneView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 12)
                 } else {
+                    if let retentionNotice = terminal.retentionNotice {
+                        Label(retentionNotice, systemImage: "clock.arrow.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityIdentifier("quillcode-terminal-retention-notice")
+                    }
                     ForEach(terminal.entries) { entry in
                         QuillCodeTerminalEntryView(
                             entry: entry,

@@ -9,6 +9,7 @@ struct QuillCodeDesktopTerminalCoordinator {
         model: QuillCodeWorkspaceModel,
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
+        progressRefresh: @escaping @MainActor () -> Void,
         refresh: @escaping @MainActor () -> Void
     ) {
         if tasks.isRunning(.terminal) {
@@ -28,7 +29,8 @@ struct QuillCodeDesktopTerminalCoordinator {
             guard let model else { return }
             await model.runTerminalCommand(
                 command,
-                workspaceRoot: model.activeWorkspaceRoot ?? fallbackWorkspaceRoot
+                workspaceRoot: model.activeWorkspaceRoot ?? fallbackWorkspaceRoot,
+                onStateChange: progressRefresh
             )
         } onFinish: {
             refresh()

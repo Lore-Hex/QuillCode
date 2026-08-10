@@ -9,6 +9,7 @@ extension WorkspaceTerminalEngine {
     static func clearHistory(terminal: inout TerminalState) -> Bool {
         guard !terminal.isRunning else { return false }
         terminal.entries = []
+        terminal.discardedEntryCount = 0
         terminal.historyCursor = nil
         terminal.historyDraft = nil
         return true

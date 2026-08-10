@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-10 Bounded Live Terminal Backpressure
+
+Overall grade after this slice: **A+ memory ownership, A+ responsiveness, A+ crash resilience**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Process memory | A+ | PTY and pipe-backed streaming sessions accumulate only a bounded newest tail, while their `AsyncStream` queues retain at most 64 pending events and preserve the final completion event. |
+| Workspace memory | A+ | Running and completed stdout/stderr are capped independently; terminal history retains at most 100 commands and reports released history instead of growing silently for the lifetime of the app. |
+| Responsiveness | A+ | Streaming mutations publish through the desktop's existing 50 ms coalescer, so users see live output without rebuilding the full workspace surface for every process read. |
+| Lifecycle safety | A+ | Stop freezes the visible bounded tail before releasing live buffers, late events cannot overwrite a stopped entry, and completion replaces partial output with the process-owned bounded result. |
+| UX | A+ | The native and HTML terminal surfaces show live Running output, preserve the newest useful tail after truncation, and surface a quiet history-retention notice that Clear removes. |
+| Architecture | A+ | Backpressure, output retention, terminal history policy, model publication, and packaged smoke verification have focused owners with no duplicated process runner. |
+
+Validation:
+
+- Focused terminal/backpressure suite: 48 tests, 0 failures
+- Broad terminal, shell-streaming, and PTY suite: 249 tests, 0 failures
+- Authoritative full Swift suite: 5,769 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed a real 40,000-line PTY flood, live-progress publication,
+  bounded rendered output, final-tail preservation, and terminal cleanup
+- Packaged direct-executable and Launch Services smoke passed; live-window Accessibility and repeated
+  interaction checks passed at 266.16 ms median launch-ready, 98.28 MiB initial memory, 158.61 MiB
+  after the first interaction sweep, and 163.19 MiB after the repeated sweep
+
 ## 2026-08-09 Previous-Public-Build Updater Gate
 
 Overall grade after this slice: **A+ compatibility evidence, A+ publication ordering, A+ failure isolation**.

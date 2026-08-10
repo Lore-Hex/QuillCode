@@ -40,7 +40,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     private let lock = NSLock()
     private var process: Process?
     private var masterFD: Int32 = -1
-    private var output = ""
+    private var output = ShellOutputAccumulator()
     private var didFinish = false
     private var didCancel = false
     private var didTimeOut = false
@@ -49,7 +49,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     public init(request: ShellExecutionRequest, windowSize: PTYWindowSize? = nil) {
         self.request = request
         self.windowSize = windowSize
-        let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
+        let (stream, continuation) = ShellProcessEventStream.makeStream()
         self.events = stream
         self.continuation = continuation
     }
@@ -262,7 +262,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     private func handleOutput(_ text: String) {
         guard !text.isEmpty else { return }
         lock.lock()
-        output += text
+        output.append(text)
         lock.unlock()
         continuation.yield(.stdout(text))
     }
@@ -342,7 +342,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
             return
         }
         didFinish = true
-        out = output
+        out = output.text
         activeProcess = process
         didSuspend = false
         process = nil
