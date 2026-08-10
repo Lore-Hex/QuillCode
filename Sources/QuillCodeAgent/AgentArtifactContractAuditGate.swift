@@ -11,6 +11,8 @@ enum AgentArtifactContractAuditGate {
         var prompt: String
     }
 
+    static let correctionLimitPerPath = 3
+
     static func requiresAudit(in userMessage: String) -> Bool {
         let patterns = [
             #"(?is)\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:rows?|records?|entries|items|sections?|emails?|slides?|sheets?|columns?|cells?|series)\b"#,
@@ -43,8 +45,13 @@ enum AgentArtifactContractAuditGate {
         })
     }
 
-    static func correction(path: String, tools: [ToolDefinition]) -> Correction? {
-        guard tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) else {
+    static func correction(
+        path: String,
+        tools: [ToolDefinition],
+        correctionCount: Int
+    ) -> Correction? {
+        guard correctionCount < correctionLimitPerPath,
+              tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) else {
             return nil
         }
         let normalized = AgentArtifactVerificationGate.normalizedPath(path)
@@ -63,6 +70,12 @@ enum AgentArtifactContractAuditGate {
             claim completion until the latest write passes.
             """
         )
+    }
+
+    static func exhaustionReason(path: String) -> String {
+        let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+        return "Stopped because ./\(normalized) still lacked a successful deterministic "
+            + "contract audit after \(correctionLimitPerPath) corrective attempts."
     }
 
     private static func isValidatorCommand(_ command: String) -> Bool {

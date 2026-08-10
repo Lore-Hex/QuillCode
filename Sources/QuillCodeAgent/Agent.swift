@@ -271,6 +271,9 @@ public struct AgentRunner: Sendable {
             /// Aggregate rows with explicit source IDs receive at most two exact reconciliation
             /// passes before the broader semantic source audit takes over.
             var tabularSourceAuditCounts: [String: Int] = [:]
+            /// A model that repeatedly declines the required deterministic artifact validator is
+            /// stopped honestly instead of spending the full run budget on identical corrections.
+            var artifactContractAuditCorrectionCounts: [String: Int] = [:]
             /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
             /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
@@ -872,9 +875,11 @@ public struct AgentRunner: Sendable {
                    let path = runLoop.pendingArtifactContractAuditPath(),
                    let correction = AgentArtifactContractAuditGate.correction(
                     path: path,
-                    tools: tools
+                    tools: tools,
+                    correctionCount: artifactContractAuditCorrectionCounts[path, default: 0]
                    ) {
                     controlledSourceGroundingFinalization = nil
+                    artifactContractAuditCorrectionCounts[path, default: 0] += 1
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
                         kind: .notice,
@@ -884,6 +889,22 @@ public struct AgentRunner: Sendable {
                     next.updatedAt = Date()
                     await onProgress?(next)
                     continue actionLoop
+                }
+                if case .say = resolvedAction,
+                   !runLoop.hadDeniedStep,
+                   let path = runLoop.pendingArtifactContractAuditPath(),
+                   artifactContractAuditCorrectionCounts[path, default: 0]
+                    >= AgentArtifactContractAuditGate.correctionLimitPerPath {
+                    let reason = AgentArtifactContractAuditGate.exhaustionReason(path: path)
+                    appendAssistantMessage(reason, to: &next)
+                    next.events.append(.init(kind: .notice, summary: "Self-healing: \(reason)"))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    return AgentRunResult(
+                        thread: next,
+                        toolResults: runLoop.toolResults,
+                        stopReason: .flailDetected(reason: reason)
+                    )
                 }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
@@ -1217,8 +1238,11 @@ public struct AgentRunner: Sendable {
                            let path = runLoop.pendingArtifactContractAuditPath(),
                            let correction = AgentArtifactContractAuditGate.correction(
                             path: path,
-                            tools: tools
+                            tools: tools,
+                            correctionCount:
+                                artifactContractAuditCorrectionCounts[path, default: 0]
                            ) {
+                            artifactContractAuditCorrectionCounts[path, default: 0] += 1
                             pendingRepeatNudge = correction.prompt
                             next.events.append(.init(
                                 kind: .notice,
@@ -1228,6 +1252,25 @@ public struct AgentRunner: Sendable {
                             next.updatedAt = Date()
                             await onProgress?(next)
                             continue actionLoop
+                        }
+                        if case .say = finalized,
+                           !runLoop.hadDeniedStep,
+                           let path = runLoop.pendingArtifactContractAuditPath(),
+                           artifactContractAuditCorrectionCounts[path, default: 0]
+                            >= AgentArtifactContractAuditGate.correctionLimitPerPath {
+                            let reason = AgentArtifactContractAuditGate.exhaustionReason(path: path)
+                            appendAssistantMessage(reason, to: &next)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: \(reason)"
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            return AgentRunResult(
+                                thread: next,
+                                toolResults: runLoop.toolResults,
+                                stopReason: .flailDetected(reason: reason)
+                            )
                         }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionRunner.actionByRequiringNamedDeliverables(

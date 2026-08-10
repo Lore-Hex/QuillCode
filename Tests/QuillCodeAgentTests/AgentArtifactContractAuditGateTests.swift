@@ -68,6 +68,20 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ), [path])
     }
 
+    func testCorrectionBudgetIsBoundedPerArtifact() {
+        let tools = [ToolDefinition.shellRun]
+        XCTAssertNotNil(AgentArtifactContractAuditGate.correction(
+            path: "outputs/report.html",
+            tools: tools,
+            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath - 1
+        ))
+        XCTAssertNil(AgentArtifactContractAuditGate.correction(
+            path: "outputs/report.html",
+            tools: tools,
+            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath
+        ))
+    }
+
     func testRunnerRequiresAuditAndReauditsAfterRewrite() async throws {
         let root = try makeWorkspace()
         let firstWrite = ToolCall(
@@ -132,5 +146,46 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
             result.thread.messages.last?.content,
             "The audited report is complete and verified."
         )
+    }
+
+    func testRunnerStopsHonestlyAfterRepeatedlyIgnoredAuditCorrections() async throws {
+        let root = try makeWorkspace()
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.html",
+                "content": "<table><tr><td>Atlas</td></tr></table>",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(write),
+                .say("Done."),
+                .say("Done."),
+                .say("Done."),
+                .say("Done."),
+            ]),
+            safety: AlwaysApprovingSafetyReviewer(),
+            maxToolSteps: 10
+        )
+
+        let result = try await runner.send(
+            "Save outputs/report.html with exactly four company rows and verify it before finishing.",
+            in: ChatThread(title: "bounded contract audit"),
+            workspaceRoot: root
+        )
+
+        guard case .flailDetected(let reason) = result.stopReason else {
+            return XCTFail("expected bounded audit stop, got \(result.stopReason)")
+        }
+        XCTAssertTrue(reason.contains("outputs/report.html"))
+        XCTAssertTrue(reason.contains("deterministic contract audit"))
+        XCTAssertEqual(
+            result.thread.events.filter {
+                $0.kind == .notice && $0.summary.contains("required a deterministic contract audit")
+            }.count,
+            AgentArtifactContractAuditGate.correctionLimitPerPath
+        )
+        XCTAssertEqual(result.toolResults.count, 1)
     }
 }
