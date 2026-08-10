@@ -7,6 +7,7 @@ public enum ThreadEventLogCompactor {
 
     public static func compact(_ events: [ThreadEvent]) -> [ThreadEvent] {
         guard events.count > 1 else { return events }
+        guard containsConsecutiveReasoningNotices(events) else { return events }
 
         var compacted: [ThreadEvent] = []
         compacted.reserveCapacity(events.count)
@@ -39,5 +40,17 @@ public enum ThreadEventLogCompactor {
 
     private static func isReasoningNotice(_ event: ThreadEvent) -> Bool {
         event.kind == .notice && event.summary.hasPrefix(reasoningNoticePrefix)
+    }
+
+    private static func containsConsecutiveReasoningNotices(_ events: [ThreadEvent]) -> Bool {
+        var previousWasReasoning = false
+        for event in events {
+            let currentIsReasoning = isReasoningNotice(event)
+            if previousWasReasoning && currentIsReasoning {
+                return true
+            }
+            previousWasReasoning = currentIsReasoning
+        }
+        return false
     }
 }

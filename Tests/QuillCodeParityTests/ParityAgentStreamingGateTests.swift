@@ -45,7 +45,8 @@ final class ParityAgentStreamingGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(draftPublisherText, containsAll: [
             "publishAssistantDraft",
-            "publishReasoningSummary"
+            "publishReasoningSummary",
+            "thread.events[lastIndex].summary = notice"
         ])
         Self.assertSource(agentText, excludesAll: [
             "public enum AgentActionStreamCollector",

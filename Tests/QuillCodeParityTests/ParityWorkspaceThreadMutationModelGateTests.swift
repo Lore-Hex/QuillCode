@@ -29,6 +29,7 @@ final class ParityWorkspaceThreadMutationModelGateTests: QuillCodeParityTestCase
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
 
         Self.assertSource(threadMutationText, contains: "func updateThreadFromAgentRun")
+        Self.assertSource(threadMutationText, excludes: "ThreadEventLogCompactor.compact")
         Self.assertSource(composerText, containsAll: [
             "updateThreadFromAgentRun(",
             "preserveMemoryContext: !completion.shouldRefreshMemoryContext"
