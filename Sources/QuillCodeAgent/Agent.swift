@@ -392,8 +392,10 @@ public struct AgentRunner: Sendable {
                     && repeatNudge == boundedFinalizationPrompt
                 let isSemanticArtifactCorrection = repeatNudge != nil
                     && !isBoundedFinalizationCorrection
-                if repeatNudge != nil, !correctiveTurnBudget.beginCorrectiveTurn() {
+                if let repeatNudge,
+                   !correctiveTurnBudget.beginCorrectiveTurn(correctionID: repeatNudge) {
                     if !runLoop.hadDeniedStep,
+                       runLoop.researchStaleWorkspacePaths.isEmpty,
                        let readCall = AgentArtifactVerificationGate.requiredReadbackCall(
                         userMessage: userMessage,
                         tools: tools,
@@ -411,8 +413,16 @@ public struct AgentRunner: Sendable {
                         await onProgress?(next)
                         continue actionLoop
                     }
-                    let reason = "the model did not produce an executable tool action after "
-                        + "\(AgentCorrectiveTurnBudget.limit) consecutive corrective turns"
+                    let reason = if correctiveTurnBudget.aggregateTurns
+                        >= AgentCorrectiveTurnBudget.aggregateLimit {
+                        "the model did not produce an executable tool action after "
+                            + "\(AgentCorrectiveTurnBudget.aggregateLimit) aggregate corrective "
+                            + "turns without an intervening tool"
+                    } else {
+                        "the model did not produce an executable tool action after "
+                            + "\(AgentCorrectiveTurnBudget.limit) consecutive corrective turns "
+                            + "for the same required correction"
+                    }
                     appendAssistantMessage(
                         "Stopped because \(reason). The partial workspace results were preserved.",
                         to: &next
