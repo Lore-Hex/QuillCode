@@ -15,9 +15,6 @@ extension QuillCodeDesktopController {
     }
 
     private func refreshNow(progressScope: WorkspaceProgressSurfaceScope?) {
-        if progressScope == nil || progressScope?.contains(.agent) == true {
-            computerUseCoordinator.refreshStatus(on: model)
-        }
         var nextSurface = surface
         var nextDraft = draft
         var nextTerminalDraft = terminalDraft

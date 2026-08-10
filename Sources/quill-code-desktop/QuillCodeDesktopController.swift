@@ -68,6 +68,8 @@ final class QuillCodeDesktopController: ObservableObject {
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
+        computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator =
+            QuillCodeDesktopComputerUseCoordinator(),
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
@@ -86,7 +88,7 @@ final class QuillCodeDesktopController: ObservableObject {
     ) {
         let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
         self.bootstrap = bootstrap
-        self.computerUseCoordinator = QuillCodeDesktopComputerUseCoordinator()
+        self.computerUseCoordinator = computerUseCoordinator
         self.activeWorkCoordinator = QuillCodeDesktopActiveWorkCoordinator()
         self.browserCoordinator = QuillCodeDesktopBrowserCoordinator(
             pageFetcher: browserPageFetcher,
@@ -135,10 +137,7 @@ final class QuillCodeDesktopController: ObservableObject {
         if let launchWorkspaceRoot {
             modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: launchWorkspaceRoot)
         }
-        self.computerUseCoordinator.install(
-            on: model,
-            refreshForegroundApplication: false
-        )
+        self.computerUseCoordinator.install(on: model)
         // Ping the user when unattended work needs attention. The closure reads live config so
         // Settings toggles apply immediately without rebuilding the desktop controller.
         let workspaceModel = model

@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-08-10: Computer Use status refresh is event-driven and task-owned
+
+- **Decision:** Workspace surface projection no longer polls Computer Use permissions or launches a
+  foreground-application query. Automatic startup performs one explicit refresh, and macOS
+  application-activation notifications request later refreshes only when the foreground app can
+  actually change. Returning from Computer Use system settings uses the same path.
+- **Bounded work:** Foreground queries occupy one replaceable desktop task slot. A newer activation
+  cancels the prior owner, generation checks reject late backend results, and cancellation is checked
+  before model mutation. Repeated surface refreshes therefore retain no lookup tasks or provider
+  subprocesses. Status and foreground values publish only when they changed.
+- **Recovery boundary:** Activation observation begins with automatic workspace services, so startup
+  recovery keeps this optional work paused. Native Computer Use remains installed for explicit user
+  actions, and resolving the optional CUA driver schedules a fresh status query after the backend swap.
+- **Evidence:** Coordinator tests prove 1,000 real controller surface projections perform zero
+  permission reads and foreground lookups beyond installation, activation observation installs once,
+  late results cannot replace newer applications, and canceled work cannot mutate the model. Desktop
+  task and progress-projection parity gates require cancellable ownership and reject Computer Use work
+  from the presentation path.
+
 ## 2026-08-10: startup failures reopen with automatic workspace work paused
 
 - **Decision:** Controller construction now loads and projects the usable workspace without starting
