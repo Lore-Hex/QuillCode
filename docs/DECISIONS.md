@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-10: agent progress preserves compact event storage
+
+- **Decision:** Applying an agent progress snapshot no longer compacts the entire event history on
+  the main actor. The streaming publisher maintains at most one reasoning notice per active burst,
+  and thread persistence remains the repair boundary for legacy or externally shaped histories.
+- **Memory and CPU boundary:** Agent snapshots now retain the event array's copy-on-write storage
+  through the 50 millisecond presentation path. Transcript growth therefore does not introduce a
+  same-sized allocation and event traversal for every visible streaming update. Persistence's
+  compactor also returns already-compact arrays unchanged, avoiding a second event buffer during
+  normal saves and loads.
+- **Safety:** Durable save, direct load, and best-effort listing still compact consecutive historical
+  reasoning notices. The agent-streaming regression gate requires in-place reasoning replacement,
+  while core and model integration prove 50,000-event compact histories retain the same array
+  storage and exact event identity.
+- **Evidence:** `WorkspaceComposerIntegrationTests/testAgentRunSnapshotReusesAlreadyCompactEventStorage`,
+  `ThreadEventLogCompactorTests`, `JSONThreadStoreTests`, `ParityAgentStreamingGateTests`, and
+  `ParityWorkspaceThreadMutationModelGateTests`.
+
 ## 2026-08-10: model streams publish at presentation cadence
 
 - **Decision:** Provider token cadence is no longer desktop presentation cadence. Visible assistant

@@ -57,7 +57,10 @@ extension QuillCodeWorkspaceModel {
         _ thread: ChatThread,
         preserveMemoryContext: Bool = true
     ) {
-        var thread = ThreadEventLogCompactor.compact(thread)
+        // Agent streaming keeps reasoning notices compact as it produces them, while the durable
+        // store repairs legacy histories on load and save. Keep this hot path copy-on-write: it is
+        // called at presentation cadence and must not rebuild the full event array on every update.
+        var thread = thread
         // A destroyed ephemeral thread must STAY destroyed: an in-flight send's progress callbacks
         // carry the run's own thread snapshot, and upserting it would resurrect a confidential/side
         // conversation the user already navigated away from (the UI promised it was gone). The

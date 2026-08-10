@@ -296,18 +296,20 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         let checker = UpdateCheckerSpy(result: .updateAvailable(release))
         let defaults = makeDefaults()
         let configuration = makeConfiguration()
+        var currentDate = Date()
         QuillCodeDesktopUpdateReminderStore(
             defaults: defaults,
             reminderInterval: 0.08
         ).recordDeferral(
             release,
             configuration: configuration,
-            now: Date()
+            now: currentDate
         )
         let controller = QuillCodeDesktopUpdateController(
             configuration: configuration,
             checker: checker,
             defaults: defaults,
+            now: { currentDate },
             automaticSchedule: makeAutomaticSchedule(testerInterval: 1),
             reminderInterval: 0.08,
             installResultURL: temporaryInstallResultURL()
@@ -317,6 +319,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         try await waitUntil { await checker.callCount >= 1 }
         XCTAssertFalse(controller.isPresented)
 
+        currentDate.addTimeInterval(0.081)
         try await waitUntil(timeout: .milliseconds(500)) { controller.isPresented }
         let callCount = await checker.callCount
         XCTAssertEqual(callCount, 1)

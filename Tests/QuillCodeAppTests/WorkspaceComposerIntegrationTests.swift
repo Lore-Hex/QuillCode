@@ -426,6 +426,33 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Still running" } == true)
     }
 
+    func testAgentRunSnapshotReusesAlreadyCompactEventStorage() throws {
+        let model = QuillCodeWorkspaceModel()
+        let threadID = model.newChat()
+        var snapshot = try XCTUnwrap(model.selectedThread)
+        snapshot.events = (0..<50_000).map { index in
+            ThreadEvent(kind: .message, summary: "Semantic event \(index)")
+        }
+        let snapshotStorage = snapshot.events.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
+
+        model.updateThreadFromAgentRun(snapshot)
+
+        let applied = try XCTUnwrap(model.root.threads.first { $0.id == threadID })
+        let appliedStorage = applied.events.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
+        XCTAssertEqual(applied.events.count, snapshot.events.count)
+        XCTAssertEqual(applied.events.first?.id, snapshot.events.first?.id)
+        XCTAssertEqual(applied.events.last?.id, snapshot.events.last?.id)
+        XCTAssertEqual(
+            appliedStorage,
+            snapshotStorage,
+            "presentation-cadence agent snapshots should preserve the event array's COW storage"
+        )
+    }
+
     func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))

@@ -2,6 +2,26 @@ import XCTest
 @testable import QuillCodeCore
 
 final class ThreadEventLogCompactorTests: XCTestCase {
+    func testAlreadyCompactHistoryPreservesCopyOnWriteStorage() {
+        let events = (0..<25_000).flatMap { index in
+            [
+                ThreadEvent(kind: .notice, summary: "Thinking: step \(index)"),
+                ThreadEvent(kind: .toolCompleted, summary: "Completed step \(index)"),
+            ]
+        }
+        let originalStorage = events.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
+
+        let compacted = ThreadEventLogCompactor.compact(events)
+
+        let compactedStorage = compacted.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
+        XCTAssertEqual(compacted.count, events.count)
+        XCTAssertEqual(compactedStorage, originalStorage)
+    }
+
     func testCollapsesLargeConsecutiveReasoningBurstToLatestNotice() throws {
         let reasoning = (0..<50_000).map { index in
             ThreadEvent(kind: .notice, summary: "Thinking: token \(index)")
