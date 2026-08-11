@@ -1,5 +1,25 @@
 # Code Quality Audit
 
+## 2026-08-11 Point-In-Time Environment Status Snapshots
+
+Overall grade after this slice: **A+ snapshot integrity, A+ event ordering, A+ release determinism**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Snapshot integrity | A+ | A successfully decoded `environment/status` response remains the result of that probe even when the idle transport closes before the awaiting actor resumes. |
+| Event ordering | A+ | A newer transport generation remains authoritative for cached state, so the completed probe cannot publish a stale reconnect transition over a disconnect. |
+| Failure semantics | A+ | Send, timeout, decode, and remote transport failures still reset the active connection and return a bounded disconnected snapshot. |
+| Release determinism | A+ | The exact close-after-response boundary passed 100 consecutive real localhost WebSocket repetitions after intermittently delaying an exact-main release. |
+
+Validation:
+
+- Focused close-after-response stress: 100 runs, 100 passed
+- Complete WebSocket client suite: 13 tests, 0 failures
+- Process-level app-server WebSocket smoke passed
+- `swift test` (5,861 tests; 5 skipped; 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
 ## 2026-08-11 First-Window Update Activation Handshake
 
 Overall grade after this slice: **A+ rollback safety, A+ readiness ownership, A+ recovery behavior**.
