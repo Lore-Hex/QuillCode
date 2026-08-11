@@ -462,7 +462,7 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertNil(controller.launchLifecycleController?.takeUnexpectedExit())
         controller.launchLifecycleController?.markReady()
         XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
-        controller.startApplicationServices()
+        controller.completeStartupIfAllowed()
         XCTAssertNil(controller.launchLifecycleController?.takeUnexpectedExit())
         lifecycle.finishCurrentLaunch()
         XCTAssertNil(try fixture.store.currentRecord())

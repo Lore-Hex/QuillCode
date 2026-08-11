@@ -132,7 +132,6 @@ struct QuillCodeDesktopApp: App {
             startupMode: QuillCodeDesktopStartupMode(unexpectedExit: unexpectedExit),
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
-        controller.startApplicationServices()
         _controller = StateObject(wrappedValue: controller)
     }
 

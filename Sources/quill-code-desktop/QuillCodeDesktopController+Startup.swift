@@ -70,6 +70,7 @@ extension QuillCodeDesktopController {
 
     private func startPostWindowApplicationServicesIfNeeded() {
         guard automaticStartupState.startPostWindowApplicationServicesIfNeeded() else { return }
+        startApplicationServicesAfterFirstWindow()
         projectAccessCoordinator.restoreAccess(for: model.root.projects)
         ToolArtifactLocalPreviewAccess.configure(
             projectRoots: model.root.projects

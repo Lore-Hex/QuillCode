@@ -7,7 +7,7 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopApplicationServicesTests: XCTestCase {
-    func testApplicationServicesStartWithoutAWindowAndRemainIdempotent() async throws {
+    func testApplicationServicesStartAtFirstWindowBoundaryAndRemainIdempotent() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = QuillCodePaths(home: root.appendingPathComponent("state", isDirectory: true))
@@ -47,13 +47,21 @@ final class QuillCodeDesktopApplicationServicesTests: XCTestCase {
             automationNotifier: ApplicationServiceNoopNotifier(),
             updateController: updateController,
             installationLocationController: installationController,
+            startupMode: .recovery,
             workspaceRoot: root
         )
 
-        controller.startApplicationServices()
-        controller.startApplicationServices()
+        XCTAssertFalse(installationController.isPresented)
+        XCTAssertFalse(controller.postWindowApplicationServicesStarted)
+        let preWindowRecoveryCallCount = await recovery.callCount
+        XCTAssertEqual(preWindowRecoveryCallCount, 0)
+
+        controller.completeStartupIfAllowed()
+        controller.completeStartupIfAllowed()
 
         XCTAssertTrue(installationController.isPresented)
+        XCTAssertTrue(controller.postWindowApplicationServicesStarted)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
         try await waitUntil { await recovery.callCount == 1 }
         let checkerCallCount = await checker.callCount
         XCTAssertEqual(checkerCallCount, 0)
