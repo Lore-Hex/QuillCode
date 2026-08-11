@@ -7,7 +7,7 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopComputerUseCoordinatorTests: XCTestCase {
-    func testInstallAndStatusProjectionDoNotSpawnForegroundLookups() async {
+    func testInstallDefersStatusProbeAndStatusProjectionDoesNotSpawnForegroundLookups() async {
         let application = ComputerUseApplication(
             name: "Terminal",
             bundleIdentifier: "com.apple.Terminal"
@@ -17,11 +17,12 @@ final class QuillCodeDesktopComputerUseCoordinatorTests: XCTestCase {
         let model = QuillCodeWorkspaceModel()
 
         coordinator.install(on: model)
+        XCTAssertEqual(backend.statusReadCount, 0)
         for _ in 0..<1_000 {
-            coordinator.refreshStatus(on: model)
+            await coordinator.refreshStatus(on: model)
         }
         await Task.yield()
-        XCTAssertEqual(backend.statusReadCount, 1_001)
+        XCTAssertEqual(backend.statusReadCount, 1_000)
         XCTAssertEqual(backend.lookupCount, 0)
         XCTAssertNil(model.root.topBar.computerUseForegroundApplication)
 
@@ -57,13 +58,33 @@ final class QuillCodeDesktopComputerUseCoordinatorTests: XCTestCase {
         )
         defer { controller.tasks.cancelAll() }
 
-        XCTAssertEqual(backend.statusReadCount, 1)
+        XCTAssertEqual(backend.statusReadCount, 0)
         for _ in 0..<1_000 {
             controller.refresh()
         }
 
-        XCTAssertEqual(backend.statusReadCount, 1)
+        XCTAssertEqual(backend.statusReadCount, 0)
         XCTAssertEqual(backend.lookupCount, 0)
+    }
+
+    func testCancelledStatusProbeCannotMutateModel() async {
+        let backend = BlockingStatusComputerUseBackend()
+        let coordinator = QuillCodeDesktopComputerUseCoordinator(backend: backend)
+        let model = QuillCodeWorkspaceModel()
+
+        coordinator.install(on: model)
+        let refresh = Task { @MainActor in
+            await coordinator.refreshStatus(on: model)
+        }
+        await backend.waitForStatusRead()
+        refresh.cancel()
+        backend.resumeStatusRead(
+            with: .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
+        )
+
+        let changed = await refresh.value
+        XCTAssertFalse(changed)
+        XCTAssertFalse(model.root.topBar.computerUseStatus.available)
     }
 
     func testApplicationActivationObservationIsIdempotent() {
@@ -215,6 +236,47 @@ private final class PermissionRecordingComputerUseBackend: @unchecked Sendable,
     func requestAccessibilityAccess() -> Bool {
         accessibilityRequestCount += 1
         return false
+    }
+
+    func screenshot() async throws -> ComputerScreenshot {
+        ComputerScreenshot(width: 1, height: 1, pngBase64: "")
+    }
+
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
+}
+
+private final class BlockingStatusComputerUseBackend: @unchecked Sendable, ComputerUseBackend {
+    private let lock = NSLock()
+    private let statusReadCanFinish = DispatchSemaphore(value: 0)
+    private var statusReadHasStarted = false
+    private var resolvedStatus = ComputerUseStatus.permissionStatus(
+        screenRecordingGranted: false,
+        accessibilityGranted: false
+    )
+
+    var status: ComputerUseStatus {
+        lock.withLock {
+            statusReadHasStarted = true
+        }
+        statusReadCanFinish.wait()
+        return lock.withLock { resolvedStatus }
+    }
+
+    func waitForStatusRead() async {
+        while !lock.withLock({ statusReadHasStarted }) {
+            await Task.yield()
+        }
+    }
+
+    func resumeStatusRead(with status: ComputerUseStatus) {
+        lock.withLock {
+            resolvedStatus = status
+        }
+        statusReadCanFinish.signal()
     }
 
     func screenshot() async throws -> ComputerScreenshot {

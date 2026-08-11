@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-10: Computer Use permission probes begin after the first window
+
+- **Decision:** Installing the native Computer Use backend no longer reads its status. The desktop
+  keeps the backend available immediately, then queries Screen Recording and Accessibility trust in
+  the existing cancellable post-window refresh task. The synchronous operating-system preflights
+  run at utility priority instead of occupying the main actor during first-window construction.
+- **Lifecycle boundary:** Status refreshes are generation-bound. Cancellation or a later backend
+  replacement prevents an obsolete preflight result from mutating the model. Permission and
+  foreground-app refreshes use distinct replaceable task slots: recovery startup refreshes
+  permission state while automatic foreground observation remains paused, and rapid application
+  activations retain only the latest result of each kind. Optional CUA discovery requests another
+  pair of refreshes only when it actually replaces the backend.
+- **Evidence:** Coordinator tests prove controller construction and repeated surface projection read
+  no backend status, an explicit refresh does not spawn foreground lookup work, and a cancelled
+  preflight cannot update the model. Launch coverage proves recovery mode refreshes permission state
+  without starting automatic workspace or foreground work. Desktop parity pins side-effect-free
+  installation, explicit command routing, and the utility-priority refresh boundary.
+
 ## 2026-08-10: project bookmark restoration begins after the first window
 
 - **Decision:** Security-scoped project bookmarks are no longer read, resolved, activated, or

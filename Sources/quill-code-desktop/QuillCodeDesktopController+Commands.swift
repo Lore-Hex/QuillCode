@@ -68,7 +68,7 @@ extension QuillCodeDesktopController {
 
 extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
     func refreshComputerUseStatus() {
-        refresh()
+        scheduleComputerUseStatusRefresh()
     }
 
     func refreshTrustedRouterCredits() {
