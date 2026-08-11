@@ -12,7 +12,6 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         Self.assertSource(app, containsAll: [
             "_ = QuillCodeDesktopLaunchClock.appEntryUptime",
             "QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()",
-            "controller.startApplicationServices()",
             "QuillCodeDesktopUpdaterSmokeRequest",
             "QuillCodeDesktopUpdaterSmokeRunner.runAndExit"
         ])
@@ -23,24 +22,14 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         let helperRange = try XCTUnwrap(app.range(of: "QuillCodeDesktopUpdateHelperRequest.parse"))
         XCTAssertLessThan(entryRange.lowerBound, handshakeRange.lowerBound)
         XCTAssertLessThan(handshakeRange.lowerBound, helperRange.lowerBound)
-        XCTAssertEqual(app.components(separatedBy: "controller.startApplicationServices()").count - 1, 1)
-        let normalControllerRange = try XCTUnwrap(app.range(
-            of: "workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()",
-            options: .backwards
-        ))
-        let normalLaunchSuffix = app[normalControllerRange.upperBound...]
-        let serviceRange = try XCTUnwrap(
-            normalLaunchSuffix.range(of: "controller.startApplicationServices()")
-        )
-        let ownershipRange = try XCTUnwrap(
-            normalLaunchSuffix.range(of: "_controller = StateObject(wrappedValue: controller)")
-        )
-        XCTAssertLessThan(serviceRange.lowerBound, ownershipRange.lowerBound)
+        XCTAssertFalse(app.contains("startApplicationServicesAfterFirstWindow"))
         XCTAssertFalse(app.contains("controller.updateController.startAutomaticChecks()"))
         XCTAssertFalse(app.contains("controller.installationLocationController.startIfNeeded()"))
         Self.assertSource(controller, containsAll: [
-            "func startApplicationServices()",
+            "func startApplicationServicesAfterFirstWindow()",
             "func completeStartupIfAllowed()",
+            "guard automaticStartupState.startPostWindowApplicationServicesIfNeeded() else { return }",
+            "startApplicationServicesAfterFirstWindow()",
             "automaticStartupPolicy: .deferUntilRequested",
             "model.startAutomaticStartupWork()",
             "tasks.replace(.computerUseBackendResolution)",
@@ -50,6 +39,10 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "installationLocationController.startIfNeeded()",
             "updateController.startAutomaticChecks()"
         ])
+        XCTAssertEqual(
+            controller.components(separatedBy: "startApplicationServicesAfterFirstWindow()").count - 1,
+            2
+        )
         Self.assertSource(bootstrap, contains: "automaticStartupPolicy == .startImmediately")
         Self.assertSource(runner, containsAll: [
             "waitForAvailableUpdate(configuration: configuration)",
