@@ -269,6 +269,7 @@ enum AgentBoundedRunFinalizationGate {
     static func evidenceContradictionCorrectionPrompt(
         path: String,
         issue: String,
+        userMessage: String,
         evidenceReceipt: String?,
         attempt: Int,
         limit: Int
@@ -290,6 +291,10 @@ enum AgentBoundedRunFinalizationGate {
         patch cannot be formed, host.file.write for the same deliverable remains the fallback, but \
         its content must preserve every unmentioned field verbatim. The deterministic audit will \
         resume against the complete saved artifact after the mutation.
+
+        Original request requirements (authoritative over prior draft text and any \
+        model-authored validator):
+        \(originalRequestExcerpt(userMessage))
 
         \(authoritativeEvidenceSection(evidenceReceipt))
         """
@@ -359,7 +364,9 @@ enum AgentBoundedRunFinalizationGate {
         delegating, parsing, and creating helper files. Synthesize the strongest verified evidence \
         already present in the tool results into the complete requested deliverable at ./\(path) now. \
         Start from the original request, state genuinely unavailable facts honestly, and do not invent \
-        missing evidence. \(AgentArtifactContractAuditGate.sourceTableIntegrityInstruction) Respond \
+        missing evidence. Remove internal checkpoint, progress, provisional, and future-work \
+        language unless the original request explicitly requires a provisional artifact. \
+        \(AgentArtifactContractAuditGate.sourceTableIntegrityInstruction) Respond \
         with host.file.write for exactly ./\(path); no other action is \
         permitted until that deliverable exists. The normal artifact readback and validation steps will \
         run after the write.
@@ -523,7 +530,7 @@ enum AgentBoundedRunFinalizationGate {
         "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
 
-    private static func originalRequestExcerpt(_ userMessage: String) -> String {
+    static func originalRequestExcerpt(_ userMessage: String) -> String {
         let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         let maximumCharacters = 12_000
         guard request.count > maximumCharacters else { return request }

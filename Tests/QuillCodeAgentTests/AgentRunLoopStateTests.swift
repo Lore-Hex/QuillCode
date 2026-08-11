@@ -1022,6 +1022,113 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
     }
 
+    func testNarrowPatchDoesNotPromoteCheckpointArtifactToFinal() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research CPI, write outputs/report.md, and run a deterministic validator."
+        )
+        let outputs = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outputs) }
+
+        // Use this unique directory as the workspace while retaining the task-named relative path.
+        let deliverableDirectory = outputs.appendingPathComponent("outputs", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: deliverableDirectory,
+            withIntermediateDirectories: true
+        )
+        let report = deliverableDirectory.appendingPathComponent("report.md")
+        let checkpoint = """
+        # CPI Revenue Restatement - Checkpoint Draft
+
+        **Status:** Work in progress.
+
+        2025 CPI basis: 322.115
+        """
+        try checkpoint.write(to: report, atomically: true, encoding: .utf8)
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": checkpoint,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: outputs
+        ) { _ in "checkpoint" }
+
+        XCTAssertEqual(state.provisionalWrittenTextPaths, ["outputs/report.md"])
+        XCTAssertEqual(state.pendingBoundedRunFinalizationPath(), "outputs/report.md")
+        XCTAssertEqual(
+            state.boundedRunFinalizationPhase(at: "outputs/report.md"),
+            .synthesize
+        )
+
+        let patched = checkpoint.replacingOccurrences(of: "322.115", with: "321.943")
+        try patched.write(to: report, atomically: true, encoding: .utf8)
+        let patch = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": """
+            diff --git a/outputs/report.md b/outputs/report.md
+            --- a/outputs/report.md
+            +++ b/outputs/report.md
+            @@ -5 +5 @@
+            -2025 CPI basis: 322.115
+            +2025 CPI basis: 321.943
+            """])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: patch, stdout: "Patch applied."),
+            workspaceRoot: outputs
+        ) { _ in "patch" }
+
+        XCTAssertEqual(state.provisionalWrittenTextPaths, ["outputs/report.md"])
+        XCTAssertEqual(
+            state.boundedRunFinalizationPhase(at: "outputs/report.md"),
+            .synthesize
+        )
+
+        let final = "# CPI Revenue Restatement\n\n2025 CPI basis: 321.943. Analysis complete.\n"
+        let finalWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": final,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: finalWrite, stdout: "rewrote"),
+            workspaceRoot: outputs
+        ) { _ in "final" }
+
+        XCTAssertTrue(state.provisionalWrittenTextPaths.isEmpty)
+        XCTAssertNil(state.pendingBoundedRunFinalizationPath())
+        XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
+    }
+
+    func testExplicitDraftRequestAllowsDraftHeadingToAdvance() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Create an initial draft report at outputs/report.md."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Draft Report\n\nInitial recommendation.\n",
+            ])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        XCTAssertTrue(state.provisionalWrittenTextPaths.isEmpty)
+        XCTAssertNil(state.pendingBoundedRunFinalizationPath())
+    }
+
     func testEmptyVisibleBrowserExtractionDoesNotReplaceUsefulReceipt() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(

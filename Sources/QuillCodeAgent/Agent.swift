@@ -927,6 +927,7 @@ public struct AgentRunner: Sendable {
                             .evidenceContradictionCorrectionPrompt(
                                 path: path,
                                 issue: issue,
+                                userMessage: userMessage,
                                 evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                                 attempt: correctionAttempt,
                                 limit: AgentArtifactContractAuditGate
@@ -1288,6 +1289,7 @@ public struct AgentRunner: Sendable {
                     path: path,
                     tools: tools,
                     correctionCount: artifactContractAuditCorrectionCounts[path, default: 0],
+                    userMessage: userMessage,
                     evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                     failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                    ) {
@@ -1672,6 +1674,7 @@ public struct AgentRunner: Sendable {
                             tools: tools,
                             correctionCount:
                                 artifactContractAuditCorrectionCounts[path, default: 0],
+                            userMessage: userMessage,
                             evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                             failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path)
                            ) {
@@ -2125,6 +2128,7 @@ public struct AgentRunner: Sendable {
                                     .evidenceContradictionCorrectionPrompt(
                                         path: auditPath,
                                         issue: issue,
+                                        userMessage: userMessage,
                                         evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                                         attempt: correctionAttempt,
                                         limit: AgentArtifactContractAuditGate

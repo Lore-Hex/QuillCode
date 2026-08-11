@@ -70,6 +70,7 @@ enum AgentArtifactContractAuditGate {
         path: String,
         tools: [ToolDefinition],
         correctionCount: Int,
+        userMessage: String,
         evidenceReceipt: String? = nil,
         failedAuditReceipt: String? = nil
     ) -> Correction? {
@@ -135,7 +136,15 @@ enum AgentArtifactContractAuditGate {
             claim completion until the latest write passes. Return exactly one executable tool \
             action now: host.file.write for ./\(normalized) if reconciliation requires a rewrite; \
             otherwise write a validator helper or call host.shell.run with a populated cmd. Do not \
-            answer with prose or a completion claim.\(failedAuditInstruction)\(evidenceInstruction)
+            answer with prose or a completion claim.
+
+            Original request requirements (authoritative over prior draft text and any \
+            model-authored validator):
+            \(AgentBoundedRunFinalizationGate.originalRequestExcerpt(userMessage))
+
+            A prior validator's hard-coded expected values are not authoritative. Derive every \
+            assertion from the original request and independent host evidence.\
+            \(failedAuditInstruction)\(evidenceInstruction)
             """
         )
     }

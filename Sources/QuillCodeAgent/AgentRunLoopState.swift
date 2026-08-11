@@ -68,6 +68,11 @@ struct AgentRunLoopState: Sendable {
     /// the ordinary readback gate then verifies the refreshed artifact.
     private(set) var researchStaleWorkspacePaths: Set<String> = []
     private var namedTextDeliverableWorkspacePaths: Set<String> = []
+    /// Named text artifacts whose latest saved content explicitly declares itself unfinished. A
+    /// narrow patch must not turn an internal checkpoint into a final artifact merely because it
+    /// refreshed one source value.
+    private(set) var provisionalWrittenTextPaths: Set<String> = []
+    private var requestAllowsProvisionalArtifact = false
     /// Weighted research pressure accumulated before the first durable named-text draft. Failed
     /// web attempts still consume context and identify evidence gaps, so they count toward the
     /// checkpoint threshold. A successful delegated result counts more because it can carry
@@ -240,6 +245,8 @@ struct AgentRunLoopState: Sendable {
             AgentArtifactVerificationGate.normalizedPath
         )
         namedTextDeliverableWorkspacePaths = Set(deliverables.filter(Self.isResearchTextArtifact))
+        requestAllowsProvisionalArtifact = AgentArtifactFinalityGate
+            .requestAllowsProvisionalArtifact(userMessage)
         if AgentArtifactVerificationGate.requiresReadback(in: userMessage) {
             requiredReadbackWorkspacePaths = Set(deliverables)
         }
@@ -388,7 +395,10 @@ struct AgentRunLoopState: Sendable {
         let isStale = researchStaleWorkspacePaths.contains(where: {
             AgentArtifactVerificationGate.pathsMatch($0, path)
         })
-        return !wasWritten || isStale
+        let isProvisional = provisionalWrittenTextPaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
+        return !wasWritten || isStale || isProvisional
     }
 
     /// Once research lands after a draft, the next model turn is grounded synthesis rather than
@@ -542,6 +552,7 @@ struct AgentRunLoopState: Sendable {
                     removeFailedContractAuditCallSignatures(for: repairedAuditPaths)
                 }
                 latestWrittenTextContents[normalized] = content
+                recordArtifactFinality(content: content, path: normalized)
             }
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
                let content = arguments.string("content"),
@@ -643,13 +654,41 @@ struct AgentRunLoopState: Sendable {
         let discoverablePaths = requiredReadbackWorkspacePaths
             .union(requiredContractAuditWorkspacePaths)
         for path in discoverablePaths where
+            !writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            }) &&
             AgentArtifactVerificationGate.isExistingWorkspaceFile(
                 path,
                 workspaceRoot: workspaceRoot
             ) {
             writtenWorkspacePaths.insert(path)
             unverifiedWrittenWorkspacePaths.insert(path)
+            if let content = try? String(
+                contentsOf: workspaceRoot.appendingPathComponent(path),
+                encoding: .utf8
+            ) {
+                latestWrittenTextContents[path] = content
+                recordArtifactFinality(content: content, path: path)
+            }
         }
+    }
+
+    private mutating func recordArtifactFinality(content: String, path: String) {
+        guard !requestAllowsProvisionalArtifact,
+              namedTextDeliverableWorkspacePaths.contains(where: {
+                  AgentArtifactVerificationGate.pathsMatch($0, path)
+              }),
+              AgentArtifactFinalityGate.containsProvisionalCompletionLanguage(
+                content: content,
+                path: path
+              )
+        else {
+            provisionalWrittenTextPaths = Set(provisionalWrittenTextPaths.filter {
+                !AgentArtifactVerificationGate.pathsMatch($0, path)
+            })
+            return
+        }
+        provisionalWrittenTextPaths.insert(path)
     }
 
     private mutating func invalidateContractAudit(

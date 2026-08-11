@@ -9,6 +9,7 @@ final class AgentToolLoopTests: XCTestCase {
         let prompt = AgentBoundedRunFinalizationGate.evidenceContradictionCorrectionPrompt(
             path: "outputs/report.md",
             issue: "Expected 313.688833, not 314.688.",
+            userMessage: "Use 2026 CPI as the target benchmark and write outputs/report.md.",
             evidenceReceipt: "official values",
             attempt: 7,
             limit: 8
@@ -20,6 +21,7 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertTrue(prompt.contains("omit optional intermediate numeric claims"), prompt)
         XCTAssertTrue(prompt.contains("one host.apply_patch call"), prompt)
         XCTAssertTrue(prompt.contains("Preserve every unmentioned byte"), prompt)
+        XCTAssertTrue(prompt.contains("Use 2026 CPI as the target benchmark"), prompt)
         XCTAssertFalse(prompt.contains("Rewrite the complete ./outputs/report.md now"), prompt)
     }
 

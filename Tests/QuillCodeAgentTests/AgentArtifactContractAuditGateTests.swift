@@ -587,12 +587,14 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertNotNil(AgentArtifactContractAuditGate.correction(
             path: "outputs/report.html",
             tools: tools,
-            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath - 1
+            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath - 1,
+            userMessage: "Write outputs/report.html."
         ))
         XCTAssertNil(AgentArtifactContractAuditGate.correction(
             path: "outputs/report.html",
             tools: tools,
-            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath
+            correctionCount: AgentArtifactContractAuditGate.correctionLimitPerPath,
+            userMessage: "Write outputs/report.html."
         ))
     }
 
@@ -600,7 +602,8 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         let correction = try XCTUnwrap(AgentArtifactContractAuditGate.correction(
             path: "outputs/report.md",
             tools: [.shellRun],
-            correctionCount: 0
+            correctionCount: 0,
+            userMessage: "Use the latest 2026 CPI benchmark and write outputs/report.md."
         ))
 
         XCTAssertTrue(correction.prompt.contains("align every value with its exact source header"))
@@ -614,6 +617,8 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(correction.prompt.contains("rightmost non-missing eligible period"))
         XCTAssertTrue(correction.prompt.contains("selected period label and value"))
         XCTAssertTrue(correction.prompt.contains("expected values copied from the artifact"))
+        XCTAssertTrue(correction.prompt.contains("Use the latest 2026 CPI benchmark"))
+        XCTAssertTrue(correction.prompt.contains("model-authored validator"))
     }
 
     func testCorrectionRetainsNamedFailedValidatorAssertions() throws {
@@ -621,6 +626,7 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
             path: "outputs/report.md",
             tools: [.shellRun],
             correctionCount: 1,
+            userMessage: "Restate revenue in 2026 dollars.",
             failedAuditReceipt: "VALIDATION FAILED\n2025: expected $6,223,810"
         ))
 
