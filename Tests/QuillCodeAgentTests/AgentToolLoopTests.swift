@@ -612,6 +612,80 @@ final class AgentToolLoopTests: XCTestCase {
         ))
     }
 
+    func testBoundedFinalizationDoesNotRedirectToDeclaredInputAlias() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/task-33-deliverable.md",
+                "content": "# Follow-up sequence\n\nAll 18 source-grounded emails.\n",
+            ])
+        )
+        let unrelatedInputAliasWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "conference-leads.csv",
+                "content": "contact_id,email\nC-001,alice@example.test\n",
+            ])
+        )
+        let validatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate_task_33.py",
+                "content": """
+                import csv, pathlib, sys
+                source = list(csv.DictReader(open("inputs/conference-leads.csv", newline="")))
+                target = pathlib.Path(sys.argv[1])
+                assert len(source) == 6
+                assert target.name == "task-33-deliverable.md"
+                assert "18 source-grounded emails" in target.read_text()
+                print("PASS")
+                """,
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(deliverableWrite), .tool(unrelatedInputAliasWrite), .tool(validatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            """
+            Write a three-email follow-up sequence for the prospects in conference-leads.csv.
+            Read every applicable source directly before acting.
+            For this task the required inputs are: `inputs/source-map.md`, \
+            `inputs/conference-leads.csv`.
+            Draft exactly three emails for each of six prospects (18 emails total).
+            Save the result to `outputs/task-33-deliverable.md`. After writing, read the saved \
+            artifact back and verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(result.stopReason, .finished, eventSummary)
+        XCTAssertEqual(validatorCallCount, 1, eventSummary)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("conference-leads.csv").path
+        ))
+        XCTAssertTrue(eventSummary.contains("rejected a non-finalization action"))
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/task-33-deliverable.md`.",
+            eventSummary
+        )
+    }
+
     func testBoundedFinalizationRejectsValidatorUntilSourceContradictionIsRewritten() async throws {
         let root = try makeTempDirectory()
         let validatorCapture = ToolCallCapture()
