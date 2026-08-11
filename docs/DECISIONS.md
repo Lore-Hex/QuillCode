@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-11: pane visibility changes reuse the current workspace projection
+
+- **Decision:** Opening or closing Automations, Extensions, Memories, or Activity updates only that
+  pane's presentation surface. The desktop no longer rebuilds the transcript, 100-chat navigation
+  projection, composer, model catalog, or filesystem-backed settings for a visibility-only change.
+  Extensions still reprojects its own contents because a normal toggle clears any focused extension
+  kind; the other panes retain their already-current content and change only visibility.
+- **Correctness boundary:** Model state remains authoritative. Each narrow projection is compared with
+  the corresponding field from a fresh full surface, while unrelated sentinel fields prove the
+  projection did not silently fall back to a full rebuild. Content-changing mutations continue to use
+  authoritative refreshes.
+- **Evidence:** The release-configured three-process `daily-driver-100-chats` gate passed 3/3 with a
+  354 ms median launch, 103.45 MiB initial RSS, 176.30 MiB after the first interaction sweep, and
+  182.11 MiB after the repeated sweep. The like-for-like single-process trace fell from 191.2 MB to
+  178.3 MB after the first sweep and from 198.7 MB to 187.3 MB after the repeated sweep.
+
 ## 2026-08-10: public performance measures a verified daily-driver workspace
 
 - **Decision:** Every packaged performance attempt first invokes the app's own fixture helper to

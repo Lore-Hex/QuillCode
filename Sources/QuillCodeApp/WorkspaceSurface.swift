@@ -112,6 +112,21 @@ public struct WorkspaceProgressSurfaceScope: OptionSet, Sendable, Hashable {
     public static let terminal = WorkspaceProgressSurfaceScope(rawValue: 1 << 1)
 }
 
+/// Identifies pane-only presentation changes that can reuse the current workspace projection.
+/// Opening or closing one of these panes must not rebuild the transcript, sidebar, or model catalog.
+public struct WorkspacePanePresentationScope: OptionSet, Sendable, Hashable {
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    public static let extensions = WorkspacePanePresentationScope(rawValue: 1 << 0)
+    public static let memories = WorkspacePanePresentationScope(rawValue: 1 << 1)
+    public static let activity = WorkspacePanePresentationScope(rawValue: 1 << 2)
+    public static let automations = WorkspacePanePresentationScope(rawValue: 1 << 3)
+}
+
 private struct WorkspaceAgentProgressSurface {
     var chrome: WorkspaceChromeSurface
     var topBar: TopBarSurface
@@ -246,6 +261,43 @@ public extension QuillCodeWorkspaceModel {
         return next
     }
 
+    /// Reprojects only pane presentation state after a visibility toggle. Pane contents are already
+    /// refreshed by their owning model mutations; Extensions is rebuilt because toggling it also
+    /// clears its focused kind and therefore changes its filtered item set.
+    func panePresentationSurface(
+        reusing surface: WorkspaceSurface,
+        scope: WorkspacePanePresentationScope
+    ) -> WorkspaceSurface {
+        guard !scope.isEmpty else { return surface }
+        var next = surface
+        if scope.contains(.extensions) {
+            next.extensions = extensionsSurface()
+        }
+        if scope.contains(.memories) {
+            next.memories = surface.memories.settingVisibility(memories.isVisible)
+        }
+        if scope.contains(.activity) {
+            next.activity = surface.activity.settingVisibility(activity.isVisible)
+        }
+        if scope.contains(.automations) {
+            next.automations = surface.automations.settingVisibility(automations.isVisible)
+        }
+        return next
+    }
+
+    private func extensionsSurface() -> WorkspaceExtensionsSurface {
+        WorkspaceExtensionsSurface(
+            isVisible: extensions.isVisible,
+            focusedKind: extensions.focusedKind,
+            manifests: selectedProject?.extensionManifests ?? [],
+            hooks: effectiveHookDefinitions(for: selectedProject),
+            mcpServerStatuses: extensions.mcpServerStatuses,
+            mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
+            workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
+                .workflowRecordingStatusSnapshot
+        )
+    }
+
     private func agentProgressSurface(
         reusing previousTranscript: TranscriptSurface? = nil,
         transcriptRefresh: WorkspaceAgentTranscriptRefreshPlan = .rebuild
@@ -378,16 +430,7 @@ public extension QuillCodeWorkspaceModel {
                 : nil,
             review: review,
             browser: BrowserSurface(browser: browser),
-            extensions: WorkspaceExtensionsSurface(
-                isVisible: extensions.isVisible,
-                focusedKind: extensions.focusedKind,
-                manifests: selectedProject?.extensionManifests ?? [],
-                hooks: effectiveHookDefinitions(for: selectedProject),
-                mcpServerStatuses: extensions.mcpServerStatuses,
-                mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
-                workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
-                    .workflowRecordingStatusSnapshot
-            ),
+            extensions: extensionsSurface(),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
                 notes: activeSources.memories,
