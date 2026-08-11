@@ -250,6 +250,9 @@ public struct AgentRunner: Sendable {
             var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
+            /// Some corrections include the rejected proposal for repair context. Track their stable
+            /// violation identity separately so changing invalid code still escalates as one loop.
+            var pendingRepeatCorrectionID: String?
             /// Gate-specific limits cannot safely bound their combined effect. Keep one monotonic
             /// budget across consecutive corrective turns and reset it only after a tool executes.
             var correctiveTurnBudget = AgentCorrectiveTurnBudget()
@@ -383,6 +386,8 @@ public struct AgentRunner: Sendable {
                 }
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
+                let repeatCorrectionID = pendingRepeatCorrectionID
+                pendingRepeatCorrectionID = nil
                 let boundedFinalizationPhase = boundedRunFinalizationPath.map {
                     runLoop.boundedRunFinalizationPhase(at: $0)
                 }
@@ -402,7 +407,9 @@ public struct AgentRunner: Sendable {
                 let isSemanticArtifactCorrection = repeatNudge != nil
                     && !isBoundedFinalizationCorrection
                 if let repeatNudge,
-                   !correctiveTurnBudget.beginCorrectiveTurn(correctionID: repeatNudge) {
+                   !correctiveTurnBudget.beginCorrectiveTurn(
+                    correctionID: repeatCorrectionID ?? repeatNudge
+                   ) {
                     if !runLoop.hadDeniedStep,
                        runLoop.researchStaleWorkspacePaths.isEmpty,
                        let readCall = AgentArtifactVerificationGate.requiredReadbackCall(
@@ -940,6 +947,11 @@ public struct AgentRunner: Sendable {
                                 missingInputPaths: missingInputs,
                                 evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
                                 proposedCall: proposedCall
+                            )
+                        pendingRepeatCorrectionID = AgentBoundedRunFinalizationGate
+                            .validatorInputBindingCorrectionID(
+                                path: path,
+                                missingInputPaths: missingInputs
                             )
                         next.events.append(.init(
                             kind: .notice,

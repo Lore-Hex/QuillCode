@@ -249,6 +249,18 @@ enum AgentBoundedRunFinalizationGate {
         """
     }
 
+    static func validatorInputBindingCorrectionID(
+        path: String,
+        missingInputPaths: [String]
+    ) -> String {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+        let normalizedInputs = missingInputPaths
+            .map(AgentArtifactVerificationGate.normalizedPath)
+            .sorted()
+            .joined(separator: ",")
+        return "validator-input-binding:\(normalizedPath):\(normalizedInputs)"
+    }
+
     static func evidenceContradictionCorrectionPrompt(
         path: String,
         issue: String,

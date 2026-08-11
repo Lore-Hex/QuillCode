@@ -205,6 +205,95 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("host.shell.run"))
     }
 
+    func testValidatorInputBindingEscalatesAcrossChangingRejectedHelpers() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("validator-binding-escalation-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "name,value\nalpha,1\nbeta,2\n".write(
+            to: root.appendingPathComponent("inputs/data.csv"),
+            atomically: true,
+            encoding: .utf8
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let invalidValidators = (1...3).map { revision in
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/validate-report.py",
+                    "content": """
+                    import pathlib
+                    report = pathlib.Path("outputs/report.md").read_text()
+                    assert "alpha,1" in report
+                    print("PASS revision \(revision)")
+                    """,
+                ])
+            )
+        }
+        let groundedValidator = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate-report.py",
+                "content": """
+                import csv, pathlib
+                with open("inputs/data.csv", newline="", encoding="utf-8") as source_file:
+                    source_rows = list(csv.DictReader(source_file))
+                report = pathlib.Path("outputs/report.md").read_text()
+                assert len(source_rows) == 2 and "alpha,1" in report
+                print("PASS")
+                """,
+            ])
+        )
+        let state = PromptRecorder(
+            [.tool(deliverableWrite), .tool(deliverableWrite)]
+                + invalidValidators.map(AgentAction.tool)
+                + [.tool(groundedValidator)]
+        )
+        let runner = AgentRunner(
+            llm: RecordingClient(state: state),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 14,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            """
+            Read every applicable source directly before acting.
+            For this task the required inputs are: `inputs/data.csv`.
+            Create `outputs/report.md` with exactly two data rows. After writing, read the saved \
+            output back and verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let prompts = await state.recorded()
+        let bindingPrompts = prompts.filter {
+            $0.contains("validator helper is not independent")
+        }
+        let diagnostics = prompts.enumerated()
+            .map { "[\($0.offset)] \($0.element)" }
+            .joined(separator: "\n---\n")
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertEqual(bindingPrompts.count, AgentCorrectiveTurnBudget.limit, diagnostics)
+        XCTAssertFalse(try XCTUnwrap(bindingPrompts.first).contains("FINAL ATTEMPT"))
+        XCTAssertTrue(try XCTUnwrap(bindingPrompts.last).contains("FINAL ATTEMPT (3 of 3)"))
+        XCTAssertTrue(try XCTUnwrap(bindingPrompts.last).contains("csv.DictReader"))
+    }
+
     func testBoundedFinalizationPreservesSemanticSourceAuditCorrection() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("bounded-source-audit-\(UUID().uuidString)", isDirectory: true)
