@@ -160,6 +160,62 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 5)
     }
 
+    func testTwoConsecutiveStandbyRecoveriesReclaimActiveRoute() async throws {
+        let root = try makeTempDirectory()
+        try Data("first context".utf8).write(to: root.appendingPathComponent("input-1.txt"))
+        try Data("second context".utf8).write(to: root.appendingPathComponent("input-2.txt"))
+        try Data("third context".utf8).write(to: root.appendingPathComponent("input-3.txt"))
+        let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)
+        let primary = ScriptedState(
+            Self.alwaysEmpty + [
+                .success(.tool(.init(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: #"{"path":"input-2.txt"}"#
+                ))),
+                .success(.tool(.init(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: #"{"path":"input-3.txt"}"#
+                ))),
+                .success(.say("reclaimed route finalized all files")),
+            ]
+        )
+        let fallback = ScriptedState([
+            .success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: #"{"path":"input-1.txt"}"#
+            ))),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            maxToolSteps: 5,
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            "Read input-1.txt, input-2.txt, and input-3.txt, then summarize their contents.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3)
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(result.thread.messages.last?.content, "reclaimed route finalized all files")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("recovered two consecutive failed steps")
+        })
+        let primaryCalls = await primary.calls()
+        let fallbackCalls = await fallback.calls()
+        XCTAssertEqual(primaryCalls, 10)
+        XCTAssertEqual(fallbackCalls, 7)
+    }
+
     func testBoundedFinalizationKeepsPrimaryAfterOnePhaseInvalidAction() async throws {
         let root = try makeTempDirectory()
         let reportPath = "outputs/report.md"

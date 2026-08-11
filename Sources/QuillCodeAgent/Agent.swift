@@ -339,10 +339,11 @@ public struct AgentRunner: Sendable {
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
             runLoop.seedSourceGrounding(userMessage: userMessage)
             var autoReviewCircuit = AutoReviewCircuitBreaker()
-            /// Once a standby route recovers a failed step, keep it as the primary route for the
-            /// rest of the run. A later standby rescue may complete that step without causing the
-            /// two clients to trade ownership repeatedly.
+            /// One standby rescue does not displace an established route. Two consecutive rescues
+            /// show that the active route is currently unhealthy, so the successful standby may
+            /// reclaim ownership without letting isolated failures make the clients ping-pong.
             var hasPromotedFallbackRoute = false
+            var consecutiveStandbyRecoveries = 0
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
@@ -520,32 +521,50 @@ public struct AgentRunner: Sendable {
                                 : .standard,
                             absoluteTurnDeadline: absoluteTurnDeadline
                         )
-                        if let fallback = actionRunner.fallbackLLM,
-                           next.events.contains(where: {
+                        let recoveredWithFallback = next.events.contains(where: {
                                !priorEventIDs.contains($0.id)
                                    && ($0.summary == Self.fallbackSwitchNotice
                                        || $0.summary == Self.reasoningFallbackSwitchNotice
                                        || $0.summary == Self.turnDeadlineFallbackSwitchNotice)
-                           }) {
+                           })
+                        if let fallback = actionRunner.fallbackLLM, recoveredWithFallback {
                             if !hasPromotedFallbackRoute {
                                 let displacedLLM = actionRunner.llm
                                 actionRunner.llm = fallback
                                 actionRunner.fallbackLLM = displacedLLM
                                 hasPromotedFallbackRoute = true
+                                consecutiveStandbyRecoveries = 0
                                 next.events.append(.init(
                                     kind: .notice,
                                     summary: "Self-healing: the fallback model completed the step; "
                                         + "promoting that route and retaining the prior route as standby."
                                 ))
                             } else {
-                                next.events.append(.init(
-                                    kind: .notice,
-                                    summary: "Self-healing: the standby route completed the step; "
-                                        + "keeping the established route active for subsequent actions."
-                                ))
+                                consecutiveStandbyRecoveries += 1
+                                if consecutiveStandbyRecoveries >= 2 {
+                                    let displacedLLM = actionRunner.llm
+                                    actionRunner.llm = fallback
+                                    actionRunner.fallbackLLM = displacedLLM
+                                    consecutiveStandbyRecoveries = 0
+                                    next.events.append(.init(
+                                        kind: .notice,
+                                        summary: "Self-healing: the standby route recovered two "
+                                            + "consecutive failed steps; promoting that route and "
+                                            + "retaining the prior route as standby."
+                                    ))
+                                } else {
+                                    next.events.append(.init(
+                                        kind: .notice,
+                                        summary: "Self-healing: the standby route completed the "
+                                            + "step; keeping the established route active unless "
+                                            + "another consecutive recovery is required."
+                                    ))
+                                }
                             }
                             next.updatedAt = Date()
                             await onProgress?(next)
+                        } else {
+                            consecutiveStandbyRecoveries = 0
                         }
                     } catch AgentError.emptyStreamingResponse {
                         try Task.checkCancellation()
