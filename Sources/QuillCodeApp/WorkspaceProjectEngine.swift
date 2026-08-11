@@ -8,6 +8,7 @@ struct WorkspaceProjectMetadata: Equatable, Sendable {
     var pluginHooks: [ProjectPluginHook]
     var extensionManifests: [ProjectExtensionManifest]
     var memories: [MemoryNote]
+    var worktreeEnvironmentSurface: WorkspaceWorktreeEnvironmentSurface
 
     init(
         instructions: [ProjectInstruction],
@@ -15,7 +16,9 @@ struct WorkspaceProjectMetadata: Equatable, Sendable {
         runHooks: [ProjectRunHook],
         pluginHooks: [ProjectPluginHook] = [],
         extensionManifests: [ProjectExtensionManifest],
-        memories: [MemoryNote]
+        memories: [MemoryNote],
+        worktreeEnvironmentSurface: WorkspaceWorktreeEnvironmentSurface =
+            WorkspaceWorktreeEnvironmentSurface()
     ) {
         self.instructions = instructions
         self.localActions = localActions
@@ -23,6 +26,7 @@ struct WorkspaceProjectMetadata: Equatable, Sendable {
         self.pluginHooks = pluginHooks
         self.extensionManifests = extensionManifests
         self.memories = memories
+        self.worktreeEnvironmentSurface = worktreeEnvironmentSurface
     }
 
     static let empty = WorkspaceProjectMetadata(
@@ -31,7 +35,8 @@ struct WorkspaceProjectMetadata: Equatable, Sendable {
         runHooks: [],
         pluginHooks: [],
         extensionManifests: [],
-        memories: []
+        memories: [],
+        worktreeEnvironmentSurface: WorkspaceWorktreeEnvironmentSurface()
     )
 }
 

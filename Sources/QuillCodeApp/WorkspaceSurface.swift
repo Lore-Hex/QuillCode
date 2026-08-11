@@ -218,11 +218,8 @@ public extension QuillCodeWorkspaceModel {
                 trustedRouterCredits: root.trustedRouterCredits,
                 managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
             ),
-            worktreeEnvironments: selectedProject.flatMap { project in
-                guard !project.isRemote else { return nil }
-                return WorkspaceProjectConfigurationLoader
-                    .load(from: URL(fileURLWithPath: project.path))
-                    .worktreeEnvironmentSurface
+            worktreeEnvironments: selectedProject.flatMap {
+                worktreeEnvironmentSurfacesByProjectID[$0.id]
             } ?? WorkspaceWorktreeEnvironmentSurface(),
             runtimeIssue: progress.runtimeIssue,
             lastError: progress.lastError,

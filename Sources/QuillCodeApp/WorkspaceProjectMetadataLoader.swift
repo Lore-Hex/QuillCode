@@ -51,7 +51,8 @@ enum WorkspaceProjectMetadataLoader {
                 + marketplaceManifests
                 + standardMarketplaceManifests
                 + bundledMarketplaceManifests,
-            memories: MemoryNoteLoader.loadProject(from: root)
+            memories: MemoryNoteLoader.loadProject(from: root),
+            worktreeEnvironmentSurface: configuration.worktreeEnvironmentSurface
         )
     }
 

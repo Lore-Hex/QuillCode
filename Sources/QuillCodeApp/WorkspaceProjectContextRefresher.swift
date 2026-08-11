@@ -4,28 +4,31 @@ import QuillCodePersistence
 import QuillCodeTools
 
 enum WorkspaceProjectContextRefresher {
+    @discardableResult
     static func refreshLocalProjectMetadata(
         projectID: UUID?,
         projects: inout [ProjectRef],
         hookTrustStore: ProjectHookTrustFileStore? = nil
-    ) {
+    ) -> WorkspaceProjectMetadata? {
         guard let projectID,
               let index = projects.firstIndex(where: { $0.id == projectID }),
               !projects[index].isRemote
         else {
-            return
+            return nil
         }
 
         let rootURL = URL(fileURLWithPath: projects[index].path)
+        let metadata = WorkspaceProjectMetadataLoader.loadLocal(
+            from: rootURL,
+            hookTrustStore: hookTrustStore
+        )
         applyMetadata(
-            WorkspaceProjectMetadataLoader.loadLocal(
-                from: rootURL,
-                hookTrustStore: hookTrustStore
-            ),
+            metadata,
             to: projectID,
             projects: &projects,
             source: .local
         )
+        return metadata
     }
 
     static func refreshRemoteProjectContext(
