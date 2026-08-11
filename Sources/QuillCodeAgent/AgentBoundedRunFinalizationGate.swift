@@ -264,20 +264,34 @@ enum AgentBoundedRunFinalizationGate {
     static func evidenceContradictionCorrectionPrompt(
         path: String,
         issue: String,
-        evidenceReceipt: String?
+        evidenceReceipt: String?,
+        attempt: Int,
+        limit: Int
     ) -> String {
-        """
+        let base = """
         The proposed validator cannot audit ./\(path) yet because the saved artifact already \
         contradicts authoritative source evidence:
 
         \(issue)
 
         Rewrite the complete ./\(path) now with the corrected source-header association and \
-        recompute every dependent aggregate, amount, rate, and conclusion. Do not write or run a \
-        validator on this turn. The deterministic audit will resume after the corrected write.
+        recompute every dependent aggregate, amount, rate, and conclusion. Treat each \
+        host-computed expected value in the issue and source aggregate reference as canonical: \
+        copy it verbatim instead of independently recomputing it. Omit optional intermediate \
+        factors or subtotals when they are not required. Do not write or run a validator on this \
+        turn. The deterministic audit will resume after the corrected write.
 
         \(authoritativeEvidenceSection(evidenceReceipt))
         """
+        return AgentCorrectionEscalation.escalated(
+            base,
+            attempt: attempt,
+            limit: limit,
+            alternatives: [
+                "rewrite ./\(path) using every host-computed expected value verbatim and omit "
+                    + "optional intermediate numeric claims",
+            ]
+        )
     }
 
     static func escalatedCorrectionPrompt(

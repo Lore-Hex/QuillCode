@@ -5,6 +5,21 @@ import QuillCodeTools
 @testable import QuillCodeAgent
 
 final class AgentToolLoopTests: XCTestCase {
+    func testSourceContradictionCorrectionEscalatesToCanonicalHostValues() {
+        let prompt = AgentBoundedRunFinalizationGate.evidenceContradictionCorrectionPrompt(
+            path: "outputs/report.md",
+            issue: "Expected 313.688833, not 314.688.",
+            evidenceReceipt: "official values",
+            attempt: 7,
+            limit: 8
+        )
+
+        XCTAssertTrue(prompt.contains("FINAL ATTEMPT (8 of 8)"), prompt)
+        XCTAssertTrue(prompt.contains("host-computed expected value"), prompt)
+        XCTAssertTrue(prompt.contains("copy it verbatim"), prompt)
+        XCTAssertTrue(prompt.contains("omit optional intermediate numeric claims"), prompt)
+    }
+
     func testBoundedFinalizationPromptMakesRetainedEvidenceAuthoritative() {
         let evidence = "Successful host.web.fetch observation:\n2026 June CPI: 333.952"
         let synthesis = AgentBoundedRunFinalizationGate.correctionPrompt(

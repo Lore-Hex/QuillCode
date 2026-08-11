@@ -222,33 +222,85 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func explicitSumDivisionContradictions(in artifact: String) -> [String] {
-        let pattern = #"\((\s*\d{1,8}(?:\.\d+)?(?:\s*\+\s*\d{1,8}(?:\.\d+)?){2,}\s*)\)\s*(?:/|÷)\s*(\d+)\s*=\s*(\d{1,8}(?:\.\d+)?)"#
+        var issues = explicitChainedSumDivisionContradictions(in: artifact)
+        let number = #"-?\d[\d,]*(?:\.\d+)?"#
+        let terms = "(\(number)(?:\\s*\\+\\s*\(number)){2,})"
+        let pattern = "\\(\\s*\(terms)\\s*\\)\\s*(?:/|÷)\\s*(\(number))"
+            + "\\s*=\\s*(\(number))(?![\\d,.]|\\s*(?:/|÷))"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(artifact.startIndex..., in: artifact)
+        for match in regex.matches(in: artifact, range: range) {
+            guard let termsRange = Range(match.range(at: 1), in: artifact),
+                  let divisor = numericCapture(2, in: match, text: artifact),
+                  divisor.value != 0,
+                  let claimed = numericCapture(3, in: match, text: artifact)
+            else { continue }
+
+            let terms = artifact[termsRange].split(separator: "+").compactMap { term in
+                decimalValue(String(term))
+            }
+            guard terms.count >= 3 else { continue }
+            let expected = terms.reduce(0, +) / divisor.value
+            guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
+                continue
+            }
+            issues.append(String(
+                format: "The artifact's explicit sum/division equation evaluates to %.6f, not %@. "
+                    + "Recompute the aggregate and every downstream value from it.",
+                expected,
+                claimed.raw
+            ))
+        }
+        return issues
+    }
+
+    private static func explicitChainedSumDivisionContradictions(in artifact: String) -> [String] {
+        let number = #"-?\d[\d,]*(?:\.\d+)?"#
+        let terms = "(\(number)(?:\\s*\\+\\s*\(number)){2,})"
+        let pattern = "\\(\\s*\(terms)\\s*\\)\\s*(?:/|÷)\\s*(\(number))"
+            + "\\s*=\\s*(\(number))\\s*(?:/|÷)\\s*(\(number))"
+            + "\\s*=\\s*(\(number))(?![\\d,.])"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         var issues: [String] = []
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
             guard let termsRange = Range(match.range(at: 1), in: artifact),
-                  let divisorRange = Range(match.range(at: 2), in: artifact),
-                  let claimRange = Range(match.range(at: 3), in: artifact),
-                  let divisor = Double(artifact[divisorRange]),
-                  divisor != 0,
-                  let claimed = Double(artifact[claimRange])
+                  let leftDivisor = numericCapture(2, in: match, text: artifact),
+                  leftDivisor.value != 0,
+                  let subtotal = numericCapture(3, in: match, text: artifact),
+                  let rightDivisor = numericCapture(4, in: match, text: artifact),
+                  rightDivisor.value != 0,
+                  let claimed = numericCapture(5, in: match, text: artifact)
             else { continue }
 
-            let terms = artifact[termsRange].split(separator: "+").compactMap { term in
-                Double(term.trimmingCharacters(in: .whitespacesAndNewlines))
+            let values = artifact[termsRange].split(separator: "+").compactMap {
+                decimalValue(String($0))
             }
-            guard terms.count >= 3 else { continue }
-            let expected = terms.reduce(0, +) / divisor
-            let claim = String(artifact[claimRange])
-            let tolerance = displayedRoundingTolerance(for: claim)
-            guard abs(expected - claimed) > tolerance else { continue }
-            issues.append(String(
-                format: "The artifact's explicit sum/division equation evaluates to %.6f, not %@. "
-                    + "Recompute the aggregate and every downstream value from it.",
-                expected,
-                claim
-            ))
+            guard values.count >= 3 else { continue }
+            let expectedSubtotal = values.reduce(0, +)
+            if abs(expectedSubtotal - subtotal.value)
+                > displayedRoundingTolerance(for: subtotal.raw) {
+                issues.append(String(
+                    format: "The artifact's chained sum subtotal evaluates to %.6f, not %@. "
+                        + "Recompute the subtotal and aggregate.",
+                    expectedSubtotal,
+                    subtotal.raw
+                ))
+            }
+
+            let expectedLeft = expectedSubtotal / leftDivisor.value
+            let expectedRight = subtotal.value / rightDivisor.value
+            let tolerance = displayedRoundingTolerance(for: claimed.raw)
+            if abs(expectedLeft - claimed.value) > tolerance
+                || abs(expectedRight - claimed.value) > tolerance {
+                issues.append(String(
+                    format: "The artifact's chained sum/division equation evaluates to %.6f "
+                        + "from the source terms, not %@. Recompute the aggregate and every "
+                        + "downstream value from it.",
+                    expectedLeft,
+                    claimed.raw
+                ))
+            }
         }
         return issues
     }
@@ -572,6 +624,10 @@ enum AgentArtifactContractAuditGate {
             var rows: [[String]] = []
             index += 2
             while index < lines.count {
+                if isFocusedReceiptOmissionMarker(lines[index]) {
+                    index += 1
+                    continue
+                }
                 let cells = pipeCells(lines[index])
                 guard cells.count == headers.count else { break }
                 rows.append(cells)
@@ -580,6 +636,13 @@ enum AgentArtifactContractAuditGate {
             tables.append(.init(headers: headers, rows: rows))
         }
         return tables
+    }
+
+    private static func isFocusedReceiptOmissionMarker(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*\[\.\.\.\s+\d+\s+non-matching lines omitted\s+\.\.\.\]\s*$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
     }
 
     private static func normalizedTableLabel(_ raw: String) -> String {

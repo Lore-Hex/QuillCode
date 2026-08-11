@@ -918,12 +918,19 @@ public struct AgentRunner: Sendable {
                                 stopReason: .flailDetected(reason: reason)
                             )
                         }
+                        let correctionAttempt = sourceContradictionCorrectionCounts[
+                            path,
+                            default: 0
+                        ]
                         sourceContradictionCorrectionCounts[path, default: 0] += 1
                         pendingRepeatNudge = AgentBoundedRunFinalizationGate
                             .evidenceContradictionCorrectionPrompt(
                                 path: path,
                                 issue: issue,
-                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                attempt: correctionAttempt,
+                                limit: AgentArtifactContractAuditGate
+                                    .sourceContradictionCorrectionLimitPerPath
                             )
                         next.events.append(.init(
                             kind: .notice,
@@ -2109,12 +2116,19 @@ public struct AgentRunner: Sendable {
                                         stopReason: .flailDetected(reason: reason)
                                     )
                                 }
+                                let correctionAttempt = sourceContradictionCorrectionCounts[
+                                    auditPath,
+                                    default: 0
+                                ]
                                 sourceContradictionCorrectionCounts[auditPath, default: 0] += 1
                                 pendingRepeatNudge = AgentBoundedRunFinalizationGate
                                     .evidenceContradictionCorrectionPrompt(
                                         path: auditPath,
                                         issue: issue,
-                                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                        attempt: correctionAttempt,
+                                        limit: AgentArtifactContractAuditGate
+                                            .sourceContradictionCorrectionLimitPerPath
                                     )
                                 next.events.append(.init(
                                     kind: .notice,

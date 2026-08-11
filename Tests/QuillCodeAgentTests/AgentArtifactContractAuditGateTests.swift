@@ -424,6 +424,57 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("missing/non-numeric Oct"), issue)
     }
 
+    func testRetainsSourceTableRowsAcrossFocusedReceiptOmissionMarker() throws {
+        let evidence = """
+        Successful host.web.fetch observation:
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2016 | 236.916 | 237.111 | 238.132 | 239.261 | 240.229 | 241.018 | 240.628 | 240.849 | 241.428 | 241.729 | 241.353 | 241.432 | 238.778 | 241.237 |
+        [... 4 non-matching lines omitted ...]
+        | 2023 | 299.170 | 300.840 | 301.836 | 303.363 | 304.127 | 305.109 | 305.691 | 307.026 | 307.789 | 307.671 | 307.051 | 306.746 | 302.408 | 306.996 |
+        | 2024 | 308.417 | 310.326 | 312.332 | 313.548 | 314.069 | 314.175 | 314.540 | 314.796 | 315.301 | 315.664 | 315.493 | 315.605 | 312.145 | 315.233 |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 | 320.229 | 324.000 |
+        """
+        let artifact = """
+        | Year | Selected CPI basis | Basis type | Notes |
+        | --- | ---: | --- | --- |
+        | 2023 | 304.702 | **Annual average** | Full 12-month mean = 304.702. |
+        | 2024 | 314.688 | **Annual average** | Full 12-month mean = 314.688. |
+        | 2025 | 321.943 | **Observed-month proxy** | Mean of 11 published months = 321.943. |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("2024 monthly observations average to 313.688833"), issue)
+        XCTAssertTrue(issue.contains("not 314.688"), issue)
+    }
+
+    func testAcceptsCommaFormattedChainedSumDivisionEquation() {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 + 323.976 + 324.800 + 324.122 + 324.054) / 11 = 3,541.373 / 11 = 321.943
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "no structured source values"
+        ))
+    }
+
+    func testRejectsWrongCommaFormattedChainedSumSubtotal() throws {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 + 323.976 + 324.800 + 324.122 + 324.054) / 11 = 3,541.999 / 11 = 321.943
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "no structured source values"
+        ))
+        XCTAssertTrue(issue.contains("chained sum subtotal"), issue)
+        XCTAssertTrue(issue.contains("3541.373000"), issue)
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)
