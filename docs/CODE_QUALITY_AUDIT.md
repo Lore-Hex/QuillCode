@@ -17383,3 +17383,27 @@ Validation:
 - Final three-launch physical-footprint evidence: 306.25 ms median launch-ready, 41.09 MiB initial, 85.97 MiB post-interaction, 88.58 MiB repeated-interaction, and 2.61 MiB repeated growth
 - `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
 - `git diff --check`
+
+## 2026-08-11 Bounded Image Preview Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ responsiveness, A+ packaged performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Decode residency | A+ | Artifact images, message attachments, composer attachments, and appshot thumbnails decode directly to bounded bitmap dimensions instead of retaining full-resolution display bitmaps. |
+| Main-thread responsiveness | A+ | Local, data-URL, remote, and SVG thumbnail decoding runs at utility priority outside the main actor; SwiftUI receives only the finished bounded image. |
+| Input safety | A+ | Local files and streamed HTTP responses share a 32 MiB encoded-source cap, oversized declared responses are rejected before body delivery, and remote requests use ephemeral no-cache sessions with explicit timeouts and cancellation. |
+| Format fidelity | A+ | ImageIO preserves bitmap orientation and aspect ratio without upscaling, while the AppKit platform adapter keeps bounded SVG rasterization available without leaking native APIs into the app module. |
+| Surface budgets | A+ | General artifact previews cap their longest edge at 1,536 pixels, attachment previews at 512 pixels, and compact appshot thumbnails at 256 pixels. |
+| Packaged compatibility | A+ | The release bundle passed SIGKILL draft recovery, direct and Launch Services rendering, live native interaction, Accessibility contracts, and screenshot validation. |
+| Packaged performance | A+ | Three independent 100-chat launches passed: 292.07 ms median readiness, 41.02 MiB initial physical footprint, 86.45 MiB post-interaction, 87.67 MiB repeated-interaction, 1.22 MiB repeated growth, and a repeated thread count that fell from eight to seven. |
+
+Validation:
+
+- Focused thumbnail and architecture suite (11 tests, 0 failures)
+- `swift test` (6,191 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live-window Accessibility, computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 292.07 ms median launch-ready, 41.02 MiB initial, 86.45 MiB post-interaction, 87.67 MiB repeated-interaction, and 1.22 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
+- `git diff --check`

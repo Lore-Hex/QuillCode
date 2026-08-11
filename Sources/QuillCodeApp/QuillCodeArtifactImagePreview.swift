@@ -23,7 +23,7 @@ struct QuillCodeArtifactImagePreview: View {
     @ViewBuilder
     private var imageContent: some View {
         if let url = previewURL {
-            AsyncImage(url: url) { phase in
+            QuillCodeBoundedAsyncImage(url: url, maximumPixelSize: 1_536) { phase in
                 switch phase {
                 case .success(let image):
                     image
