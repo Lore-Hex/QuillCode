@@ -80,6 +80,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "initial-live-window"
         )
         XCTAssertEqual(
+            snapshot.dictionary["memoryMeasurement"] as? String,
+            "physical-footprint"
+        )
+        XCTAssertEqual(
             snapshot.dictionary["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
         )
@@ -616,6 +620,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
         XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
+        XCTAssertTrue(json.contains(#""memoryMeasurement" : "physical-footprint""#))
         XCTAssertTrue(json.contains(#""workload" : "first-run-empty""#))
         XCTAssertTrue(json.contains(#""postInteractionMeasurement" : "settled-after-native-interaction-sweep""#))
         XCTAssertTrue(json.contains(

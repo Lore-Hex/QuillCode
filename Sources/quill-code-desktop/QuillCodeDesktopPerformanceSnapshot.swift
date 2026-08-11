@@ -10,6 +10,24 @@ struct QuillCodeDesktopProcessResourceSnapshot: Equatable, Sendable {
     var threadCount: Int
 
     static func capture() throws -> Self {
+        var virtualMemoryInfo = task_vm_info_data_t()
+        var virtualMemoryInfoCount = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size
+        )
+        let virtualMemoryResult = withUnsafeMutablePointer(to: &virtualMemoryInfo) { pointer in
+            pointer.withMemoryRebound(
+                to: integer_t.self,
+                capacity: Int(virtualMemoryInfoCount)
+            ) { reboundPointer in
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(TASK_VM_INFO),
+                    reboundPointer,
+                    &virtualMemoryInfoCount
+                )
+            }
+        }
+
         var taskInfo = proc_taskinfo()
         let expectedSize = Int32(MemoryLayout<proc_taskinfo>.stride)
         let capturedSize = withUnsafeMutablePointer(to: &taskInfo) { pointer in
@@ -21,14 +39,17 @@ struct QuillCodeDesktopProcessResourceSnapshot: Equatable, Sendable {
                 expectedSize
             )
         }
-        guard capturedSize == expectedSize,
-              taskInfo.pti_resident_size > 0,
+        guard virtualMemoryResult == KERN_SUCCESS,
+              virtualMemoryInfo.phys_footprint > 0,
+              capturedSize == expectedSize,
               taskInfo.pti_threadnum > 0
         else {
             throw QuillCodeDesktopSmokeFailure.performanceSnapshotUnavailable
         }
         return Self(
-            residentMemoryBytes: Int64(min(taskInfo.pti_resident_size, UInt64(Int64.max))),
+            residentMemoryBytes: Int64(
+                min(virtualMemoryInfo.phys_footprint, UInt64(Int64.max))
+            ),
             threadCount: Int(taskInfo.pti_threadnum)
         )
     }
@@ -73,7 +94,8 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
 }
 
 struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
-    static let schemaVersion = 4
+    static let schemaVersion = 5
+    static let memoryMeasurement = "physical-footprint"
     static let measurement = QuillCodeDesktopInitialPerformanceSnapshot.measurement
     static let postInteractionMeasurement = "settled-after-native-interaction-sweep"
     static let repeatedInteractionMeasurement = "settled-after-repeated-native-interaction-sweep"
@@ -105,6 +127,7 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
             "schemaVersion": Self.schemaVersion,
             "workload": workload.rawValue,
             "measurement": Self.measurement,
+            "memoryMeasurement": Self.memoryMeasurement,
             "launchReadyMilliseconds": launchReadyMilliseconds,
             "residentMemoryBytes": residentMemoryBytes,
             "threadCount": threadCount,

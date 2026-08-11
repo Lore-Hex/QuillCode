@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 
-PERFORMANCE_SCHEMA_VERSION = 4
+PERFORMANCE_SCHEMA_VERSION = 5
 PERFORMANCE_PRODUCT = "Quill Cowork"
 PERFORMANCE_WORKLOAD = "daily-driver-100-chats"
+MEMORY_MEASUREMENT = "physical-footprint"
 INITIAL_MEASUREMENT = "initial-live-window"
 POST_INTERACTION_MEASUREMENT = "settled-after-native-interaction-sweep"
 REPEATED_INTERACTION_MEASUREMENT = (
