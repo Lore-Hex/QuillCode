@@ -14,6 +14,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         )
         let extensionFileNames = [
             "QuillCodeDesktopController+Commands.swift",
+            "QuillCodeDesktopController+ComputerUse.swift",
             "QuillCodeDesktopController+ComposerAndPanes.swift",
             "QuillCodeDesktopController+Navigation.swift",
             "QuillCodeDesktopController+Notifications.swift",

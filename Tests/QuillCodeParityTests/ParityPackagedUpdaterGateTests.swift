@@ -44,8 +44,8 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "automaticStartupPolicy: .deferUntilRequested",
             "model.startAutomaticStartupWork()",
             "tasks.replace(.computerUseBackendResolution)",
-            "refreshForegroundApplication: false",
-            "await cuaCoordinator.refreshForegroundApplication(on: cuaModel)",
+            "startApplicationActivationObservation",
+            "scheduleComputerUseStatusRefresh()",
             "installApprovalNotificationHandling()",
             "installationLocationController.startIfNeeded()",
             "updateController.startAutomaticChecks()"

@@ -10,6 +10,9 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         let composerCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopComposerCoordinator.swift")
         let terminalCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopTerminalCoordinator.swift")
         let terminalControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController+Terminal.swift")
+        let computerUseControllerText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopController+ComputerUse.swift"
+        )
         let terminalSmokeText = try Self.desktopSourceText(named: "QuillCodeDesktopTerminalRetentionSmoke.swift")
         let smokeRunnerText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeRunner.swift")
         let desktopTaskText = try Self.desktopSourceText(named: "QuillCodeDesktopTaskCoordinator.swift")
@@ -51,6 +54,9 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         Self.assertSource(terminalCoordinatorText, contains: "draft.trimmingCharacters(in: .whitespacesAndNewlines)")
         Self.assertSource(terminalCoordinatorText, contains: "model.setTerminalDraft(draft)")
         Self.assertSource(browserCoordinatorText, contains: "tasks.replace(.browserPreview")
+        Self.assertSource(desktopTaskText, contains: "case computerUseForegroundRefresh")
+        Self.assertSource(computerUseControllerText, contains: "tasks.replace(.computerUseForegroundRefresh)")
+        Self.assertSource(computerUseControllerText, contains: "guard !Task.isCancelled, changed else { return }")
         Self.assertSource(controllerText, contains: "QuillCodeDesktopAutomationCoordinator")
         Self.assertSource(controllerText, contains: "automationCoordinator.startTicker")
         Self.assertSource(automationCoordinatorText, contains: "tasks.replace(.automationTicker")
@@ -82,6 +88,7 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
 
         Self.assertSource(refreshText, contains: "modelStateCoordinator.refreshProgressState(")
         Self.assertSource(refreshText, contains: "progressRefreshScheduler.flush")
+        Self.assertSource(refreshText, excludes: "computerUseCoordinator")
         Self.assertSource(schedulerText, contains: "pendingScope.formUnion(scope)")
         Self.assertSource(composerText, contains: "scheduleProgressRefresh(.agent)")
         Self.assertSource(terminalText, contains: "scheduleProgressRefresh(.terminal)")

@@ -541,7 +541,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
-    func testComputerUseCoordinatorRefreshesForegroundApplication() async throws {
+    func testComputerUseCoordinatorRefreshesForegroundApplicationWhenRequested() async {
         let application = ComputerUseApplication(
             name: "Terminal",
             bundleIdentifier: "com.apple.Terminal"
@@ -551,10 +551,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         let coordinator = QuillCodeDesktopComputerUseCoordinator(backend: backend)
 
         coordinator.install(on: model)
+        await coordinator.refreshForegroundApplication(on: model)
 
-        try await waitUntil(timeoutSeconds: 1) {
-            model.surface().settings.computerUseForegroundApplication == application
-        }
+        XCTAssertEqual(model.surface().settings.computerUseForegroundApplication, application)
     }
 
     func testWindowAccessibilityFrameSamplerRequiresPrimarySidebarActions() {
