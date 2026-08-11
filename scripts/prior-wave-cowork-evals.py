@@ -952,6 +952,31 @@ all provisions other than the mileage rate, meal cap, policy version, and effect
 date when issuing the requested update.
 """
 
+    if row["id"] == 152:
+        return """# Series A Preferred Stock Term Sheet
+Company: Atlas Labs, Inc.
+Lead investor: Northstar Ventures, L.P.
+Document date: 2026-07-28
+Financing amount: $4,000,000
+Pre-money valuation: $18,000,000
+Post-money valuation: $22,000,000
+Option pool: 12 percent of fully diluted post-money capitalization
+Option pool treatment: the pool increase is included in the pre-money valuation
+Liquidation preference: 1x non-participating preference on the original purchase price
+Liquidation seniority: senior to Common Stock, with no cumulative dividend
+Board size: five seats
+Board composition: two founder designees, two Series A investor designees, and one independent
+Independent director: mutually approved by the founders and the lead investor
+Protective provision: amend the charter or bylaws in a way adverse to Series A
+Protective provision: authorize securities senior to or on parity with Series A
+Protective provision: increase or decrease the authorized board size
+Protective provision: declare or pay a dividend or redeem equity
+Protective provision: incur debt above $2,000,000 outside the approved annual budget
+Protective provision: sell the company, liquidate, dissolve, or change the principal business
+Approval threshold: consent of holders of a majority of outstanding Series A Preferred
+Status: non-binding except confidentiality, exclusivity, expenses, and governing law
+"""
+
     key = f"{row['category']} {row['task']} {reference}".casefold()
     base = fixture_context(row)
     details = [
@@ -1505,6 +1530,16 @@ def build_prompt(row):
             "with anchor text and placement/rationale, and a numeric target word-count range. Do "
             "not replace the top-ten analysis with a smaller competitor sample or call it complete "
             "when rank order was not observed. "
+        )
+    elif row["id"] == 152:
+        task_specific_instruction = (
+            "Extract the financing terms directly from the supplied term sheet. State the "
+            "financing amount, pre-money valuation, post-money valuation, option-pool percentage "
+            "and its pre-money or post-money treatment, liquidation-preference multiple and "
+            "participation status, board size and exact seat allocation, every protective "
+            "provision, and the approval threshold. Preserve whether each term is binding or "
+            "non-binding. Do not replace a supplied value with `not provided`, `unknown`, or a "
+            "generic description. Keep the result to a concise one-page summary. "
         )
     elif row["id"] == 117:
         task_specific_instruction = (
@@ -2435,6 +2470,73 @@ def validate_task_123_laptops(path):
     return valid, detail
 
 
+def validate_task_152_term_sheet(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read term-sheet summary: {error}"
+
+    compact = re.sub(r"\s+", " ", text)
+    missing_or_unknown = re.findall(
+        r"(?i)(?:valuation|option pool|liquidation preference|board|protective provision)"
+        r"[^.!?\n]{0,70}(?:not provided|not specified|unknown|unavailable|missing)",
+        compact,
+    )
+    checks = {
+        "financing amount": bool(re.search(r"\$\s*4(?:[,.]0+|\s*m(?:illion)?)\b", compact, re.I)),
+        "pre-money valuation": bool(re.search(
+            r"(?:pre[- ]money[^.!?\n]{0,45}\$\s*18(?:[,.]0+|\s*m(?:illion)?)\b|"
+            r"\$\s*18(?:[,.]0+|\s*m(?:illion)?)\b[^.!?\n]{0,45}pre[- ]money)",
+            compact,
+            re.I,
+        )),
+        "post-money valuation": bool(re.search(
+            r"(?:post[- ]money[^.!?\n]{0,45}\$\s*22(?:[,.]0+|\s*m(?:illion)?)\b|"
+            r"\$\s*22(?:[,.]0+|\s*m(?:illion)?)\b[^.!?\n]{0,45}post[- ]money)",
+            compact,
+            re.I,
+        )),
+        "option pool": bool(re.search(r"12\s*(?:%|percent)", compact, re.I))
+        and bool(re.search(r"option\s+pool", compact, re.I))
+        and bool(re.search(
+            r"included[^.!?\n]{0,40}pre[- ]money|pre[- ]money[^.!?\n]{0,40}included",
+            compact,
+            re.I,
+        )),
+        "liquidation preference": bool(re.search(r"\b1\s*x\b|\b1x\b", compact, re.I))
+        and bool(re.search(r"non[- ]participating", compact, re.I))
+        and bool(re.search(r"liquidation\s+preference", compact, re.I)),
+        "board seats": bool(re.search(
+            r"(?:board[^.!?\n]{0,40}(?:five|5)\s+(?:seats?|members?)|"
+            r"(?:five|5)[- ](?:seat|member)\s+board)",
+            compact,
+            re.I,
+        ))
+        and bool(re.search(r"(?:two|2)\s+founder", compact, re.I))
+        and bool(re.search(r"(?:two|2)\s+(?:series\s+a\s+)?investor", compact, re.I))
+        and bool(re.search(r"(?:one|1)\s+independent", compact, re.I)),
+        "protective provisions": sum(bool(re.search(pattern, compact, re.I)) for pattern in (
+            r"charter|bylaws?",
+            r"senior\s+to|on\s+parity|pari\s+passu",
+            r"board\s+size|authorized\s+board",
+            r"dividend|redeem",
+            r"debt[^.!?\n]{0,35}\$\s*2(?:[,.]0+|\s*m(?:illion)?)",
+            r"sell\s+the\s+company|liquidat|dissolv|change[^.!?\n]{0,20}(?:business|principal)",
+        )) >= 5,
+        "approval threshold": bool(re.search(
+            r"majority[^.!?\n]{0,55}(?:series\s+a|preferred)|"
+            r"(?:series\s+a|preferred)[^.!?\n]{0,55}majority",
+            compact,
+            re.I,
+        )),
+        "binding status": bool(re.search(r"non[- ]binding", compact, re.I))
+        and bool(re.search(r"confidentiality", compact, re.I)),
+        "no missing-term claims": not missing_or_unknown,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return not failed, f"failed checks={failed}; missing claims={missing_or_unknown[:6]}"
+
+
 def validate_task_128_seo_brief(path):
     try:
         text = path.read_text(encoding="utf-8")
@@ -3362,6 +3464,9 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 128:
         seo_valid, seo_detail = validate_task_128_seo_brief(artifact)
         add("complete top-ten SEO brief", seo_valid, seo_detail)
+    if row["id"] == 152:
+        terms_valid, terms_detail = validate_task_152_term_sheet(artifact)
+        add("complete financing term extraction", terms_valid, terms_detail)
     if row["id"] == 126:
         revenue_valid, revenue_detail = validate_task_126_real_revenue(artifact)
         add("real revenue trend semantics", revenue_valid, revenue_detail)

@@ -1542,6 +1542,53 @@ Primary intent: commercial investigation. Secondary intent: informational workfl
             self.assertFalse(valid)
             self.assertIn("disclaimer=", detail)
 
+    def test_task_152_fixture_and_grade_require_complete_financing_terms(self):
+        row = self.rows[151]
+        valid_summary = """# Series A term sheet summary
+
+- Financing: $4 million investment at an $18 million pre-money valuation and $22 million post-money valuation.
+- Option pool: 12 percent of fully diluted post-money capitalization, with the pool increase included in the pre-money valuation.
+- Liquidation preference: 1x non-participating, senior to Common Stock.
+- Board: five seats: two founder designees, two Series A investor designees, and one independent mutually approved director.
+- Protective provisions: Series A majority consent is required to amend the charter or bylaws adversely, authorize securities senior to or on parity with Series A, change the authorized board size, declare a dividend or redeem equity, incur debt above $2 million outside the budget, or sell the company, liquidate, dissolve, or change the principal business.
+- Status: non-binding except confidentiality, exclusivity, expenses, and governing law.
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            source = workspace / "inputs" / "term-sheet" / "item-001.pdf"
+            source_valid, _, source_text = PRIOR.validate_artifact(source, "pdf")
+            self.assertTrue(source_valid)
+            for expected in (
+                "Pre-money valuation: $18,000,000",
+                "Option pool: 12 percent",
+                "Liquidation preference: 1x non-participating",
+                "Board size: five seats",
+                "Protective provision: amend the charter",
+            ):
+                self.assertIn(expected, source_text)
+
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text(valid_summary, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_152_term_sheet(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                valid_summary.replace(
+                    "1x non-participating, senior to Common Stock",
+                    "not provided in the supplied term sheet",
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_152_term_sheet(artifact)
+            self.assertFalse(valid)
+            self.assertIn("liquidation preference", detail)
+
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("pre-money valuation", prompt)
+        self.assertIn("every protective provision", prompt)
+
     def test_task_117_semantic_grade_requires_complete_sourced_chart(self):
         row = self.rows[116]
         with tempfile.TemporaryDirectory() as temporary:
