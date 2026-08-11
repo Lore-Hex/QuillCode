@@ -1492,7 +1492,7 @@ def build_prompt(row):
     elif row["id"] == 122:
         task_specific_instruction = (
             "Use the nonprofit profile in `inputs/evaluation-context.md` as the applicant. "
-            "Find at least three specific grant opportunities that are accepting applications "
+            "Find specific grant opportunities that are accepting applications "
             "as of 2026-08-08 and whose deadline falls in 2026-Q3 or is explicitly rolling/open "
             "during that quarter. Include at least one Ohio state opportunity and one federal "
             "opportunity. For every opportunity, put the exact program name, government level, "
@@ -1501,7 +1501,14 @@ def build_prompt(row):
             ".gov opportunity URL in one comparison-table row. Search portals, calendars, and "
             "agency landing pages are research aids, not grant opportunities; do not count them "
             "as results. Exclude opportunities whose current notice, deadline, or this applicant's "
-            "eligibility could not be verified from an official source. "
+            "eligibility could not be verified from an official source. If no qualifying state or "
+            "federal opportunities exist, do not fabricate a match. Instead, provide a clearly "
+            "labeled no-match conclusion and an official-source audit table of at least eight "
+            "specific programs, including at least three Ohio and three federal candidates. For "
+            "each audited candidate, include the same status, deadline, eligibility, and official "
+            "URL fields plus a concrete exclusion reason tied to the published requirements. "
+            "Use official search tools such as simpler.grants.gov and Ohio agency sites to make "
+            "the negative search broad enough to support the conclusion. "
         )
     elif row["id"] == 123:
         task_specific_instruction = (
@@ -2294,6 +2301,8 @@ def validate_task_122_grants(path):
     qualifying = []
     rejected = []
     levels = set()
+    audited = []
+    audit_levels = Counter()
     suitable_table = False
     missing_markers = re.compile(
         r"\b(?:not verified|not specified|unknown|unavailable|unclear|varies|tbd|todo|"
@@ -2315,6 +2324,7 @@ def validate_task_122_grants(path):
             "deadline": table_column(headers, r"\bdeadline\b", r"\bclose date\b"),
             "eligibility": table_column(headers, r"\beligib", r"\bapplicant"),
             "fit": table_column(headers, r"\bfit\b", r"\bprofile match\b"),
+            "exclusion": table_column(headers, r"\bexclusion\b", r"\bwhy (?:excluded|ineligible)\b"),
             "source": table_column(headers, r"\bsource\b", r"\bofficial (?:url|link)\b"),
         }
         if any(columns[key] is None for key in ("name", "level", "status", "deadline", "eligibility", "source")):
@@ -2327,6 +2337,7 @@ def validate_task_122_grants(path):
             deadline = row[columns["deadline"]]
             eligibility = row[columns["eligibility"]]
             fit = row[columns["fit"]] if columns["fit"] is not None else eligibility
+            exclusion = row[columns["exclusion"]] if columns["exclusion"] is not None else ""
             source = row[columns["source"]]
             row_text = " ".join(row)
             urls = re.findall(r"https?://[^\s)>\]]+", source)
@@ -2372,14 +2383,54 @@ def validate_task_122_grants(path):
                 reasons.append("no direct official .gov URL")
             if reasons:
                 rejected.append(f"{name[:80]}: {', '.join(reasons)}")
+                audit_reason_specific = (
+                    len(exclusion.strip()) >= 20
+                    and re.search(
+                        r"\b(?:closed|deadline|ineligible|eligibility|not eligible|applicant|"
+                        r"geograph|location|entity|organization|government|school|college|"
+                        r"university|municipal|tribal|match|program|purpose|outside)\b",
+                        exclusion,
+                        re.I,
+                    )
+                    and not missing_markers.search(exclusion)
+                )
+                audit_fields_complete = (
+                    name.strip()
+                    and not generic_portal.fullmatch(re.sub(r"[*_`]", "", name).strip())
+                    and level is not None
+                    and len(status.strip()) >= 8
+                    and len(deadline.strip()) >= 8
+                    and len(eligibility.strip()) >= 20
+                    and not missing_markers.search(status + " " + deadline + " " + eligibility)
+                    and official_urls
+                    and audit_reason_specific
+                )
+                if audit_fields_complete:
+                    audited.append(name)
+                    audit_levels[level] += 1
                 continue
             qualifying.append(name)
             levels.add(level)
 
-    valid = suitable_table and len(qualifying) >= 3 and levels == {"federal", "ohio"}
+    positive_valid = len(qualifying) >= 2 and levels == {"federal", "ohio"}
+    no_match_conclusion = bool(re.search(
+        r"\b(?:no|zero)\s+(?:verified\s+|qualifying\s+|eligible\s+)?"
+        r"(?:grant\s+)?opportunities?\b|\bno\s+qualifying\s+grants?\b",
+        text,
+        re.I,
+    ))
+    audit_valid = (
+        no_match_conclusion
+        and len(audited) >= 8
+        and audit_levels["ohio"] >= 3
+        and audit_levels["federal"] >= 3
+    )
+    valid = suitable_table and (positive_valid or audit_valid)
     detail = (
         f"qualifying={len(qualifying)} {qualifying[:6]}; levels={sorted(levels)}; "
-        f"suitable table={suitable_table}; rejected={rejected[:8]}"
+        f"audited={len(audited)} {audited[:8]}; audit levels={dict(audit_levels)}; "
+        f"no-match conclusion={no_match_conclusion}; suitable table={suitable_table}; "
+        f"rejected={rejected[:8]}"
     )
     return valid, detail
 

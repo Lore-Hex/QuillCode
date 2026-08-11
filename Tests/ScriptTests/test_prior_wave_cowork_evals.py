@@ -1406,7 +1406,7 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
             self.assertFalse(valid)
             self.assertIn("missing sections", detail)
 
-    def test_task_122_semantic_grade_requires_concrete_open_grants(self):
+    def test_task_122_semantic_grade_requires_complete_live_research(self):
         valid_research = """# Open grant shortlist
 
 | Grant opportunity | Government level | Open status | Deadline | Eligibility | Profile fit | Official source |
@@ -1437,7 +1437,7 @@ Prepare the Ohio award first.
 
             artifact.write_text(
                 valid_research.replace(
-                    "U.S. nonprofit organizations serving displaced workers",
+                    "Ohio 501(c)(3) nonprofits delivering workforce training",
                     "See portal; eligibility not verified",
                 ),
                 encoding="utf-8",
@@ -1445,6 +1445,37 @@ Prepare the Ohio award first.
             valid, detail = PRIOR.validate_task_122_grants(artifact)
             self.assertFalse(valid)
             self.assertIn("eligibility/profile fit is incomplete", detail)
+
+            audit_rows = "\n".join(
+                f"| Candidate {index} | {'Ohio state' if index <= 4 else 'Federal'} | "
+                f"Closed as of 2026-08-08 | 2026-07-{index + 9:02d} | "
+                f"Published eligibility permits only {'Ohio municipalities' if index <= 4 else 'institutions of higher education'} | "
+                f"Lakeview is a nonprofit and not an eligible government or educational entity | "
+                f"https://{'development.ohio.gov' if index <= 4 else 'www.dol.gov'}/grants/candidate-{index} | "
+                "Excluded because the published applicant rule makes this nonprofit ineligible |"
+                for index in range(1, 9)
+            )
+            artifact.write_text(
+                "# No qualifying grant opportunities\n\n"
+                "No verified opportunities matched the applicant as of the evidence date.\n\n"
+                "| Grant opportunity | Government level | Status | Deadline | Eligibility | Profile fit | Official source | Exclusion reason |\n"
+                "|---|---|---|---|---|---|---|---|\n"
+                + audit_rows,
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_122_grants(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                "\n".join(
+                    line for line in artifact.read_text(encoding="utf-8").splitlines()
+                    if not line.startswith("| Candidate 8 ")
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_122_grants(artifact)
+            self.assertFalse(valid)
+            self.assertIn("audited=7", detail)
 
     def test_task_123_semantic_grade_requires_complete_exact_configurations(self):
         valid_comparison = """# Laptop comparison
