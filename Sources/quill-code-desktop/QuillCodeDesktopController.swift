@@ -78,6 +78,8 @@ final class QuillCodeDesktopController: ObservableObject {
         sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe(),
         composerDraftCheckpointCoordinator: QuillCodeDesktopComposerDraftCheckpointCoordinator =
             QuillCodeDesktopComposerDraftCheckpointCoordinator(),
+        projectAccessCoordinator: QuillCodeDesktopProjectAccessCoordinator =
+            QuillCodeDesktopProjectAccessCoordinator(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
@@ -109,7 +111,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.composerDraftCheckpointCoordinator = composerDraftCheckpointCoordinator
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
-        self.projectAccessCoordinator = QuillCodeDesktopProjectAccessCoordinator()
+        self.projectAccessCoordinator = projectAccessCoordinator
         self.modelStateCoordinator = QuillCodeDesktopModelStateCoordinator()
         self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
@@ -159,13 +161,6 @@ final class QuillCodeDesktopController: ObservableObject {
             // and read tools must stop with the session too.
             tasks.cancel(.codeReview(threadID))
         }
-        projectAccessCoordinator.restoreAccess(for: workspaceModel.root.projects)
-        ToolArtifactLocalPreviewAccess.configure(
-            projectRoots: workspaceModel.root.projects
-                .filter { !$0.isRemote }
-                .map { URL(fileURLWithPath: $0.path) },
-            readableProjectRoots: projectAccessCoordinator.activeProjectURLs
-        )
         let initialState = modelStateCoordinator.initialState(from: model)
         self.surface = initialState.surface
         self.draft = initialState.draft
