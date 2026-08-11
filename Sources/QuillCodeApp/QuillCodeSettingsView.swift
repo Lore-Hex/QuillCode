@@ -21,7 +21,9 @@ struct QuillCodeSettingsView: View {
             Divider().opacity(0.5)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    authenticationSection
+                    QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     generalSection
                     if let balance = settings.trustedRouterAccountBalance {
                         QuillCodeTrustedRouterCreditsSettingsCard(
@@ -30,7 +32,6 @@ struct QuillCodeSettingsView: View {
                             onCommand: onCommand
                         )
                     }
-                    QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
                     QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)
                     QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
@@ -48,8 +49,6 @@ struct QuillCodeSettingsView: View {
                     if let issue = settings.runtimeIssue {
                         QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
                     }
-
-                    authenticationSection
                 }
                 .padding(20)
             }

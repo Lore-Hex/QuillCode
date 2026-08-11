@@ -111,6 +111,104 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
     }
 
+    func testUpdateHandshakeWaitsForFirstWindowReadiness() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let handshake = try makeUpdateHandshake(fixture: fixture, suffix: "normal")
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 12_101)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            updateLaunchHandshake: handshake,
+            startupMode: .normal
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+        let handshakeURL = fixture.updateCacheRoot
+            .appendingPathComponent("workspace", isDirectory: true)
+            .appendingPathComponent("launch-normal.ack")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: handshakeURL.path))
+
+        controller.completeStartupIfAllowed()
+
+        XCTAssertEqual(try String(contentsOf: handshakeURL, encoding: .utf8), "ready\n")
+        XCTAssertNil(controller.updateLaunchHandshake)
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+    }
+
+    func testRecoveryUpdateHandshakeWaitsForExplicitReadyChoice() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let handshake = try makeUpdateHandshake(fixture: fixture, suffix: "recovery")
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 12_102)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            updateLaunchHandshake: handshake,
+            startupMode: .recovery
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+        let handshakeURL = fixture.updateCacheRoot
+            .appendingPathComponent("workspace", isDirectory: true)
+            .appendingPathComponent("launch-recovery.ack")
+
+        controller.completeStartupIfAllowed()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: handshakeURL.path))
+        XCTAssertNotNil(controller.updateLaunchHandshake)
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .starting)
+
+        controller.continueWithAutomaticWorkspaceServicesPaused()
+
+        XCTAssertEqual(try String(contentsOf: handshakeURL, encoding: .utf8), "ready\n")
+        XCTAssertNil(controller.updateLaunchHandshake)
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+    }
+
+    func testFailedUpdateHandshakeRemainsPendingForReadinessRetry() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let handshake = try makeUpdateHandshake(fixture: fixture, suffix: "retry")
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 12_103)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            updateLaunchHandshake: handshake,
+            startupMode: .normal
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+        let workspace = fixture.updateCacheRoot.appendingPathComponent(
+            "workspace",
+            isDirectory: true
+        )
+        let handshakeURL = workspace.appendingPathComponent("launch-retry.ack")
+        try FileManager.default.removeItem(at: workspace)
+
+        controller.completeStartupIfAllowed()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: handshakeURL.path))
+        XCTAssertNotNil(controller.updateLaunchHandshake)
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        controller.completeStartupIfAllowed()
+
+        XCTAssertEqual(try String(contentsOf: handshakeURL, encoding: .utf8), "ready\n")
+        XCTAssertNil(controller.updateLaunchHandshake)
+    }
+
     func testRecoveryStartupKeepsServicesPausedUntilUserResumes() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -418,6 +516,30 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertNil(try fixture.store.currentRecord())
     }
 
+    func testLifecycleControllerClearsBeforeForcedRelaunchTermination() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let notificationCenter = NotificationCenter()
+        let lifecycle = QuillCodeDesktopLaunchLifecycleController(
+            store: fixture.store,
+            metadata: metadata(),
+            notificationCenter: notificationCenter,
+            now: { self.referenceDate },
+            processIdentifier: 60_002,
+            processIsRunning: { _ in false }
+        )
+
+        XCTAssertNil(lifecycle.startIfNeeded())
+        lifecycle.markReady()
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+
+        notificationCenter.post(
+            name: .quillCodeDesktopWillTerminateForRelaunch,
+            object: nil
+        )
+        XCTAssertNil(try fixture.store.currentRecord())
+    }
+
     func testDesktopControllerRetainsLifecycleForFirstWindowConsumption() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -496,6 +618,7 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
     private func makeController(
         fixture: Fixture,
         lifecycle: QuillCodeDesktopLaunchLifecycleController,
+        updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake? = nil,
         startupMode: QuillCodeDesktopStartupMode,
         computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator =
             QuillCodeDesktopComputerUseCoordinator()
@@ -515,9 +638,33 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
                 configuration: nil
             ),
             launchLifecycleController: lifecycle,
+            updateLaunchHandshake: updateLaunchHandshake,
             startupMode: startupMode,
             workspaceRoot: fixture.root
         )
+    }
+
+    private func makeUpdateHandshake(
+        fixture: Fixture,
+        suffix: String
+    ) throws -> QuillCodeDesktopUpdateLaunchHandshake {
+        let workspace = fixture.updateCacheRoot.appendingPathComponent(
+            "workspace",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: workspace,
+            withIntermediateDirectories: true
+        )
+        let handshakeURL = workspace.appendingPathComponent("launch-\(suffix).ack")
+        return try XCTUnwrap(QuillCodeDesktopUpdateLaunchHandshake(
+            arguments: [
+                "Quill Cowork",
+                QuillCodeDesktopUpdateLaunchHandshake.argument,
+                handshakeURL.path,
+            ],
+            cacheRoot: fixture.updateCacheRoot
+        ))
     }
 
     private func permissions(at url: URL) throws -> Int {
@@ -559,6 +706,10 @@ private struct Fixture {
     let root: URL
     let fileURL: URL
     let store: QuillCodeDesktopLaunchStore
+
+    var updateCacheRoot: URL {
+        root.appendingPathComponent("updates", isDirectory: true)
+    }
 
     init() throws {
         root = FileManager.default.temporaryDirectory

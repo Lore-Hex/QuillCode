@@ -36,6 +36,7 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
     var reportPath: String?
     var screenshotPath: String?
     var stateRootPath: String?
+    var performanceWorkloadID: String
 
     init?(arguments: [String]) {
         guard arguments.contains("--native-window-smoke") else {
@@ -45,6 +46,10 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
         self.reportPath = Self.value(after: "--window-smoke-report", in: arguments)
         self.screenshotPath = Self.value(after: "--window-smoke-screenshot", in: arguments)
         self.stateRootPath = Self.value(after: "--window-smoke-state-root", in: arguments)
+        self.performanceWorkloadID = Self.value(
+            after: "--window-smoke-performance-workload",
+            in: arguments
+        ) ?? QuillCodeDesktopPerformanceWorkload.firstRunEmpty.rawValue
     }
 
     private static func value(after flag: String, in arguments: [String]) -> String? {

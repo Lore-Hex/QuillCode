@@ -3,6 +3,7 @@ import Foundation
 
 struct QuillCodeDesktopWorkspaceThreadActivationState: Equatable {
     var selectedThreadID: UUID?
+    var selectedProjectID: UUID? = nil
     var threadIDs: Set<UUID>
 }
 
@@ -15,7 +16,9 @@ enum QuillCodeDesktopAccessibilityActivationState: Equatable, CustomStringConver
         case .flag(let value):
             return value.description
         case .workspaceThreads(let state):
-            return "selected=\(state.selectedThreadID?.uuidString ?? "none");count=\(state.threadIDs.count)"
+            return "selected=\(state.selectedThreadID?.uuidString ?? "none");"
+                + "project=\(state.selectedProjectID?.uuidString ?? "none");"
+                + "count=\(state.threadIDs.count)"
         }
     }
 }

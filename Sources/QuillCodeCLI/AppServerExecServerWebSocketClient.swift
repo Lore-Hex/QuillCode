@@ -84,15 +84,15 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
                 timeout: Self.environmentStatusTimeout
             )
             let snapshot = try Self.decodeConnectionSnapshot(result)
-            guard generation == connectionGeneration, initialized, socket != nil else {
-                return .disconnected(
-                    lastConnectionError ?? "the WebSocket closed while checking environment status"
+            // The RPC result describes the connection when the server answered. A close can be
+            // observed before this actor resumes; preserve the valid result without publishing a
+            // stale reconnect transition over the newer transport state.
+            if generation == connectionGeneration, initialized, socket != nil {
+                lastConnectionError = nil
+                transitionConnectionState(
+                    to: snapshot.isConnected ? .connected : .disconnected
                 )
             }
-            lastConnectionError = nil
-            transitionConnectionState(
-                to: snapshot.isConnected ? .connected : .disconnected
-            )
             return snapshot
         } catch {
             resetConnection(error: error)

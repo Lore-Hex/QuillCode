@@ -11,20 +11,24 @@ struct QuillCodeDesktopPaneCoordinator {
         model.toggleBrowser()
     }
 
-    func toggleExtensions(on model: QuillCodeWorkspaceModel) {
+    func toggleExtensions(on model: QuillCodeWorkspaceModel, surface: inout WorkspaceSurface) {
         model.toggleExtensions()
+        surface = model.panePresentationSurface(reusing: surface, scope: .extensions)
     }
 
-    func toggleMemories(on model: QuillCodeWorkspaceModel) {
+    func toggleMemories(on model: QuillCodeWorkspaceModel, surface: inout WorkspaceSurface) {
         model.toggleMemories()
+        surface = model.panePresentationSurface(reusing: surface, scope: .memories)
     }
 
-    func toggleActivity(on model: QuillCodeWorkspaceModel) {
+    func toggleActivity(on model: QuillCodeWorkspaceModel, surface: inout WorkspaceSurface) {
         model.toggleActivity()
+        surface = model.panePresentationSurface(reusing: surface, scope: .activity)
     }
 
-    func toggleAutomations(on model: QuillCodeWorkspaceModel) {
+    func toggleAutomations(on model: QuillCodeWorkspaceModel, surface: inout WorkspaceSurface) {
         model.toggleAutomations()
+        surface = model.panePresentationSurface(reusing: surface, scope: .automations)
     }
 
     func addBrowserComment(_ comment: String, to model: QuillCodeWorkspaceModel) {

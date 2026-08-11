@@ -6,6 +6,11 @@ enum QuillCodeDesktopAccessibilityHierarchySettler {
     private static let sampleIntervalNanoseconds: UInt64 = 50_000_000
     private static let requiredStableComparisons = 6
     private static let maximumSamples = 30
+    private static let layoutSentinelIdentifiers: Set<String> = [
+        "quillcode-sidebar-command-new-chat",
+        "quillcode-sidebar-tools-button",
+        "quillcode-top-bar-overflow"
+    ]
 
     static func waitUntilStable(in contentView: NSView) async {
         var previousSignature: [String]?
@@ -15,7 +20,10 @@ enum QuillCodeDesktopAccessibilityHierarchySettler {
             try? await Task.sleep(nanoseconds: sampleIntervalNanoseconds)
             guard !Task.isCancelled else { return }
             let currentSignature = signature(
-                for: QuillCodeDesktopAccessibilityTree(root: contentView).elements
+                for: QuillCodeDesktopAccessibilityTree(
+                    root: contentView,
+                    matchingIdentifiers: layoutSentinelIdentifiers
+                ).elements
             )
             if currentSignature == previousSignature {
                 stableComparisonCount += 1

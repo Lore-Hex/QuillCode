@@ -361,12 +361,15 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--window-smoke-screenshot",
             "/tmp/quillcode-window.png",
             "--window-smoke-state-root",
-            "/tmp/quillcode-window-state"
+            "/tmp/quillcode-window-state",
+            "--window-smoke-performance-workload",
+            "daily-driver-100-chats"
         ])
 
         XCTAssertEqual(request?.reportPath, "/tmp/quillcode-window-report.json")
         XCTAssertEqual(request?.screenshotPath, "/tmp/quillcode-window.png")
         XCTAssertEqual(request?.stateRootPath, "/tmp/quillcode-window-state")
+        XCTAssertEqual(request?.performanceWorkloadID, "daily-driver-100-chats")
         XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
     }
 
@@ -613,6 +616,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
         XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
+        XCTAssertTrue(json.contains(#""workload" : "first-run-empty""#))
         XCTAssertTrue(json.contains(#""postInteractionMeasurement" : "settled-after-native-interaction-sweep""#))
         XCTAssertTrue(json.contains(
             #""repeatedInteractionMeasurement" : "settled-after-repeated-native-interaction-sweep""#

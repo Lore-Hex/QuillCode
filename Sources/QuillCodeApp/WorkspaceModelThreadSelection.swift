@@ -66,11 +66,24 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
+        guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        selectThread(
+            id,
+            projectContextID: thread.projectID,
+            recordsNavigation: recordsNavigation
+        )
+    }
+
+    func selectThread(
+        _ id: UUID,
+        projectContextID: UUID?,
+        recordsNavigation: Bool
+    ) {
         if id != root.selectedThreadID {
             _ = returnFromSideConversation()
             _ = discardConfidentialThreadOnExit()
         }
-        guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        guard root.threads.contains(where: { $0.id == id }) else { return }
         let previousLocation = currentNavigationLocation
         // The user is leaving the current thread: persist its morning-triage return watermark to its
         // current tail so background growth on it surfaces as "unseen" on return (cross-session).
@@ -79,7 +92,7 @@ extension QuillCodeWorkspaceModel {
             persistOutgoingReturnWatermark()
         }
         restoreComposerDraft(from: root.selectedThreadID, to: id)
-        selectThreadRecord(id, projectID: thread.projectID)
+        selectThreadRecord(id, projectID: projectContextID)
         if recordsNavigation {
             recordNavigationTransition(from: previousLocation)
         }

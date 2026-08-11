@@ -72,6 +72,12 @@ public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
             ?? "Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories."
     }
 
+    public func settingVisibility(_ isVisible: Bool) -> Self {
+        var copy = self
+        copy.isVisible = isVisible
+        return copy
+    }
+
     private static func subtitle(
         for notes: [MemoryNote],
         conflicts: [MemoryConflictSurface],

@@ -13,9 +13,12 @@ struct QuillCodeDesktopApp: App {
 
     init() {
         _ = QuillCodeDesktopLaunchClock.appEntryUptime
-        QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
+        let updateLaunchHandshake = QuillCodeDesktopUpdateLaunchHandshake()
         if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
+        }
+        if let seedRequest = QuillCodeDesktopDailyDriverSmokeSeedRequest(arguments: CommandLine.arguments) {
+            Darwin.exit(QuillCodeDesktopDailyDriverSmokeFixture.runAndReport(seedRequest))
         }
 
         if let relocationSmokeRequest = QuillCodeDesktopRelocationSmokeRequest(
@@ -129,6 +132,7 @@ struct QuillCodeDesktopApp: App {
         let controller = QuillCodeDesktopController(
             updateController: updateController,
             launchLifecycleController: launchLifecycleController,
+            updateLaunchHandshake: updateLaunchHandshake,
             startupMode: QuillCodeDesktopStartupMode(unexpectedExit: unexpectedExit),
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )

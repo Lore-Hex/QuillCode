@@ -1,5 +1,90 @@
 # QuillCode Decisions
 
+## 2026-08-11: updater success waits for first-window readiness
+
+- **Decision:** Parsing the updater or relocation launch-handshake argument remains the first normal
+  process step, but parsing performs no filesystem mutation. The desktop controller writes the
+  acknowledgement only from the same first-window-ready transition that marks launch lifecycle
+  state ready.
+- **Why:** Process entry proves only that dyld reached the executable. An app can still hang while
+  loading persistence or constructing its first SwiftUI workspace and remain alive beyond the
+  helper's stability interval. A process-entry acknowledgement could therefore discard the
+  known-good rollback bundle before the replacement was usable.
+- **Recovery behavior:** A normal launch acknowledges after post-window services are installed. A
+  recovery-mode launch keeps both the crash marker and update acknowledgement pending until the user
+  explicitly keeps background work paused or resumes it. Failed acknowledgement writes remain
+  retryable and never clear the controller's one-shot request.
+- **Evidence:** Lifecycle tests prove normal readiness creates the acknowledgement and recovery
+  startup does not create it prematurely. The packaged updater parity gate requires parsing to stay
+  mutation-free in the app entry point and requires acknowledgement to remain owned by the shared
+  ready transition. Native public updater smoke then exercises that boundary on both architectures.
+
+## 2026-08-11: updater relaunches serialize cleanup and durable exit work
+
+- **Decision:** A foreground update cancels and joins the one-shot interrupted-update recovery task
+  before downloading or staging a fresh app. Relaunch termination synchronously broadcasts a private
+  lifecycle boundary before asking AppKit to quit or using its bounded forced-exit fallback.
+- **Why:** Startup recovery removes orphaned `.update-<uuid>.app` bundles beside the installed app. If
+  its delayed scan overlapped a new install, it could delete that installer's live staging bundle.
+  AppKit may also defer sheet-driven termination long enough to reach the fallback, which otherwise
+  bypasses the normal launch-marker and pending-draft cleanup notifications.
+- **Correctness boundary:** Cancellation alone is insufficient because recovery may already be in a
+  detached filesystem scan. The update awaits complete recovery termination, then rechecks operation
+  cancellation and generation before preparation. Relaunch cleanup is synchronous and idempotent;
+  the later AppKit notification may safely repeat it.
+- **Evidence:** Controller coverage blocks recovery behind a deterministic gate and proves neither
+  preparation nor installation begins until cancelled recovery exits. Lifecycle and composer tests
+  prove the relaunch boundary removes the active-launch marker and flushes pending draft text.
+
+## 2026-08-11: packaged launches require graceful termination
+
+- **Decision:** Packaged Quill Cowork apps explicitly disable macOS sudden termination. Automatic
+  termination support remains unchanged, but every operating-system termination must cross AppKit's
+  normal `willTerminate` boundary before the process exits.
+- **Why:** The active-launch record is intentionally removed only at that graceful boundary. Apple
+  documents that sudden termination skips `willTerminate`; advertising it made an ordinary fast
+  logout or shutdown indistinguishable from a crash and could show a false unexpected-exit warning or
+  pause automatic workspace services on the next launch.
+- **Release boundary:** Packaged smoke reads the built `Info.plist` and fails unless
+  `NSSupportsSuddenTermination` is false. Source parity separately pins both the generated plist entry
+  and the artifact assertion so future packaging changes cannot silently reintroduce the mismatch.
+
+## 2026-08-11: pane visibility changes reuse the current workspace projection
+
+- **Decision:** Opening or closing Automations, Extensions, Memories, or Activity updates only that
+  pane's presentation surface. The desktop no longer rebuilds the transcript, 100-chat navigation
+  projection, composer, model catalog, or filesystem-backed settings for a visibility-only change.
+  Extensions still reprojects its own contents because a normal toggle clears any focused extension
+  kind; the other panes retain their already-current content and change only visibility.
+- **Correctness boundary:** Model state remains authoritative. Each narrow projection is compared with
+  the corresponding field from a fresh full surface, while unrelated sentinel fields prove the
+  projection did not silently fall back to a full rebuild. Content-changing mutations continue to use
+  authoritative refreshes.
+- **Evidence:** The release-configured three-process `daily-driver-100-chats` gate passed 3/3 with a
+  354 ms median launch, 103.45 MiB initial RSS, 176.30 MiB after the first interaction sweep, and
+  182.11 MiB after the repeated sweep. The like-for-like single-process trace fell from 191.2 MB to
+  178.3 MB after the first sweep and from 198.7 MB to 187.3 MB after the repeated sweep.
+
+## 2026-08-10: public performance measures a verified daily-driver workspace
+
+- **Decision:** Every packaged performance attempt first invokes the app's own fixture helper to
+  atomically create one project, 100 saved chats, and a 200-message selected transcript. The timed
+  process loads that state normally and validates the marker, project binding, chat count, selected
+  chat, and message counts before capturing launch or resource evidence.
+- **Evidence contract:** Version-4 performance evidence identifies the workload as
+  `daily-driver-100-chats`. Raw window reports and the public architecture-specific manifests must
+  agree on that exact identity; an empty, malformed, mislabeled, or partially seeded workspace fails
+  closed. Seeding runs in a separate process so fixture creation is outside launch timing.
+- **Coverage boundary:** The full packaged smoke keeps its first-run empty-state window for onboarding,
+  Accessibility frames, and Computer Use proof, then starts a second, separately seeded daily-driver
+  window for its performance manifest. It packages an optimized release executable by default (with
+  an explicit diagnostic override), so production budgets never judge debug-code memory behavior.
+  Published speed and memory numbers therefore represent a returning user's restored workspace
+  without surrendering first-run coverage.
+- **Why:** Empty-state launch evidence could remain green while persistence loading, transcript
+  restoration, navigation context, or reconnect UX regressed for established users. Distribution
+  claims should measure the state people keep after adopting the product.
+
 ## 2026-08-10: process-owned application services begin after the first window
 
 - **Decision:** Normal desktop launch no longer registers notification categories, inspects the

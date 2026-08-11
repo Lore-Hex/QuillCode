@@ -1,5 +1,93 @@
 # Code Quality Audit
 
+## 2026-08-11 Point-In-Time Environment Status Snapshots
+
+Overall grade after this slice: **A+ snapshot integrity, A+ event ordering, A+ release determinism**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Snapshot integrity | A+ | A successfully decoded `environment/status` response remains the result of that probe even when the idle transport closes before the awaiting actor resumes. |
+| Event ordering | A+ | A newer transport generation remains authoritative for cached state, so the completed probe cannot publish a stale reconnect transition over a disconnect. |
+| Failure semantics | A+ | Send, timeout, decode, and remote transport failures still reset the active connection and return a bounded disconnected snapshot. |
+| Release determinism | A+ | The exact close-after-response boundary passed 100 consecutive real localhost WebSocket repetitions after intermittently delaying an exact-main release. |
+
+Validation:
+
+- Focused close-after-response stress: 100 runs, 100 passed
+- Complete WebSocket client suite: 13 tests, 0 failures
+- Process-level app-server WebSocket smoke passed
+- `swift test` (5,861 tests; 5 skipped; 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 First-Window Update Activation Handshake
+
+Overall grade after this slice: **A+ rollback safety, A+ readiness ownership, A+ recovery behavior**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Rollback safety | A+ | The helper cannot accept a replacement merely because its executable entered and remained alive; acknowledgement waits for the native workspace's first-window-ready transition. |
+| Readiness ownership | A+ | Crash classification and update/relocation activation now share one controller transition instead of maintaining separate definitions of a successful launch. |
+| Recovery behavior | A+ | A recovery-mode replacement keeps its acknowledgement pending until the user explicitly chooses paused or resumed background work. |
+| Failure semantics | A+ | The one-shot request clears only after an atomic acknowledgement write succeeds, so transient write failure remains retryable and preserves helper rollback. |
+| Regression evidence | A+ | Focused lifecycle tests pin normal and recovery timing; source parity prevents process-entry acknowledgement from returning. |
+
+Validation:
+
+- Focused launch-lifecycle, updater, and relocation boundary: 19 tests, 0 failures
+- Broader updater, installation, relocation, and publication boundary: 77 tests, 0 failures
+- `swift test --disable-sandbox` (5,861 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, native interaction, and DMG Move & Relaunch smokes passed
+- Optimized packaged performance: 359.99 ms median launch-ready, 103.52 MiB initial, 180.44 MiB
+  post-interaction, and 187.23 MiB repeated-interaction memory across 3/3 passing processes
+- The post-publication workflow remains the authoritative previous-public-build updater gate on
+  both Apple silicon and Intel because unpublished builds cannot advance the GitHub-only feed
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 Serialized Update Recovery And Durable Relaunch
+
+Overall grade after this slice: **A+ update isolation, A+ relaunch durability, A+ crash classification**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Update isolation | A+ | A fresh update cancels and fully joins startup orphan recovery before download, staging, or helper launch can begin. |
+| Relaunch durability | A+ | Update and relocation exits synchronously flush pending composer text and finish the active launch before AppKit termination or the bounded forced fallback. |
+| Cancellation safety | A+ | Recovery completion is followed by cancellation and generation checks, so a superseded foreground operation cannot resume into preparation. |
+| Crash classification | A+ | A successful forced updater exit cannot leave a stale ready marker and surface a false unexpected-exit warning after relaunch. |
+| Regression evidence | A+ | Deterministic actor-gated tests cover recovery serialization; lifecycle, composer, and source-parity gates pin forced-relaunch cleanup. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopUpdateControllerTests|QuillCodeDesktopLaunchLifecycleTests|QuillCodeDesktopComposerDraftCheckpointCoordinatorTests|ParityPackagedUpdaterGateTests|ParityDesktopGateTests'`
+- Broader updater, relocation, installation, and smoke boundary: 26 tests, 0 failures
+- `swift test --disable-sandbox` (5,858 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, and two interaction-sweep smokes passed
+- Optimized packaged daily-driver performance: 347.97 ms median launch-ready, 103.67 MiB initial,
+  179.12 MiB post-interaction, and 186.89 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 Graceful Termination And Accurate Crash Recovery
+
+Overall grade after this slice: **A+ crash classification, A+ lifecycle integrity, A+ release enforcement**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash classification | A+ | Normal logout, shutdown, automatic termination, and explicit Quit must pass through AppKit termination and clear the matching active-launch record instead of looking like a crash. |
+| Lifecycle integrity | A+ | The packaged capability now matches the launch store's existing write-before-remove graceful boundary and leaves genuine `SIGKILL` and process-loss detection intact. |
+| Recovery UX | A+ | Ordinary system termination cannot trigger a false unexpected-exit warning or pause automatic workspace services on the next launch. |
+| Release enforcement | A+ | Packaged smoke validates the generated Boolean value, while source parity pins both generation and artifact verification. |
+
+Validation:
+
+- `swift test --filter ParityDownloadBuildsGateTests/testMacOSDownloadPackagingEmbedsUpdaterMetadata`
+- Built release `Info.plist` inspection
+- `bash -n scripts/build-macos-app.sh scripts/packaged-macos-smoke.sh`
+- `git diff --check`
+
 ## 2026-08-10 Independently Owned Agent Progress Histories
 
 Overall grade after this slice: **A+ progress ownership, A+ memory scaling, A+ structural recovery**.

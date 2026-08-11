@@ -74,10 +74,16 @@ in-app diagnostic is deliberately content-free and should report `Private conten
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
-termination clears the matching marker. If the process disappears after it was ready, the next
-launch shows **Quill Cowork closed unexpectedly** and warns that an in-progress command may be
-incomplete. Choose **Continue** to return to the workspace or **Report Issue...** to open a prefilled
+termination clears the matching marker. Update and Move & Relaunch exits synchronously flush pending
+composer text and clear that marker before their bounded termination fallback. If the process
+disappears after it was ready, the next launch shows **Quill Cowork closed unexpectedly** and warns
+that an in-progress command may be incomplete. Choose **Continue** to return to the workspace or
+**Report Issue...** to open a prefilled
 crash report.
+
+Packaged apps require graceful macOS termination rather than opting into sudden process death. This
+ensures normal logout, shutdown, automatic termination, and explicit Quit cross the same marker-clearing
+boundary; macOS cannot skip that cleanup and make an ordinary system action look like a crash.
 
 If the process disappears before reaching its first-window startup boundary, the next launch opens
 the saved workspace in recovery mode. Managed-worktree retention, pull-request reconciliation,
@@ -166,7 +172,11 @@ After publication, each native runner launches that untouched previous public ap
 against the newly live feed. The gate requires the app
 to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
 then checks the exact source and target metadata, activated version and source
-commit, code signature, launch handshake, and staging cleanup. A channel with no
+commit, code signature, first-window-ready launch handshake, post-handshake process
+stability, and staging cleanup. The acknowledgement is parsed at process entry but
+is not written until the native workspace crosses the same ready boundary used for
+unexpected-exit classification, so a replacement that hangs during bootstrap keeps
+the previous build available for rollback. A channel with no
 previous release uses an explicitly recorded synthetic one-build-behind fallback;
 once a public source exists, metadata rewriting and re-signing are not allowed.
 This catches cross-version compatibility failures that a self-update of newly built
@@ -174,10 +184,13 @@ code, manifest-only checks, and unit-level updater tests cannot prove.
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
-boundary. Release packaging measures three fresh processes with isolated state,
-requires at least two launches to meet the time budget, and requires every memory
-sample to meet its budget. The median-launch attempt, every attempt, thread
-counts, and enforced budgets ship as both architecture-specific `PERFORMANCE.json` assets.
+boundary. Each attempt atomically seeds and verifies one project with 100 saved
+chats and a 200-message active transcript before timing the real packaged launch.
+Release packaging measures three fresh processes with isolated state, requires at
+least two launches to meet the time budget, and requires every memory sample to
+meet its budget. The workload identity, median-launch attempt, every attempt,
+thread counts, and enforced budgets ship as both architecture-specific
+`PERFORMANCE.json` assets.
 
 Each process then completes the packaged native interaction sweep twice, including
 reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
@@ -235,6 +248,10 @@ downloads on demand, and verifies
 the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
+
+Startup recovery waits two minutes before removing abandoned updater staging apps. Starting a fresh
+foreground update cancels and fully joins that recovery first, so cleanup can never remove the new
+installer's live staging bundle.
 
 Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
 updates must contain an actual ad-hoc signature with no team. A Developer ID

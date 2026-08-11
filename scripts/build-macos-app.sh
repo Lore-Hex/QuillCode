@@ -132,7 +132,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <key>NSSupportsAutomaticTermination</key>
   <true/>
   <key>NSSupportsSuddenTermination</key>
-  <true/>
+  <false/>
   <key>QuillCodeUpdateChannel</key>
   <string>$UPDATE_CHANNEL</string>
   <key>QuillCodeUpdateManifestURL</key>

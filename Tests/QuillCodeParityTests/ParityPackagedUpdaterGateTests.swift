@@ -4,6 +4,12 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
     func testPublishedBuildMustUpdateAndRelaunchItself() throws {
         let app = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let controller = try Self.desktopControllerSourceText()
+        let updateController = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateController.swift"
+        )
+        let updateSupport = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateSupport.swift"
+        )
         let bootstrap = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
         let runner = try Self.desktopSourceText(named: "QuillCodeDesktopUpdaterSmokeRunner.swift")
         let script = try Self.scriptText(named: "packaged-macos-updater-smoke.sh")
@@ -11,11 +17,13 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
 
         Self.assertSource(app, containsAll: [
             "_ = QuillCodeDesktopLaunchClock.appEntryUptime",
-            "QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()",
+            "let updateLaunchHandshake = QuillCodeDesktopUpdateLaunchHandshake()",
+            "updateLaunchHandshake: updateLaunchHandshake",
             "QuillCodeDesktopUpdaterSmokeRequest",
             "QuillCodeDesktopUpdaterSmokeRunner.runAndExit"
         ])
-        let handshake = "QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()"
+        XCTAssertFalse(app.contains(".acknowledge()"))
+        let handshake = "let updateLaunchHandshake = QuillCodeDesktopUpdateLaunchHandshake()"
         XCTAssertEqual(app.components(separatedBy: handshake).count - 1, 1)
         let entryRange = try XCTUnwrap(app.range(of: "_ = QuillCodeDesktopLaunchClock.appEntryUptime"))
         let handshakeRange = try XCTUnwrap(app.range(of: handshake))
@@ -32,6 +40,9 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "startApplicationServicesAfterFirstWindow()",
             "automaticStartupPolicy: .deferUntilRequested",
             "model.startAutomaticStartupWork()",
+            "private func markLaunchReady()",
+            "updateLaunchHandshake.acknowledge()",
+            "self.updateLaunchHandshake = nil",
             "tasks.replace(.computerUseBackendResolution)",
             "startApplicationActivationObservation",
             "scheduleComputerUseStatusRefresh()",
@@ -43,7 +54,21 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             controller.components(separatedBy: "startApplicationServicesAfterFirstWindow()").count - 1,
             2
         )
+        XCTAssertEqual(controller.components(separatedBy: "markLaunchReady()").count - 1, 4)
+        Self.assertSource(updateSupport, containsAll: [
+            "struct QuillCodeDesktopUpdateLaunchHandshake: Equatable, Sendable",
+            "init?(arguments: [String] = CommandLine.arguments)",
+            "func acknowledge() -> Bool",
+            "Self.isAllowed(url, cacheRoot: cacheRoot)",
+            "Data(\"ready\\n\".utf8).write"
+        ])
         Self.assertSource(bootstrap, contains: "automaticStartupPolicy == .startImmediately")
+        Self.assertSource(updateController, containsAll: [
+            "let recoveryTask = cancelRecoveryAndTakeTask()",
+            "await recoveryTask.value",
+            "try Task.checkCancellation()",
+            "guard self.generation == generation else { return }"
+        ])
         Self.assertSource(runner, containsAll: [
             "waitForAvailableUpdate(configuration: configuration)",
             "feedPropagationAttemptLimit = 6",

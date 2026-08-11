@@ -60,6 +60,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let updateController: QuillCodeDesktopUpdateController
     let installationLocationController: QuillCodeDesktopInstallationLocationController
     let launchLifecycleController: QuillCodeDesktopLaunchLifecycleController?
+    var updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
     var automaticStartupState: QuillCodeDesktopStartupState
@@ -85,6 +86,7 @@ final class QuillCodeDesktopController: ObservableObject {
         updateController: QuillCodeDesktopUpdateController? = nil,
         installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
         launchLifecycleController: QuillCodeDesktopLaunchLifecycleController? = nil,
+        updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake? = nil,
         startupMode: QuillCodeDesktopStartupMode = .normal,
         workspaceRoot: URL? = nil
     ) {
@@ -123,6 +125,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.installationLocationController = installationLocationController
             ?? QuillCodeDesktopInstallationLocationController()
         self.launchLifecycleController = launchLifecycleController
+        self.updateLaunchHandshake = updateLaunchHandshake
         self.automaticStartupState = QuillCodeDesktopStartupState(mode: startupMode)
         do {
             self.model = try bootstrap.makeModel(automaticStartupPolicy: .deferUntilRequested)
@@ -189,12 +192,19 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
-    /// back into the workspace. This can run before a window exists and remains idempotent.
+    /// back into the workspace. It remains idempotent across repeated post-window startup requests.
     private func installApprovalNotificationHandling() {
         guard approvalNotificationDelegate == nil else { return }
-        // Only the packaged product owns these categories. Bare executables and XCTest bundles must
-        // not replace the notification delegate of their host process.
-        guard Bundle.main.bundleIdentifier == updateController.configuration?.bundleIdentifier else {
+        let bundle = Bundle.main
+        // A SwiftPM executable can inherit the product bundle identifier without being backed by a
+        // Launch Services bundle. UserNotifications raises an Objective-C exception in that state,
+        // so identity and the canonical packaged layout must agree before touching the singleton.
+        guard QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: bundle.bundleIdentifier,
+            bundleURL: bundle.bundleURL,
+            executableURL: bundle.executableURL,
+            expectedBundleIdentifier: updateController.configuration?.bundleIdentifier
+        ) else {
             return
         }
         let delegate = QuillCodeApprovalNotificationDelegate(
@@ -209,4 +219,27 @@ final class QuillCodeDesktopController: ObservableObject {
         center.setNotificationCategories([QuillCodeApprovalNotification.category, QuillCodeRetryNotification.category])
     }
 
+}
+
+enum QuillCodeDesktopPackagedProcessIdentity {
+    static func ownsNotificationCenter(
+        bundleIdentifier: String?,
+        bundleURL: URL,
+        executableURL: URL?,
+        expectedBundleIdentifier: String?
+    ) -> Bool {
+        guard let expectedBundleIdentifier,
+              bundleIdentifier == expectedBundleIdentifier,
+              bundleURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame,
+              let executableURL
+        else {
+            return false
+        }
+        let expectedExecutableDirectory = bundleURL
+            .appendingPathComponent("Contents/MacOS", isDirectory: true)
+            .standardizedFileURL
+        return executableURL
+            .deletingLastPathComponent()
+            .standardizedFileURL == expectedExecutableDirectory
+    }
 }
