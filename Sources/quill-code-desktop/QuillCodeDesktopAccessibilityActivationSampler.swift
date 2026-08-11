@@ -415,7 +415,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
 
     private static func markStage(_ stage: String, contractID: String) {
         let residentMemory = (try? QuillCodeDesktopProcessResourceSnapshot.capture())
-            .map { " rss=\($0.residentMemoryBytes) threads=\($0.threadCount)" }
+            .map { " footprint=\($0.residentMemoryBytes) threads=\($0.threadCount)" }
             ?? ""
         FileHandle.standardError.write(
             Data("quill-code-desktop AX activation \(stage): \(contractID)\(residentMemory)\n".utf8)
