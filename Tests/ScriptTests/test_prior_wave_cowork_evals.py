@@ -228,6 +228,37 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Audit-log streaming", release_notes)
         self.assertNotIn("Northwind Logistics", release_notes)
 
+    def test_wave_five_web_fixtures_supply_the_named_source_material(self):
+        expectations = {
+            130: ("inputs/compliance/item-002.docx", "has not obtained a SOC 2 report"),
+            131: ("inputs/press-inquiry.eml", "How many paying customers"),
+            132: ("inputs/vendor-shortlist.md", "6. Teamwork.com"),
+            134: ("inputs/saved-links.txt", "building-effective-agents"),
+            142: ("inputs/vendor-security/item-001.pdf", "ISO/IEC 27701"),
+        }
+        for task_id, (relative_path, anchor) in expectations.items():
+            with self.subTest(task_id=task_id), tempfile.TemporaryDirectory() as temporary:
+                workspace = Path(temporary)
+                PRIOR.write_fixture(self.rows[task_id - 1], workspace)
+                source = workspace / relative_path
+                if source.suffix == ".docx":
+                    with zipfile.ZipFile(source) as archive:
+                        contents = archive.read("word/document.xml").decode("utf-8")
+                elif source.suffix == ".pdf":
+                    contents = source.read_bytes().decode("latin-1")
+                else:
+                    contents = source.read_text(encoding="utf-8")
+                self.assertIn(anchor, contents)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(self.rows[135], workspace)
+            with (workspace / "inputs/customer_list.csv").open(newline="", encoding="utf-8") as source:
+                customers = list(csv.DictReader(source))
+        self.assertEqual(len(customers), 10)
+        self.assertEqual(len({row["state"] for row in customers}), 10)
+        self.assertTrue(all(row["city"] and row["postal_code"] for row in customers))
+
     def test_fixture_materializes_referenced_rich_documents_and_source_map(self):
         row = self.rows[142]
         with tempfile.TemporaryDirectory() as temporary:

@@ -633,6 +633,21 @@ def task_table(row, reference="", item_index=1, count=40):
             (2025, 6000000, "calendar-year recognized revenue", "audited"),
         ]
 
+    if row["id"] == 136:
+        return [
+            ("customer_id", "customer", "city", "state", "postal_code"),
+            ("CUS-001", "Juniper Studio", "San Francisco", "CA", "94105"),
+            ("CUS-002", "Northstar Media", "New York", "NY", "10001"),
+            ("CUS-003", "Cobalt Energy", "Austin", "TX", "78701"),
+            ("CUS-004", "Harbor Travel", "Miami", "FL", "33131"),
+            ("CUS-005", "Lumen Commerce", "Seattle", "WA", "98101"),
+            ("CUS-006", "Cedar Foods", "Chicago", "IL", "60601"),
+            ("CUS-007", "Meridian Health", "Philadelphia", "PA", "19103"),
+            ("CUS-008", "Atlas Works", "Columbus", "OH", "43215"),
+            ("CUS-009", "Beacon Legal", "Boston", "MA", "02108"),
+            ("CUS-010", "Summit Outdoor", "Denver", "CO", "80202"),
+        ]
+
     if "kpi-dashboard" in reference.casefold():
         return [
             ("Metric", "Q2", "Q3", "Owner"),
@@ -950,6 +965,110 @@ dates. Finance may return incomplete or unsupported claims for correction.
 Rafael Ortiz must approve policy exceptions in writing before reimbursement. Preserve
 all provisions other than the mileage rate, meal cap, policy version, and effective
 date when issuing the requested update.
+"""
+
+    if row["id"] == 130:
+        documents = (
+            """# Security Architecture and Data Handling
+Document owner: Avery Lin, Security Lead. Updated: 2026-07-31.
+The production prompt path runs in GCP Confidential Space and publishes attestation
+evidence at https://trust.trustedrouter.com/. Prompt and output content are excluded
+from control-plane logs and durable storage. The gateway fails closed when attestation
+or authorization cannot be verified. `trustedrouter/e2e` requires confidential
+provider compute and end-to-end encryption; not every direct model supports that tier.
+""",
+            """# SOC 2 Readiness Status
+Document owner: Avery Lin, Security Lead. Updated: 2026-07-31.
+TrustedRouter has prepared readiness documentation but has not obtained a SOC 2 report.
+Do not say that TrustedRouter is SOC 2 certified, SOC 2 compliant, or able to provide a
+Type I or Type II report. Direct customers to the current readiness disclosure at
+https://trustedrouter.com/legal/soc2-readiness and live trust evidence at
+https://trust.trustedrouter.com/.
+""",
+            """# Contractual Security Commitments
+Document owner: Rafael Ortiz, Legal Operations. Updated: 2026-07-25.
+The procurement packet and draft DPA are at https://trustedrouter.com/legal. Security
+incident notice, audit rights, deletion commitments, and subprocessor terms depend on
+the executed customer agreement; a questionnaire reply must not promise terms that
+have not been signed. PHI requires a signed BAA and an approved route policy.
+""",
+            """# Subprocessors and Provider Boundaries
+Document owner: Avery Lin, Security Lead. Updated: 2026-07-29.
+The current subprocessor and model-provider disclosures are published at
+https://trustedrouter.com/legal/subprocessors. Provider retention and training posture
+varies by selected route. Customers needing a hard privacy floor should use an approved
+provider allowlist or a named ZDR/E2E route; do not imply that every model route has the
+same retention commitment.
+""",
+        )
+        return documents[(item_index - 1) % len(documents)]
+
+    if row["id"] == 131 and reference == "press-inquiry.eml":
+        return """From: Maya Rivera <maya.rivera@techledger.example>
+To: press@trustedrouter.com
+Date: 2026-08-06
+Subject: Questions for TrustedRouter profile - response requested August 12
+
+I am preparing a profile of AI infrastructure companies. Please answer these questions:
+
+1. What does TrustedRouter sell, and what is technically different about its prompt path?
+2. How many paying customers and how much annual recurring revenue does the company have?
+3. Which model providers and routing modes can customers use today?
+4. Is TrustedRouter SOC 2 certified, and can you provide a completed audit report?
+5. How much outside funding has the company raised, and who are the investors?
+
+Please identify anything that is off the record. I may quote the response directly.
+
+Internal response rules:
+- Public product and architecture claims may be answered only from pages successfully fetched at
+  https://trustedrouter.com/, https://trustedrouter.com/docs, and https://trust.trustedrouter.com/.
+- Customer counts, revenue, funding, and investor identities are not approved for disclosure.
+- The accurate SOC 2 status is readiness documentation prepared; no report has been obtained.
+- Nothing is off the record unless the reporter explicitly agrees before disclosure. Do not include
+  confidential numbers in an answer merely labeled off the record.
+"""
+
+    if row["id"] == 132 and reference == "vendor-shortlist.md":
+        return """# Project-management vendor shortlist
+
+Evidence date: 2026-08-08. Compare these exact six vendors using current official
+public pricing pages. Price a single workspace on annual billing where offered, state
+all plan and billing assumptions, and distinguish quote-only tiers from calculable
+public list prices.
+
+1. Asana
+2. monday.com
+3. ClickUp
+4. Smartsheet
+5. Wrike
+6. Teamwork.com
+"""
+
+    if row["id"] == 134 and reference == "saved-links.txt":
+        return """https://www.anthropic.com/research/building-effective-agents
+https://www.nngroup.com/articles/ten-usability-heuristics/
+https://martinfowler.com/articles/continuousIntegration.html
+https://stripe.com/blog/idempotency
+https://www.intercom.com/blog/rice-simple-prioritization-for-product-managers/
+https://trustedrouter.com/blog/frontier-smart-cheap-fast-pick-3-open-source
+"""
+
+    if row["id"] == 142:
+        return """# Vendor Security Questionnaire Response
+
+Vendor: Cloudflare, Inc.
+Response date: 2026-07-30
+Verification target: verify each claim against Cloudflare's current public trust,
+compliance, or certificate materials; do not treat this response as proof.
+
+Claimed certifications and attestations:
+1. ISO/IEC 27001 certification for the information-security management system.
+2. ISO/IEC 27701 certification for the privacy-information management system.
+3. SOC 2 Type II examination covering security and availability controls.
+4. PCI DSS compliance for applicable payment-card services.
+
+For each claim, report the current status, scope or material limitation, evidence date,
+and direct URL. Mark it unverifiable rather than inferring currency from a generic page.
 """
 
     if row["id"] == 129 and reference == "release-notes-july.md":
