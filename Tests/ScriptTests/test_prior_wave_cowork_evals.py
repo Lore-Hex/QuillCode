@@ -160,7 +160,7 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             prompt = PRIOR.build_prompt(row)
             self.assertTrue(prompt.startswith(row["task"]))
             if row["capabilityNeeded"] == "Scheduling":
-                self.assertIn("Create and persist", prompt)
+                self.assertEqual(prompt, row["task"])
                 self.assertNotIn("task-148-deliverable.md", prompt)
             else:
                 self.assertIn("inputs/evaluation-context.md", prompt)

@@ -1407,13 +1407,10 @@ def build_prompt(row):
     task = row["task"].strip()
     capability = row["capabilityNeeded"]
     if capability == "Scheduling":
-        return f"""{task}
-
-This is an end-to-end native desktop evaluation. Create and persist the requested
-recurring automation now. Preserve the cadence and requested action from the original
-prompt. Do not merely describe, propose, or draft the automation. Finish only after the
-automation is visible in Quill Cowork's persisted automation state.
-"""
+        # The desktop handles recurring natural-language requests before model dispatch.
+        # Appending evaluator prose here changes the persisted task itself and invalidates
+        # the UI evidence, even when the schedule and recurrence are otherwise correct.
+        return task
 
     browser_instruction = ""
     if capability == "Browser pane":
