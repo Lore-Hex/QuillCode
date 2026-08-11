@@ -1397,7 +1397,11 @@ automation is visible in Quill Cowork's persisted automation state.
             "total). Group them by contact ID, number each prospect's emails 1 through 3, and "
             "include a concrete subject, greeting, body, call to action, and closing in every "
             "email. Personalize each first paragraph from that prospect's `booth-notes` value. "
-            "Do not provide reusable templates or substitution tokens. "
+            "Do not provide reusable templates or substitution tokens. Treat every email as "
+            "draft copy. Do not claim that pricing, documentation, demos, slots, sandboxes, "
+            "references, or timelines have already been prepared, reserved, confirmed, or "
+            "provisioned unless a supplied source says so. Do not promise unsupported turnaround "
+            "times. Omit unrelated company finance and operating context. "
         )
     elif row["id"] == 121:
         task_specific_instruction = (
@@ -1493,14 +1497,18 @@ standards-complete, sufficient, and take the place of any path outside this isol
 workspace. Do not install dependencies.
 {browser_instruction}{privacy_instruction}
 Complete the requested analysis or transformation using those supplied records. Never
-modify a real external account or anything outside the workspace. Represent requested
-renames, deletions, messages, service updates, or other side effects as an exact action
-log in the deliverable. Do not ask a follow-up question and do not stop at a proposal.
+modify a real external account or anything outside the workspace. If the original task
+requests an external side effect, represent only that requested side effect as an exact
+proposed or simulated action log. Do not invent or claim actions, commitments, product
+facts, availability, or completed work that are not supported by the supplied records.
+Do not ask a follow-up question and do not stop at a proposal.
 {task_specific_instruction}{pdf_tool_instruction}
 
-Save the complete, decision-ready result to `{output_path(row)}`. Include specific
-source facts, rows or calculations, owners, dates, uncertainties, and the actions taken
-or simulated. {artifact_instruction} {field_instruction}
+Save the complete, decision-ready result to `{output_path(row)}`. Include the specific
+source facts, rows or calculations, owners, dates, uncertainties, and simulated actions
+that are material to the original task. Omit unrelated context-packet facts and do not
+add an action log unless the original task requests an external side effect.
+{artifact_instruction} {field_instruction}
 After writing, read the saved artifact back with the file tool to verify its contents and
 format. A prose summary is not a substitute for the requested artifact.
 """

@@ -286,6 +286,19 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("exactly three fully written emails for each of the six prospects", prompt)
         self.assertIn("18 emails total", prompt)
         self.assertIn("Do not provide reusable templates", prompt)
+        self.assertIn("Treat every email as draft copy", prompt)
+        self.assertIn("Do not promise unsupported turnaround times", prompt)
+        self.assertIn("Omit unrelated company finance and operating context", prompt)
+
+    def test_prompt_keeps_completion_details_scoped_to_the_original_task(self):
+        prompt = PRIOR.build_prompt(self.rows[32])
+
+        self.assertIn("only that requested side effect", prompt)
+        self.assertIn("Do not invent or claim actions, commitments", prompt)
+        self.assertIn("that are material to the original task", prompt)
+        self.assertIn("Omit unrelated context-packet facts", prompt)
+        self.assertIn("add an action log unless the original task requests", prompt)
+        self.assertNotIn("Represent requested\nrenames, deletions, messages", prompt)
 
     def test_currency_normalization_fixture_defines_month_and_currency(self):
         row = self.rows[120]
