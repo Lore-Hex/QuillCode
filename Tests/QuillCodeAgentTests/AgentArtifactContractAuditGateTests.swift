@@ -3,6 +3,105 @@ import QuillCodeCore
 @testable import QuillCodeAgent
 
 final class AgentArtifactContractAuditGateTests: XCTestCase {
+    func testRejectsVerifiedPriceTableWhenDelegatedEvidenceLeavesPricesUnresolved() throws {
+        let evidence = """
+        Successful host.subagents.run observation:
+        Delegation summary:
+        Subagents finished with 0 completed, 1 cancelled, and 2 failed workers.
+
+        Worker Apple [failed]:
+        The configuration exists, but I still need to verify current pricing via the live shop.
+
+        Worker Dell [cancelled]:
+        The only observed amount was $1,929.99 and it was ambiguous for the requested configuration.
+
+        Worker Lenovo [failed]:
+        The exact current price was not verified before the deadline.
+        """
+        let artifact = """
+        Only fully verified, currently purchasable configurations are shown. Every price is verified.
+        All URLs were fetched successfully in this run.
+
+        | Field | Apple | Dell | Lenovo |
+        | --- | --- | --- | --- |
+        | Current price (USD) | **$1,999** | **$1,929** | **$1,899** |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("zero completed workers"), issue)
+        XCTAssertTrue(issue.contains("$1,999"), issue)
+        XCTAssertTrue(issue.contains("$1,929"), issue)
+        XCTAssertTrue(issue.contains("$1,899"), issue)
+    }
+
+    func testAllowsVerifiedPriceTableWhenExactPricesAreRetained() {
+        let evidence = """
+        Successful host.subagents.run observation:
+        Delegation summary:
+        Subagents finished with 0 completed, 1 cancelled, and 2 failed workers.
+        One worker said a backup price was not verified.
+        Successful host.web.fetch observation:
+        Apple configured price $1,999. Dell configured price $1,929. Lenovo configured price $1,899.
+        """
+        let artifact = """
+        Only fully verified, currently purchasable configurations are shown. Every price is verified.
+        All URLs were fetched successfully in this run.
+
+        | Field | Apple | Dell | Lenovo |
+        | --- | --- | --- | --- |
+        | Current price (USD) | $1,999 | $1,929 | $1,899 |
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
+    func testDoesNotTreatUnrelatedWorkerFailureAsUnresolvedPricing() {
+        let evidence = """
+        Subagents finished with 0 completed and 1 failed worker.
+        Price research completed. Display calibration remained unresolved.
+        """
+        let artifact = """
+        Only fully verified, currently purchasable configurations are shown. Every price is verified.
+        All URLs were fetched successfully in this run.
+
+        | Field | Apple |
+        | --- | --- |
+        | Current price (USD) | $1,999 |
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
+    func testPriceGroundingCheckIgnoresBudgetAndDerivedTotalRows() {
+        let evidence = """
+        Subagents finished with 0 completed, 1 cancelled, and 2 failed workers.
+        The current price was not verified.
+        """
+        let artifact = """
+        Only fully verified, currently purchasable configurations are shown. Every price is verified.
+        All URLs were fetched successfully in this run.
+
+        | Field | Value |
+        | --- | --- |
+        | Budget | $2,000 |
+        | Total cost | $15,992 |
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
     func testRejectsUnavailableArtifactWhenStructuredEvidenceContainsValues() throws {
         let evidence = """
         Year | Jan | Feb | Mar

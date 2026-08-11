@@ -667,6 +667,40 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertLessThanOrEqual(receipt?.count ?? .max, 12_100)
     }
 
+    func testDelegatedResearchReceiptExcludesWorkerRolePrompts() throws {
+        var state = AgentRunLoopState()
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research prices",
+                "workers": [["name": "Buyer", "role": "Find a laptop under $2,000"]],
+            ] as [String: Any])
+        )
+        let output = """
+        {
+          "summary": "Subagents finished with 0 completed and 1 failed workers.",
+          "awaitingApproval": false,
+          "workers": [
+            {
+              "name": "Buyer",
+              "role": "Find a laptop under $2,000",
+              "status": "failed",
+              "summary": "The exact current price was not verified."
+            }
+          ]
+        }
+        """
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: output),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+
+        let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
+        XCTAssertTrue(receipt.contains("Worker Buyer [failed]"))
+        XCTAssertTrue(receipt.contains("exact current price was not verified"))
+        XCTAssertFalse(receipt.contains("laptop under $2,000"))
+    }
+
     func testMixedSourceRunRetainsRequiredLocalRowsBesideLiveResearch() throws {
         var state = AgentRunLoopState()
         let prompt = """

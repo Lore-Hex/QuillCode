@@ -181,6 +181,10 @@ enum AgentArtifactContractAuditGate {
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
         ))
+        issues.append(contentsOf: delegatedPriceVerificationContradictions(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        ))
 
         let evidenceValues = decimalObservations(in: evidenceReceipt)
         if evidenceValues.count >= 4,
@@ -805,6 +809,98 @@ enum AgentArtifactContractAuditGate {
             tables.append(.init(headers: headers, rows: rows))
         }
         return tables
+    }
+
+    private static func delegatedPriceVerificationContradictions(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> [String] {
+        let normalizedEvidence = evidenceReceipt.casefolded
+        let hasFailedDelegation = normalizedEvidence.range(
+            of: #"\b0\s+completed\b[^\n]{0,160}\b(?:failed|cancelled)\b"#,
+            options: .regularExpression
+        ) != nil
+        let hasUnresolvedPrice = normalizedEvidence.range(
+            of: #"\b(?:price|pricing)\b[^\n.!?]{0,120}\b(?:need(?:s|ed)?\s+to\s+verify|not\s+(?:successfully\s+)?(?:verified|confirmed)|unverified|unresolved|ambiguous|blocked)\b"#,
+            options: .regularExpression
+        ) != nil || normalizedEvidence.range(
+            of: #"\b(?:need(?:s|ed)?\s+to\s+verify|not\s+(?:successfully\s+)?(?:verified|confirmed)|unverified|unresolved|ambiguous|blocked)\b[^\n.!?]{0,120}\b(?:price|pricing)\b"#,
+            options: .regularExpression
+        ) != nil
+        guard hasFailedDelegation, hasUnresolvedPrice else { return [] }
+
+        let normalizedArtifact = artifact.casefolded
+        let verificationSignals = [
+            "only fully verified", "every price is verified", "all urls were fetched successfully",
+            "fully verified qualifier", "all three rows fully qualify", "currently purchasable",
+        ]
+        guard verificationSignals.filter(normalizedArtifact.contains).count >= 2 else { return [] }
+
+        let claims = sourcePriceClaims(in: artifact)
+        guard !claims.isEmpty else { return [] }
+        let grounded = Set(currencyAmounts(in: evidenceReceipt).map(\.canonical))
+        let unsupported = claims.filter { !grounded.contains($0.canonical) }
+        guard !unsupported.isEmpty else { return [] }
+
+        let values = Array(Set(unsupported.map(\.raw))).sorted().joined(separator: ", ")
+        return [
+            "The artifact presents source-priced rows as fully verified even though retained "
+                + "delegated evidence reports zero completed workers and unresolved pricing. "
+                + "These current-price claims have no exact retained price observation: \(values). "
+                + "Obtain direct price evidence or mark the affected candidates unverified.",
+        ]
+    }
+
+    private struct CurrencyAmount {
+        var raw: String
+        var canonical: String
+    }
+
+    private static func sourcePriceClaims(in artifact: String) -> [CurrencyAmount] {
+        var claims: [CurrencyAmount] = []
+        for table in markdownTables(in: artifact) {
+            for row in table.rows where row.count == table.headers.count {
+                if isSourcePriceLabel(row[0]) {
+                    claims.append(contentsOf: row.dropFirst().flatMap(currencyAmounts(in:)))
+                }
+            }
+            let priceColumns = table.headers.indices.filter {
+                isSourcePriceLabel(table.headers[$0])
+            }
+            for row in table.rows where row.count == table.headers.count {
+                for column in priceColumns {
+                    claims.append(contentsOf: currencyAmounts(in: row[column]))
+                }
+            }
+        }
+        var seen: Set<String> = []
+        return claims.filter { seen.insert($0.canonical).inserted }
+    }
+
+    private static func isSourcePriceLabel(_ raw: String) -> Bool {
+        let label = normalizedTableLabel(raw)
+        guard label.contains("price") || label.contains("cost") else { return false }
+        let sourceSignals = ["current", "exact", "purchase", "list", "retail", "sale", "unit"]
+        let derivedSignals = ["budget", "total", "subtotal", "difference", "savings", "monthly", "annual"]
+        return sourceSignals.contains(where: label.contains)
+            && !derivedSignals.contains(where: label.contains)
+    }
+
+    private static func currencyAmounts(in text: String) -> [CurrencyAmount] {
+        let pattern = #"([$€£])\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.matches(in: text, range: range).compactMap { match in
+            guard let rawRange = Range(match.range, in: text),
+                  let symbolRange = Range(match.range(at: 1), in: text),
+                  let valueRange = Range(match.range(at: 2), in: text),
+                  let value = Double(text[valueRange].replacingOccurrences(of: ",", with: ""))
+            else { return nil }
+            return CurrencyAmount(
+                raw: String(text[rawRange]),
+                canonical: String(text[symbolRange]) + String(format: "%.2f", value)
+            )
+        }
     }
 
     private static func isFocusedReceiptOmissionMarker(_ line: String) -> Bool {

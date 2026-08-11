@@ -1057,7 +1057,16 @@ struct AgentRunLoopState: Sendable {
         let toolName = call.name
         let receiptOutput: String
         var observedURL: String?
-        if toolName == ToolDefinition.browserScript.name,
+        if toolName == ToolDefinition.subagentsRun.name,
+           let data = output.data(using: .utf8),
+           let run = try? JSONDecoder().decode(RetainedSubagentRunOutput.self, from: data) {
+            let workers = run.workers.map { worker in
+                let summary = worker.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return "Worker \(worker.name) [\(worker.status)]:\n\(summary ?? "No result returned.")"
+            }
+            receiptOutput = (["Delegation summary:\n\(run.summary)"] + workers)
+                .joined(separator: "\n\n")
+        } else if toolName == ToolDefinition.browserScript.name,
            let data = output.data(using: .utf8),
            let script = try? JSONDecoder().decode(BrowserScriptToolOutput.self, from: data) {
             let value = script.value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1114,6 +1123,17 @@ struct AgentRunLoopState: Sendable {
     private static let structuredInputExtensions: Set<String> = [
         "csv", "json", "jsonl", "tsv", "xls", "xlsx",
     ]
+
+    private struct RetainedSubagentRunOutput: Decodable {
+        struct Worker: Decodable {
+            var name: String
+            var status: String
+            var summary: String?
+        }
+
+        var summary: String
+        var workers: [Worker]
+    }
 
     private static func boundedRequiredInputEvidence(_ text: String) -> String {
         let maximumCharacters = 12_000
