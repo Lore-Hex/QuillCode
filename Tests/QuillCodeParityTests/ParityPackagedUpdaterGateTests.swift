@@ -4,6 +4,9 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
     func testPublishedBuildMustUpdateAndRelaunchItself() throws {
         let app = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let controller = try Self.desktopControllerSourceText()
+        let updateController = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateController.swift"
+        )
         let bootstrap = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
         let runner = try Self.desktopSourceText(named: "QuillCodeDesktopUpdaterSmokeRunner.swift")
         let script = try Self.scriptText(named: "packaged-macos-updater-smoke.sh")
@@ -44,6 +47,12 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             2
         )
         Self.assertSource(bootstrap, contains: "automaticStartupPolicy == .startImmediately")
+        Self.assertSource(updateController, containsAll: [
+            "let recoveryTask = cancelRecoveryAndTakeTask()",
+            "await recoveryTask.value",
+            "try Task.checkCancellation()",
+            "guard self.generation == generation else { return }"
+        ])
         Self.assertSource(runner, containsAll: [
             "waitForAvailableUpdate(configuration: configuration)",
             "feedPropagationAttemptLimit = 6",

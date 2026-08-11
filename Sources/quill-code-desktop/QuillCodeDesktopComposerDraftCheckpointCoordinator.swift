@@ -77,7 +77,11 @@ final class QuillCodeDesktopComposerDraftCheckpointCoordinator: NSObject {
     func startLifecycleFlushes(model: QuillCodeWorkspaceModel) {
         guard lifecycleModel == nil else { return }
         lifecycleModel = model
-        for name in [NSApplication.didResignActiveNotification, NSApplication.willTerminateNotification] {
+        for name in [
+            NSApplication.didResignActiveNotification,
+            NSApplication.willTerminateNotification,
+            .quillCodeDesktopWillTerminateForRelaunch,
+        ] {
             notificationCenter.addObserver(
                 self,
                 selector: #selector(flushForApplicationLifecycle),

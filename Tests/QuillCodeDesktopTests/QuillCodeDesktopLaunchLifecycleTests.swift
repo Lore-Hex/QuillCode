@@ -418,6 +418,30 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertNil(try fixture.store.currentRecord())
     }
 
+    func testLifecycleControllerClearsBeforeForcedRelaunchTermination() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let notificationCenter = NotificationCenter()
+        let lifecycle = QuillCodeDesktopLaunchLifecycleController(
+            store: fixture.store,
+            metadata: metadata(),
+            notificationCenter: notificationCenter,
+            now: { self.referenceDate },
+            processIdentifier: 60_002,
+            processIsRunning: { _ in false }
+        )
+
+        XCTAssertNil(lifecycle.startIfNeeded())
+        lifecycle.markReady()
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+
+        notificationCenter.post(
+            name: .quillCodeDesktopWillTerminateForRelaunch,
+            object: nil
+        )
+        XCTAssertNil(try fixture.store.currentRecord())
+    }
+
     func testDesktopControllerRetainsLifecycleForFirstWindowConsumption() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }

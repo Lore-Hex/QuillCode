@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-11 Serialized Update Recovery And Durable Relaunch
+
+Overall grade after this slice: **A+ update isolation, A+ relaunch durability, A+ crash classification**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Update isolation | A+ | A fresh update cancels and fully joins startup orphan recovery before download, staging, or helper launch can begin. |
+| Relaunch durability | A+ | Update and relocation exits synchronously flush pending composer text and finish the active launch before AppKit termination or the bounded forced fallback. |
+| Cancellation safety | A+ | Recovery completion is followed by cancellation and generation checks, so a superseded foreground operation cannot resume into preparation. |
+| Crash classification | A+ | A successful forced updater exit cannot leave a stale ready marker and surface a false unexpected-exit warning after relaunch. |
+| Regression evidence | A+ | Deterministic actor-gated tests cover recovery serialization; lifecycle, composer, and source-parity gates pin forced-relaunch cleanup. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopUpdateControllerTests|QuillCodeDesktopLaunchLifecycleTests|QuillCodeDesktopComposerDraftCheckpointCoordinatorTests|ParityPackagedUpdaterGateTests|ParityDesktopGateTests'`
+- Broader updater, relocation, installation, and smoke boundary: 26 tests, 0 failures
+- `swift test --disable-sandbox` (5,858 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, and two interaction-sweep smokes passed
+- Optimized packaged daily-driver performance: 347.97 ms median launch-ready, 103.67 MiB initial,
+  179.12 MiB post-interaction, and 186.89 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
 ## 2026-08-11 Graceful Termination And Accurate Crash Recovery
 
 Overall grade after this slice: **A+ crash classification, A+ lifecycle integrity, A+ release enforcement**.

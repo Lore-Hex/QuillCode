@@ -296,12 +296,17 @@ final class QuillCodeDesktopLaunchLifecycleController: NSObject {
             )
             currentLaunchID = session.currentRecord.launchID
             unexpectedExit = session.unexpectedExit
-            notificationCenter.addObserver(
-                self,
-                selector: #selector(applicationWillTerminate),
-                name: NSApplication.willTerminateNotification,
-                object: nil
-            )
+            for name in [
+                NSApplication.willTerminateNotification,
+                .quillCodeDesktopWillTerminateForRelaunch,
+            ] {
+                notificationCenter.addObserver(
+                    self,
+                    selector: #selector(applicationWillTerminate),
+                    name: name,
+                    object: nil
+                )
+            }
         } catch {
             currentLaunchID = nil
             unexpectedExit = nil

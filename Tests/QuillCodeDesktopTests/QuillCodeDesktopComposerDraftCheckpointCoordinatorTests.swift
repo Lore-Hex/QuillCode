@@ -113,7 +113,7 @@ final class QuillCodeDesktopComposerDraftCheckpointCoordinatorTests: XCTestCase 
         XCTAssertNil(try checkpointStore.load(for: nil))
     }
 
-    func testAppDeactivationFlushesPendingCheckpointImmediately() async throws {
+    func testApplicationLifecycleNotificationsFlushPendingCheckpointImmediately() async throws {
         let root = try makeTempDirectory()
         let threadStore = JSONThreadStore(directory: root.appendingPathComponent("threads"))
         let checkpointStore = ComposerDraftCheckpointStore(
@@ -138,6 +138,15 @@ final class QuillCodeDesktopComposerDraftCheckpointCoordinatorTests: XCTestCase 
         await waitUntil { !coordinator.hasPendingCheckpoint }
 
         XCTAssertEqual(try checkpointStore.load(for: thread.id)?.draft, "flush before leaving")
+
+        coordinator.schedule(draft: "flush before relaunch", model: model)
+        notificationCenter.post(
+            name: .quillCodeDesktopWillTerminateForRelaunch,
+            object: nil
+        )
+        await waitUntil { !coordinator.hasPendingCheckpoint }
+
+        XCTAssertEqual(try checkpointStore.load(for: thread.id)?.draft, "flush before relaunch")
     }
 
     private func waitUntil(

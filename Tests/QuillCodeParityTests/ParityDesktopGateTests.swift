@@ -92,6 +92,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let rootViewText = try Self.desktopSourceText(named: "QuillCodeDesktopRootView.swift")
         let lifecycleText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchLifecycle.swift")
+        let systemApplicationText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopSystemApplication.swift"
+        )
         let smokeText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchRecoverySmoke.swift")
         let reporterText = try Self.desktopSourceText(named: "QuillCodeDesktopIssueReporter.swift")
 
@@ -109,6 +112,15 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(lifecycleText, contains: "record.launchID == launchID")
         Self.assertSource(lifecycleText, contains: "processIsRunning(record.processIdentifier)")
         Self.assertSource(lifecycleText, contains: "NSApplication.willTerminateNotification")
+        Self.assertSource(
+            lifecycleText,
+            contains: ".quillCodeDesktopWillTerminateForRelaunch"
+        )
+        Self.assertSource(systemApplicationText, containsAll: [
+            "NotificationCenter.default.post(",
+            "name: .quillCodeDesktopWillTerminateForRelaunch",
+            "Darwin.exit(EXIT_SUCCESS)"
+        ])
         Self.assertSource(lifecycleText, contains: "var requiresRecoveryStartup: Bool")
         Self.assertSource(reporterText, contains: "## Previous session")
         Self.assertSource(appText, contains: "QuillCodeDesktopLaunchRecoverySmoke.runAndExit(request)")
@@ -148,6 +160,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(coordinatorText, contains: "ownerThreadID: model.selectedThread?.id")
         Self.assertSource(coordinatorText, contains: "NSApplication.didResignActiveNotification")
         Self.assertSource(coordinatorText, contains: "NSApplication.willTerminateNotification")
+        Self.assertSource(
+            coordinatorText,
+            contains: ".quillCodeDesktopWillTerminateForRelaunch"
+        )
         Self.assertSource(modelText, contains: "ownerThreadID == root.selectedThreadID")
         Self.assertSource(modelText, contains: "threadPersistence.saveComposerDraft")
         Self.assertSource(persistenceText, contains: "maximumDraftBytes = 1 * 1_024 * 1_024")
