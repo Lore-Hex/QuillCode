@@ -321,7 +321,7 @@ private actor WorkspaceSubagentParentProjection {
         let answer = childThread.messages
             .last(where: { $0.role == .assistant })
             .flatMap { WorkspaceContextSummarySanitizer.summary(from: $0.content) }
-        guard worker.status == .failed,
+        guard worker.status == .failed || worker.status == .completed,
               let evidence = WorkspaceSubagentEvidenceDigest.summary(from: childThread),
               !evidence.isEmpty
         else {

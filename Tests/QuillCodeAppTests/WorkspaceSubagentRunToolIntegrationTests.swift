@@ -259,6 +259,62 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         XCTAssertEqual(latestStatuses, [.cancelled])
     }
 
+    func testDelegationBudgetRecoversEvidenceFromCompletedWorkerCheckpoint() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let threadStore = SubagentThreadStore(directory: root.appendingPathComponent("children"))
+        let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let evidenceMarker = "VERIFIED-COMPLETED-WORKER-EVIDENCE"
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { job in
+            let feedback = AgentToolFeedback(
+                toolCall: ToolCall(
+                    name: ToolDefinition.webFetch.name,
+                    argumentsJSON: ToolArguments.json(["url": "https://example.test/evidence"])
+                ),
+                result: ToolResult(
+                    ok: true,
+                    stdout: "Fetched official source: \(evidenceMarker) at $1,799."
+                )
+            )
+            let child = ChatThread(
+                id: job.childThreadID,
+                title: "Subagent: \(job.name)",
+                messages: [
+                    ChatMessage(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+                    ChatMessage(role: .assistant, content: "COMPLETE: Verified the candidate."),
+                ]
+            )
+            try threadStore.save(child)
+            return WorkspaceSubagentWorkerResult(summary: "COMPLETE: Verified the candidate.")
+        })
+        let executor = WorkspaceSubagentRunToolExecutor(
+            sessionFactory: factory,
+            threadStore: threadStore,
+            approvalPayloadStore: nil,
+            schedulerOverride: scheduler,
+            recordSink: { record, _ in
+                if record.workers.map(\.status) == [.completed] {
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            },
+            delegationBudget: .milliseconds(25)
+        )
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Preserve completed evidence at the delegation deadline.",
+                "workers": [["name": "Researcher", "role": "Verify the current price."]]
+            ])
+        )
+
+        let execution = await executor.executionOverride(call, root, ChatThread(), nil)
+        let resolved = try XCTUnwrap(execution)
+
+        XCTAssertTrue(resolved.result.stdout.contains("Delegation time budget reached"))
+        XCTAssertTrue(resolved.result.stdout.contains(evidenceMarker))
+        XCTAssertTrue(resolved.result.stdout.contains("$1,799"))
+        XCTAssertEqual(resolved.thread.subagentRuns.first?.workers.map(\.status), [.completed])
+    }
+
     func testChildSessionCannotStartAnIndependentSubagentTree() async throws {
         let root = try makeQuillCodeTestDirectory()
         let factory = WorkspaceAgentSendSessionFactory(
