@@ -259,6 +259,14 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertEqual(len({row["state"] for row in customers}), 10)
         self.assertTrue(all(row["city"] and row["postal_code"] for row in customers))
 
+    def test_fixture_classifier_does_not_match_terms_inside_other_words(self):
+        self.assertTrue(PRIOR.contains_term("review the NDA", "nda"))
+        self.assertFalse(PRIOR.contains_term("Every Monday", "nda"))
+        self.assertFalse(PRIOR.contains_term("compliance calendar", "nda"))
+        self.assertFalse(PRIOR.contains_term("standardize files", "nda"))
+        self.assertTrue(PRIOR.contains_term("bank statement", "statement"))
+        self.assertFalse(PRIOR.contains_term("prior statements", "statement"))
+
     def test_fixture_materializes_referenced_rich_documents_and_source_map(self):
         row = self.rows[142]
         with tempfile.TemporaryDirectory() as temporary:

@@ -509,6 +509,18 @@ def csv_text(values):
     return stream.getvalue()
 
 
+def contains_term(text, *terms):
+    """Match fixture-classification terms as tokens instead of internal substrings."""
+    return any(
+        re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])",
+            text,
+            re.I,
+        )
+        for term in terms
+    )
+
+
 def task_table(row, reference="", item_index=1, count=40):
     """Return deterministic, task-relevant rows for CSV, XLSX, and browser fixtures."""
     key = f"{row['category']} {row['task']} {reference}".casefold()
@@ -657,7 +669,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ("Northstar open days", 21, 38, "Jo Chen"),
         ]
 
-    if any(term in key for term in ("event registration", "badge-scan", "badge scan", "event-crm")):
+    if contains_term(key, "event registration", "badge-scan", "badge scan", "event-crm"):
         rows = []
         for index in range(1, 21):
             scanned = index % 4 != 0
@@ -670,7 +682,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("registration_id", "email", "name", "company", "registration_status", "badge_scan_time", "crm_status"), *rows]
 
-    if "contact" in key or "lead" in key or "shortlist" in key:
+    if contains_term(key, "contact", "lead", "shortlist"):
         names = (
             "ALICE JOHNSON", "Bruno Garcia", "CHEN WEI", "Dana Okafor",
             "Elena Rossi", "Fatima Khan", "Gabriel Martin", "HANA SATO",
@@ -706,7 +718,7 @@ def task_table(row, reference="", item_index=1, count=40):
                     ))
         return [("signup_id", "date", "source", "campaign", "region", "signups"), *rows]
 
-    if "subscription" in key or "cohort" in key:
+    if contains_term(key, "subscription", "cohort"):
         rows = []
         for cohort_index, cohort in enumerate(("2026-01", "2026-02", "2026-03", "2026-04"), start=1):
             for month in range(6):
@@ -714,7 +726,7 @@ def task_table(row, reference="", item_index=1, count=40):
                 rows.append((cohort, month, 100, retained, round(retained / 100, 2), ("Starter", "Growth")[cohort_index % 2]))
         return [("cohort_month", "months_since_signup", "signup_count", "paid_count", "retention_rate", "plan_tier"), *rows]
 
-    if any(term in key for term in ("campaign", "linkedin ads", "google ads", "web analytics", "marketing kpi", "traffic by channel")):
+    if contains_term(key, "campaign", "linkedin ads", "google ads", "web analytics", "marketing kpi", "traffic by channel"):
         rows = []
         for week in range(1, 13):
             for channel_index, channel in enumerate(("Paid Search", "LinkedIn", "Email", "Organic"), start=1):
@@ -736,7 +748,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ("D-004", "Katherine Johnson", "88 Lake Rd, Dayton, OH 45402", 1000),
         ]
 
-    if "newsletter" in key or "member" in key:
+    if contains_term(key, "newsletter", "member"):
         return [
             ("member_id", "name", "email", "phone", "Date Joined", "status"),
             ("M-001", "Ari Cole", "ari@example.com", "(415) 555-0101", "07/14/2026", "active"),
@@ -745,7 +757,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ("M-004", "Dev Rao", "dev@example", "", "2026-07-16", "needs-review"),
         ]
 
-    if any(term in key for term in ("dependency", "milestone", "timeline", "phase-plan", "plan-v")):
+    if contains_term(key, "dependency", "milestone", "timeline", "phase-plan", "plan-v"):
         version_shift = 14 if any(term in reference.casefold() for term in ("v5", "revised")) else 0
         rows = []
         for index, phase in enumerate(("Discovery", "Design", "Build", "Pilot", "Launch"), start=1):
@@ -759,7 +771,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("milestone_id", "milestone", "owner", "due_date", "status", "reason", "depends_on"), *rows]
 
-    if any(term in key for term in ("utility", "kwh", "electric")):
+    if contains_term(key, "utility", "kwh", "electric"):
         rows = []
         for month in range(1, 13):
             for site_index, site in enumerate(("HQ", "Warehouse", "Support Center"), start=1):
@@ -767,7 +779,7 @@ def task_table(row, reference="", item_index=1, count=40):
                 rows.append((f"2025-{month:02d}", site, kwh, round(kwh * (0.14 + site_index * 0.01), 2)))
         return [("month", "site", "kwh", "cost"), *rows]
 
-    if any(term in key for term in ("freight", "lane", "carrier", "contracted rates")):
+    if contains_term(key, "freight", "lane", "carrier", "contracted rates"):
         rows = []
         for index in range(1, min(count, 60) + 1):
             contracted = round(1.35 + (index % 5) * 0.17, 2)
@@ -779,7 +791,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("shipment_id", "carrier", "lane", "miles", "contract_rate_per_mile", "billed_rate_per_mile", "overcharge"), *rows]
 
-    if any(term in key for term in ("invoice", "payment", "bank statement", "chase statement", "amex", "payout", "receipt", "expense")):
+    if contains_term(key, "invoice", "payment", "bank statement", "chase statement", "amex", "payout", "receipt", "expense"):
         rows = []
         for index in range(1, min(count, 60) + 1):
             invoice_id = f"INV-{1000 + index}"
@@ -798,7 +810,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("invoice_id", "date", "vendor", "description", "amount", "matched_amount", "status", "due_date", "po_number", "category"), *rows]
 
-    if any(term in key for term in ("budget", "actual", "cost center", "variance")):
+    if contains_term(key, "budget", "actual", "cost center", "variance"):
         actual = "actual" in reference.casefold()
         rows = []
         for index, center in enumerate(("Sales", "Marketing", "Product", "Support", "G&A"), start=1):
@@ -807,7 +819,7 @@ def task_table(row, reference="", item_index=1, count=40):
             rows.append((f"CC-{index:02d}", center, "2026-06", amount, owners[index % 4], "Campaign overage" if actual and index == 2 else "Within plan"))
         return [("cost_center_id", "cost_center", "month", "amount", "owner", "explanation"), *rows]
 
-    if any(term in key for term in ("sales", "revenue", "pipeline", "deal", "crm", "renewal", "account")):
+    if contains_term(key, "sales", "revenue", "pipeline", "deal", "crm", "renewal", "account"):
         rows = []
         stages = ("Prospecting", "Discovery", "Evaluation", "Proposal", "Negotiation", "Closed Won")
         for index in range(1, min(count, 45) + 1):
@@ -822,7 +834,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("deal_id", "account", "contact", "owner", "stage", "region", "quarter", "revenue", "last_activity", "close_date", "next_step", "source"), *rows]
 
-    if any(term in key for term in ("ticket", "zendesk", "survey", "nps", "support", "refund")):
+    if contains_term(key, "ticket", "zendesk", "survey", "nps", "support", "refund"):
         rows = []
         themes = ("Billing", "Login", "Export", "Performance", "Permissions", "Refund")
         for index in range(1, min(count, 40) + 1):
@@ -834,7 +846,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("ticket_id", "theme", "plan_tier", "nps_score", "first_response_minutes", "comment", "owner", "created_date", "status"), *rows]
 
-    if any(term in key for term in ("inventory", "warehouse", "sku", "allocation", "capacity")):
+    if contains_term(key, "inventory", "warehouse", "sku", "allocation", "capacity"):
         rows = []
         system_offset = 0 if "system" in reference.casefold() else item_index * 3
         for index in range(1, 13):
@@ -845,7 +857,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("sku", "units", "days_of_cover", "location", "owner", "allocation"), *rows]
 
-    if any(term in key for term in ("comp_band", "comp-band", "comp bands", "headcount", "roster", "pay equity", "employee")):
+    if contains_term(key, "comp_band", "comp-band", "comp bands", "headcount", "roster", "pay equity", "employee"):
         rows = []
         for index in range(1, min(count, 48) + 1):
             level = ("L2", "L3", "L4", "L5")[index % 4]
@@ -859,7 +871,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("employee_id", "department", "level", "gender", "tenure_years", "salary", "band_min", "band_max", "status", "open_req"), *rows]
 
-    if any(term in key for term in ("asana", "project tracker", "launch tracker", "task due", "portfolio")):
+    if contains_term(key, "asana", "project tracker", "launch tracker", "task due", "portfolio"):
         rows = []
         for index in range(1, 25):
             rows.append((
@@ -870,7 +882,7 @@ def task_table(row, reference="", item_index=1, count=40):
             ))
         return [("task_id", "task", "owner", "due_date", "status", "project", "revised_due_date"), *rows]
 
-    if "vendor" in key or "rate" in key or "proposal" in key:
+    if contains_term(key, "vendor", "rate", "proposal"):
         rows = []
         for index in range(1, min(count, 30) + 1):
             alias = ("Acme Inc", "ACME, Inc.", "Acme Incorporated")[index % 3] if index <= 3 else f"Vendor {index:02d}"
@@ -1142,7 +1154,7 @@ Status: non-binding except confidentiality, exclusivity, expenses, and governing
             f"Quarter: {quarter}. Required disposition: {disposition}.",
             "The content metadata and filesystem modification time are intentionally identical.",
         ])
-    elif any(term in key for term in ("incident", "outage", "maintenance")):
+    elif contains_term(key, "incident", "outage", "maintenance"):
         details.extend([
             "Incident began 2026-07-14 09:12 PT and service recovered at 11:47 PT.",
             "API requests failed for 38 percent of active workspaces; no stored customer data was lost.",
@@ -1150,7 +1162,7 @@ Status: non-binding except confidentiality, exclusivity, expenses, and governing
             "Changes: capped retries, added saturation alerts, and required canary verification.",
             "Affected customers receive a 10 percent July service credit.",
         ])
-    elif any(term in key for term in ("lease", "msa", "contract", "sow", "dpa", "nda", "agreement", "term sheet")):
+    elif contains_term(key, "lease", "msa", "contract", "sow", "dpa", "nda", "agreement", "term sheet"):
         details.extend([
             "Counterparty: Northwind Logistics LLC. Effective date: 2026-01-01.",
             "Initial term ends 2027-12-31 and renews for one year unless notice is given 60 days before end.",
@@ -1159,14 +1171,14 @@ Status: non-binding except confidentiality, exclusivity, expenses, and governing
             "Security incidents require notice within 48 hours; customer data must be returned or deleted in 30 days.",
             "Year 1 rent is $18,500 monthly, escalating 3 percent annually; CAM is $4,200 monthly.",
         ])
-    elif any(term in key for term in ("bank", "statement", "invoice", "receipt", "expense", "payout")):
+    elif contains_term(key, "bank", "statement", "invoice", "receipt", "expense", "payout"):
         details.extend([
             f"Invoice ID: INV-{1000 + item_index}. Vendor: Northwind Freight.",
             f"Transaction date: 2026-{((item_index - 1) % 12) + 1:02d}-15.",
             f"Amount: ${425 + item_index * 137.25:,.2f}. Running balance: ${50000 - item_index * 911:,.2f}.",
             f"PO number: PO-{500 + item_index}. Category: Freight.",
         ])
-    elif any(term in key for term in ("medical", "health plan", "benefit", "insurance")):
+    elif contains_term(key, "medical", "health plan", "benefit", "insurance"):
         plan = ("Bronze", "Silver", "Gold")[(item_index - 1) % 3]
         details.extend([
             f"Plan: {plan}. Monthly employee premium: ${310 + item_index * 95}.",
@@ -1174,21 +1186,21 @@ Status: non-binding except confidentiality, exclusivity, expenses, and governing
             f"Specialist copay: ${70 - item_index * 10}. Network providers: {12000 + item_index * 4500}.",
             "RX tiers: $15 generic, $45 preferred brand, $90 non-preferred, 30 percent specialty.",
         ])
-    elif any(term in key for term in ("resume", "candidate", "interview", "hiring")):
+    elif contains_term(key, "resume", "candidate", "interview", "hiring"):
         details.extend([
             f"Candidate: Morgan Candidate {item_index}. Current title: Senior Product Manager.",
             f"Experience: {4 + item_index % 9} years; B2B product experience: {2 + item_index % 6} years.",
             f"Location: {('San Francisco', 'New York', 'Austin', 'Remote US')[item_index % 4]}.",
             "Strengths: discovery research, analytics, cross-functional delivery. Gap: limited international launch work.",
         ])
-    elif any(term in key for term in ("meeting", "notes", "minutes", "retro", "transcript", "status")):
+    elif contains_term(key, "meeting", "notes", "minutes", "retro", "transcript", "status"):
         details.extend([
             f"Decision: approve pilot scope {item_index}; owner: Priya Shah; date: 2026-07-{(item_index % 28) + 1:02d}.",
             f"Action: validate migration data; owner: Rafael Ortiz; due: 2026-08-{(item_index % 20) + 1:02d}.",
             "Risk: vendor API readiness is amber. Ask: approve a two-week contingency.",
             "Recurring theme: acceptance criteria arrive late; the checklist change from sprint 19 stuck.",
         ])
-    elif any(term in key for term in ("paper", "research", "analyst", "assessment", "report")):
+    elif contains_term(key, "paper", "research", "analyst", "assessment", "report"):
         details.extend([
             f"Study sample: {180 + item_index * 37} B2B software users across 12 organizations.",
             "Method: preregistered longitudinal cohort with matched controls.",
@@ -1196,7 +1208,7 @@ Status: non-binding except confidentiality, exclusivity, expenses, and governing
             "Stated limitation: self-selection and a six-month follow-up constrain generalization.",
             f"Headline revenue: ${410000 + item_index * 27000}; growth: {8 + item_index} percent; churn: {5.4 - item_index * 0.1:.1f} percent.",
         ])
-    elif any(term in key for term in ("w-9", "w9", "coi", "certificate")):
+    elif contains_term(key, "w-9", "w9", "coi", "certificate"):
         details.extend([
             f"Legal name: Vendor Entity {item_index} LLC. TIN type: EIN. Address: {100 + item_index} Market St, Columbus, OH 43215.",
             f"Policy number: GL-{2026000 + item_index}. Carrier: Meridian Casualty. Limit: ${750000 if item_index % 7 == 0 else 2000000}.",
