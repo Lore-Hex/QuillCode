@@ -1166,4 +1166,8 @@ struct AgentRunLoopState: Sendable {
         flailDetector.recordAssessment()
         return true
     }
+
+    mutating func resetFlailDetectorAfterRecovery() {
+        flailDetector = FlailDetector()
+    }
 }

@@ -239,6 +239,9 @@ public struct AgentRunner: Sendable {
             let runStartedAt = Date()
             var hasEnteredBoundedRunFinalization = false
             var boundedRunFinalizationPath: String?
+            /// One successful confirmed research loop may spend the run's reserved finalization
+            /// path instead of discarding evidence that is already sufficient for a named artifact.
+            var hasRecoveredConfirmedFlailIntoFinalization = false
             /// Mechanical closure actions do not need another model turn once the model has
             /// authored a validator. They still execute through the normal tool and safety path.
             var pendingBoundedRunFinalizationAction: AgentAction?
@@ -2125,6 +2128,37 @@ public struct AgentRunner: Sendable {
                                 await onProgress?(next)
                             }
                         case .confirmed(let reason):
+                            if !hasRecoveredConfirmedFlailIntoFinalization,
+                               !hasEnteredBoundedRunFinalization,
+                               completion.result.ok,
+                               tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }),
+                               let path = runLoop.boundedRunFinalizationTargetPath() {
+                                hasRecoveredConfirmedFlailIntoFinalization = true
+                                hasEnteredBoundedRunFinalization = true
+                                boundedRunFinalizationPath = path
+                                actionRunner.turnDeadlineSeconds = min(
+                                    actionRunner.turnDeadlineSeconds
+                                        ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
+                                    Self.boundedRunFinalizationTurnDeadlineSeconds
+                                )
+                                runLoop.resetFlailDetectorAfterRecovery()
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                    .correctionPrompt(
+                                        path: path,
+                                        userMessage: userMessage,
+                                        phase: runLoop.boundedRunFinalizationPhase(at: path),
+                                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                    )
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: stopped repeated research and moved "
+                                        + "early into bounded finalization for ./\(path) using "
+                                        + "the retained evidence."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
                             // The nudge didn't help — stop honestly, summarizing from the latest step,
                             // with a distinct stopReason so this is never mistaken for a real finish.
                             appendAssistantMessage(Self.finalAnswer(
