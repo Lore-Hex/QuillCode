@@ -347,6 +347,7 @@ extension AgentPromisedWorkGuardTests {
             "The listed model is not eligible. Continuing research.",
             "Starting research on MacBook Pro 14-inch M4 (32GB/1TB).",
             "The product page is truncated. Let me try the browser to access the full page directly.",
+            "Amazon blocked the listing fetch. Trying the ASUS official product page next.",
         ]
         for text in stalls {
             XCTAssertEqual(

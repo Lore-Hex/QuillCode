@@ -249,7 +249,7 @@ enum AgentPromisedWorkGuard {
     private static let immediateWorkGerunds = [
         "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
         "running", "fetching", "searching", "updating", "editing", "building", "testing",
-        "starting", "continuing",
+        "starting", "continuing", "trying",
     ]
 
     private static let terminalProgressGerunds = ["starting", "continuing"]
