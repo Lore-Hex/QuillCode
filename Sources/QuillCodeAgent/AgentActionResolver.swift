@@ -215,6 +215,31 @@ extension AgentRunner {
                 // first, then spend a bounded corrective attempt telling the model to stop planning
                 // and emit the next action grounded in the tool output it actually has.
                 try Task.checkCancellation()
+                let shouldSwitchRoute = !usedFallback
+                    && fallbackLLM != nil
+                    && (reasoningBudgetPhase == .boundedFinalization
+                        || attempt >= Self.malformedActionCorrectionLimit)
+                if shouldSwitchRoute, let fallback = fallbackLLM {
+                    usedFallback = true
+                    activeLLM = fallback
+                    // Closure turns have only a short host reserve. Give the alternate route an
+                    // initial sample plus one correction, instead of replaying the full deadline
+                    // budget that the selected route already consumed.
+                    attempt = reasoningBudgetPhase == .boundedFinalization
+                        ? max(0, Self.malformedActionCorrectionLimit - 1)
+                        : 0
+                    emptyResponseAttempt = 0
+                    pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                        preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                    )
+                    thread.events.append(.init(
+                        kind: .notice,
+                        summary: Self.turnDeadlineFallbackSwitchNotice
+                    ))
+                    thread.updatedAt = Date()
+                    await onProgress?(thread)
+                    continue
+                }
                 guard attempt < Self.malformedActionCorrectionLimit else {
                     throw overrun
                 }

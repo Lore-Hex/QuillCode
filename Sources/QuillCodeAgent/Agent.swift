@@ -34,6 +34,8 @@ public struct AgentRunner: Sendable {
         + "switching to the fallback model for this step."
     static let reasoningFallbackSwitchNotice = "Self-healing: the model repeatedly exhausted its "
         + "reasoning budget without acting; switching to the fallback model for this step."
+    static let turnDeadlineFallbackSwitchNotice = "Self-healing: the model exhausted its turn "
+        + "deadline without acting; switching to the fallback model for this step."
     static let boundedFinalizationFallbackSwitchNotice = "Self-healing: the selected model "
         + "repeatedly rejected the required bounded-finalization action; switching closure to the "
         + "fallback model and retaining the selected route as standby."
@@ -522,7 +524,8 @@ public struct AgentRunner: Sendable {
                            next.events.contains(where: {
                                !priorEventIDs.contains($0.id)
                                    && ($0.summary == Self.fallbackSwitchNotice
-                                       || $0.summary == Self.reasoningFallbackSwitchNotice)
+                                       || $0.summary == Self.reasoningFallbackSwitchNotice
+                                       || $0.summary == Self.turnDeadlineFallbackSwitchNotice)
                            }) {
                             if !hasPromotedFallbackRoute {
                                 let displacedLLM = actionRunner.llm
@@ -681,6 +684,14 @@ public struct AgentRunner: Sendable {
                         else { throw error }
 
                         let enteredEarly = !hasEnteredBoundedRunFinalization
+                        // A deadline means `nextAction` already exhausted its bounded wall-clock
+                        // samples and alternate route for this step. Re-entering closure resets
+                        // those local counters and can otherwise loop until the host kills the run.
+                        // Reasoning-budget exhaustion still flows through the shared corrective
+                        // budget, which can advance deterministic artifact readback on exhaustion.
+                        if error is AgentTurnDeadlineExceededError {
+                            guard enteredEarly else { throw error }
+                        }
                         hasEnteredBoundedRunFinalization = true
                         boundedRunFinalizationPath = path
                         actionRunner.turnDeadlineSeconds = min(

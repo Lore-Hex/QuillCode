@@ -59,19 +59,22 @@ final class AgentTurnDeadlineTests: XCTestCase {
     private actor ScriptedState {
         var steps: [Result<AgentAction, Error>]
         private(set) var calls: [[ChatMessage]] = []
+        private(set) var userMessages: [String] = []
         init(_ steps: [Result<AgentAction, Error>]) { self.steps = steps }
-        func next(thread: ChatThread) throws -> AgentAction {
+        func next(thread: ChatThread, userMessage: String) throws -> AgentAction {
             calls.append(thread.messages)
+            userMessages.append(userMessage)
             guard !steps.isEmpty else { return .say("out of steps") }
             return try steps.removeFirst().get()
         }
         func recorded() -> [[ChatMessage]] { calls }
+        func recordedUserMessages() -> [String] { userMessages }
     }
 
     private struct ScriptedClient: LLMClient {
         let state: ScriptedState
         func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
-            try await state.next(thread: thread)
+            try await state.next(thread: thread, userMessage: userMessage)
         }
     }
 
@@ -160,6 +163,74 @@ final class AgentTurnDeadlineTests: XCTestCase {
         } catch {
             XCTFail("wrong error: \(error)")
         }
+    }
+
+    func testBoundedFinalizationDeadlineImmediatelySwitchesToFallback() async throws {
+        let primary = ScriptedState([
+            .failure(AgentTurnDeadlineExceededError(seconds: 60)),
+        ])
+        let fallback = ScriptedState([
+            .success(.say("fallback completed the correction")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            fallbackLLM: ScriptedClient(state: fallback)
+        )
+        var thread = ChatThread(title: "bounded fallback")
+
+        let action = try await runner.nextAction(
+            thread: &thread,
+            userMessage: "Write outputs/report.md.",
+            tools: [],
+            workspaceRoot: FileManager.default.temporaryDirectory,
+            onProgress: nil,
+            injectedCorrection: "Write the corrected report to outputs/report.md now.",
+            reasoningBudgetPhase: .boundedFinalization
+        )
+
+        XCTAssertEqual(action, .say("fallback completed the correction"))
+        let primaryCalls = await primary.recorded()
+        let fallbackCalls = await fallback.recorded()
+        XCTAssertEqual(primaryCalls.count, 1)
+        XCTAssertEqual(fallbackCalls.count, 1)
+        XCTAssertTrue(thread.events.contains {
+            $0.summary == AgentRunner.turnDeadlineFallbackSwitchNotice
+        })
+        let fallbackUserMessages = await fallback.recordedUserMessages()
+        XCTAssertTrue(fallbackUserMessages[0].contains("immediately preceding corrective instruction"))
+    }
+
+    func testBoundedFinalizationDeadlineDoesNotRestartAfterBothRoutesExhaust() async {
+        let primary = ScriptedState([
+            .failure(AgentTurnDeadlineExceededError(seconds: 60)),
+        ])
+        let fallback = ScriptedState([
+            .failure(AgentTurnDeadlineExceededError(seconds: 60)),
+            .failure(AgentTurnDeadlineExceededError(seconds: 60)),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            boundedRunFinalizationAfterSeconds: 0,
+            fallbackLLM: ScriptedClient(state: fallback)
+        )
+
+        do {
+            _ = try await runner.send(
+                "Write outputs/report.md.",
+                in: ChatThread(mode: .auto),
+                workspaceRoot: FileManager.default.temporaryDirectory
+            )
+            XCTFail("expected both exhausted routes to surface the deadline")
+        } catch is AgentTurnDeadlineExceededError {
+            // expected
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+
+        let primaryCalls = await primary.recorded()
+        let fallbackCalls = await fallback.recorded()
+        XCTAssertEqual(primaryCalls.count, 1)
+        XCTAssertEqual(fallbackCalls.count, 2)
     }
 
     func testHostBoundaryEntersFinalizationWithoutPriorToolWork() async throws {
