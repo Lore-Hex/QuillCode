@@ -101,23 +101,19 @@ extension QuillCodeDesktopController {
     }
 
     func toggleExtensions() {
-        paneCoordinator.toggleExtensions(on: model)
-        refresh()
+        paneCoordinator.toggleExtensions(on: model, surface: &surface)
     }
 
     func toggleMemories() {
-        paneCoordinator.toggleMemories(on: model)
-        refresh()
+        paneCoordinator.toggleMemories(on: model, surface: &surface)
     }
 
     func toggleActivity() {
-        paneCoordinator.toggleActivity(on: model)
-        refresh()
+        paneCoordinator.toggleActivity(on: model, surface: &surface)
     }
 
     func toggleAutomations() {
-        paneCoordinator.toggleAutomations(on: model)
-        refresh()
+        paneCoordinator.toggleAutomations(on: model, surface: &surface)
     }
 
     func openBrowserPreview() {
