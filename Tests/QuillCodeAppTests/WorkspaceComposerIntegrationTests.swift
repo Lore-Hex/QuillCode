@@ -426,6 +426,115 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Still running" } == true)
     }
 
+    func testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent() throws {
+        let model = QuillCodeWorkspaceModel()
+        let threadID = model.newChat()
+        let threadIndex = try XCTUnwrap(model.root.threads.firstIndex { $0.id == threadID })
+        model.root.threads[threadIndex].events.reserveCapacity(50_010)
+        for index in 0..<50_000 {
+            model.root.threads[threadIndex].events.append(
+                ThreadEvent(kind: .message, summary: "Semantic event \(index)")
+            )
+        }
+
+        var snapshot = try XCTUnwrap(model.selectedThread)
+        let initialModelStorage = storageAddress(of: model.root.threads[threadIndex].events)
+        XCTAssertEqual(storageAddress(of: snapshot.events), initialModelStorage)
+
+        snapshot.events.append(ThreadEvent(kind: .toolRunning, summary: "Running"))
+        let producerStorage = storageAddress(of: snapshot.events)
+        XCTAssertNotEqual(producerStorage, initialModelStorage)
+
+        model.beginAgentRun(
+            threadID: threadID,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        model.applyAgentProgress(snapshot, expectedThreadID: threadID)
+
+        XCTAssertEqual(model.root.threads[threadIndex].events, snapshot.events)
+        XCTAssertEqual(
+            storageAddress(of: model.root.threads[threadIndex].events),
+            initialModelStorage,
+            "a tail append should reuse the model-owned event buffer"
+        )
+        XCTAssertNotEqual(
+            storageAddress(of: model.root.threads[threadIndex].events),
+            producerStorage,
+            "the model must not retain the producer's large event buffer"
+        )
+
+        let producerStorageBeforeNextTick = storageAddress(of: snapshot.events)
+        snapshot.events[snapshot.events.index(before: snapshot.events.endIndex)].summary = "Still running"
+        XCTAssertEqual(
+            storageAddress(of: snapshot.events),
+            producerStorageBeforeNextTick,
+            "publishing progress must not make the producer clone its full history on the next mutation"
+        )
+
+        model.applyAgentProgress(snapshot, expectedThreadID: threadID)
+
+        XCTAssertEqual(model.root.threads[threadIndex].events, snapshot.events)
+        XCTAssertEqual(storageAddress(of: model.root.threads[threadIndex].events), initialModelStorage)
+    }
+
+    func testAgentProgressReconcilesStructuralHistoryWithoutSharingProducerStorage() throws {
+        let originalMessage = ChatMessage(role: .user, content: "Original")
+        let originalEvent = ThreadEvent(kind: .message, summary: "Original")
+        let liveAttachment = try XCTUnwrap(ChatAttachment(
+            displayName: "pending.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/pending.png"),
+            byteCount: 64
+        ))
+        var live = ChatThread(
+            messages: [originalMessage],
+            events: [originalEvent],
+            goal: ThreadGoal(objective: "Ship the feature"),
+            instructions: [
+                ProjectInstruction(path: "AGENTS.md", title: "Rules", content: "Use Swift.", byteCount: 10)
+            ],
+            memories: [
+                MemoryNote(
+                    id: "live-memory",
+                    scope: .project,
+                    title: "Live",
+                    content: "Keep this",
+                    relativePath: "live.md",
+                    byteCount: 9
+                )
+            ],
+            composerDraft: "A newer draft",
+            composerAttachments: [liveAttachment],
+            followUpQueue: [FollowUpItem(text: "Then run tests")]
+        )
+        var snapshot = live
+        snapshot.instructions = []
+        snapshot.memories = []
+        snapshot.messages = [ChatMessage(role: .assistant, content: "Compacted")]
+        snapshot.events = [ThreadEvent(kind: .notice, summary: "Compacted")]
+        snapshot.goal = nil
+        snapshot.composerDraft = nil
+        snapshot.composerAttachments = []
+        snapshot.followUpQueue = []
+        let producerMessageStorage = storageAddress(of: snapshot.messages)
+        let producerEventStorage = storageAddress(of: snapshot.events)
+
+        let mutation = WorkspaceAgentProgressThreadReconciler.reconcile(snapshot, into: &live)
+
+        XCTAssertEqual(live.messages, snapshot.messages)
+        XCTAssertEqual(live.events, snapshot.events)
+        XCTAssertNotEqual(storageAddress(of: live.messages), producerMessageStorage)
+        XCTAssertNotEqual(storageAddress(of: live.events), producerEventStorage)
+        XCTAssertEqual(live.instructions.first?.content, "Use Swift.")
+        XCTAssertEqual(live.memories.first?.id, "live-memory")
+        XCTAssertEqual(live.goal?.objective, "Ship the feature")
+        XCTAssertEqual(live.composerDraft, "A newer draft")
+        XCTAssertEqual(live.composerAttachments.map(\.id), [liveAttachment.id])
+        XCTAssertEqual(live.followUpQueue.map(\.text), ["Then run tests"])
+        XCTAssertEqual(mutation.messageMutation, .rebuild)
+        XCTAssertTrue(mutation.eventsAffectTranscript)
+    }
+
     func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
@@ -699,6 +808,12 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
 
         XCTAssertTrue(model.root.threads.isEmpty)
         XCTAssertEqual(model.composer.draft, "   ")
+    }
+
+    private func storageAddress<Element>(of values: [Element]) -> UInt {
+        values.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
     }
 
     private func waitUntil(

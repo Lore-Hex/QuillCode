@@ -120,6 +120,7 @@ extension QuillCodeWorkspaceModel {
             _ = discardConfidentialThreadOnExit()
         }
         let previousLocation = currentNavigationLocation
+        let isClaimingPendingComposer = root.selectedThreadID == nil
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
         // return watermark, mirroring the harness's newChat() → markTranscriptSeen.
         if let outgoing = root.selectedThreadID, outgoing != thread.id {
@@ -127,6 +128,9 @@ extension QuillCodeWorkspaceModel {
         }
         clearSidebarSelection()
         restoreComposerDraft(from: root.selectedThreadID, to: thread.id)
+        if isClaimingPendingComposer {
+            threadPersistence.deletePendingComposerDraft()
+        }
         root.threads.insert(thread, at: 0)
         sessionStartHookCoordinator.registerCreatedThread(thread.id, source: sessionStartSource)
         selectThreadRecord(thread.id, projectID: selectedProjectID)

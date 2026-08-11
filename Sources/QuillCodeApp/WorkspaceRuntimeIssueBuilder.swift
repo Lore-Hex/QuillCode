@@ -147,6 +147,17 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 recovery: .retry(reason: .emptyResponse)
             )
         }
+        if normalized.contains("model response exceeded") &&
+            normalized.contains("action safety limit") {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "Model response was too large",
+                message: "The selected model exceeded Quill Cowork's safe response limit. " +
+                    "Retry with a narrower request or switch models.",
+                actionLabel: "Switch model",
+                recovery: .modelPicker(reason: .malformedModelAction)
+            )
+        }
         if normalized.contains("valid quillcode action json") || normalized.contains("empty argument object") {
             return RuntimeIssueSurface(
                 severity: .warning,

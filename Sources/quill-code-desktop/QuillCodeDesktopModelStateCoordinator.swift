@@ -34,10 +34,65 @@ struct QuillCodeDesktopModelStateCoordinator {
         isComposerTaskRunning: Bool = false
     ) {
         let nextState = initialState(from: model)
+        reconcile(
+            nextState,
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft,
+            updatesComposer: true,
+            updatesTerminal: true,
+            updatesBrowser: true,
+            isComposerTaskRunning: isComposerTaskRunning
+        )
+    }
+
+    func refreshProgressState(
+        from model: QuillCodeWorkspaceModel,
+        scope: WorkspaceProgressSurfaceScope,
+        surface: inout WorkspaceSurface,
+        draft: inout String,
+        terminalDraft: inout String,
+        browserAddressDraft: inout String,
+        isComposerTaskRunning: Bool = false
+    ) {
+        let nextState = QuillCodeDesktopModelState(
+            surface: model.progressSurface(reusing: surface, scope: scope),
+            draft: model.composer.draft,
+            terminalDraft: model.terminal.draft,
+            browserAddressDraft: model.browser.addressDraft
+        )
+        reconcile(
+            nextState,
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft,
+            updatesComposer: scope.contains(.agent),
+            updatesTerminal: scope.contains(.terminal),
+            updatesBrowser: scope.contains(.agent),
+            isComposerTaskRunning: isComposerTaskRunning
+        )
+    }
+
+    private func reconcile(
+        _ nextState: QuillCodeDesktopModelState,
+        from model: QuillCodeWorkspaceModel,
+        surface: inout WorkspaceSurface,
+        draft: inout String,
+        terminalDraft: inout String,
+        browserAddressDraft: inout String,
+        updatesComposer: Bool,
+        updatesTerminal: Bool,
+        updatesBrowser: Bool,
+        isComposerTaskRunning: Bool
+    ) {
         let isComposerBusy = model.composer.isSending || isComposerTaskRunning
         surface = nextState.surface
 
-        if draft != nextState.draft, !isComposerBusy {
+        if updatesComposer, draft != nextState.draft, !isComposerBusy {
             draft = nextState.draft
         }
         // Rebuild from the LOCAL draft so slash/@-mention suggestions reflect live typing, but
@@ -49,25 +104,27 @@ struct QuillCodeDesktopModelStateCoordinator {
         // — otherwise both vanish on every controller-triggered refresh), and supportsPersonality
         // (drives whether personality slash suggestions appear; defaulting it true after a refresh
         // would surface `/personality` on models that don't support it).
-        surface.composer = ComposerSurface(
-            composer: ComposerState(
-                draft: draft,
-                attachments: model.composer.attachments,
-                isSending: isComposerBusy,
-                placeholder: nextState.surface.composer.placeholder,
-                focusToken: model.composer.focusToken
-            ),
-            fileMentionIndex: model.fileMentionIndex,
-            changedFilePaths: nextState.surface.changedFilePaths,
-            sentMessageHistory: nextState.surface.composer.sentMessageHistory,
-            planProgress: nextState.surface.composer.planProgress,
-            followUpQueue: model.selectedThread?.followUpQueue ?? [],
-            supportsPersonality: nextState.surface.composer.supportsPersonality
-        )
-        if terminalDraft != nextState.terminalDraft, !model.terminal.isRunning {
+        if updatesComposer {
+            surface.composer = ComposerSurface(
+                composer: ComposerState(
+                    draft: draft,
+                    attachments: model.composer.attachments,
+                    isSending: isComposerBusy,
+                    placeholder: nextState.surface.composer.placeholder,
+                    focusToken: model.composer.focusToken
+                ),
+                fileMentionIndex: model.fileMentionIndex,
+                changedFilePaths: nextState.surface.changedFilePaths,
+                sentMessageHistory: nextState.surface.composer.sentMessageHistory,
+                planProgress: nextState.surface.composer.planProgress,
+                followUpQueue: model.selectedThread?.followUpQueue ?? [],
+                supportsPersonality: nextState.surface.composer.supportsPersonality
+            )
+        }
+        if updatesTerminal, terminalDraft != nextState.terminalDraft, !model.terminal.isRunning {
             terminalDraft = nextState.terminalDraft
         }
-        if browserAddressDraft != nextState.browserAddressDraft {
+        if updatesBrowser, browserAddressDraft != nextState.browserAddressDraft {
             browserAddressDraft = nextState.browserAddressDraft
         }
     }

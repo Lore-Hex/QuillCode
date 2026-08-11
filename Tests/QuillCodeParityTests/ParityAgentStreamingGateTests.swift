@@ -5,6 +5,7 @@ final class ParityAgentStreamingGateTests: QuillCodeParityTestCase {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let actionResolverText = try Self.agentSourceText(named: "AgentActionResolver.swift")
         let streamingText = try Self.agentSourceText(named: "AgentActionStreaming.swift")
+        let cadenceText = try Self.agentSourceText(named: "AgentStreamingProgressCadence.swift")
         let textRunnerText = try Self.agentSourceText(named: "AgentTextStreamActionRunner.swift")
         let usageRunnerText = try Self.agentSourceText(named: "AgentUsageStreamActionRunner.swift")
         let rawCollectorText = try Self.agentSourceText(named: "AgentRawTextStreamActionCollector.swift")
@@ -16,7 +17,18 @@ final class ParityAgentStreamingGateTests: QuillCodeParityTestCase {
             "public enum AgentActionStreamCollector",
             "public enum AgentActionStreamPreview",
             "var rawActionText",
-            "AgentActionStreamPreview.visibleAssistantText"
+            "maximumActionUTF8Bytes",
+            "streamingActionTooLarge"
+        ])
+        Self.assertSource(streamingText, containsAll: [
+            "AgentVisibleAssistantPreviewCadence",
+            "AgentStreamingProgressCadence.minimumIntervalNanoseconds"
+        ])
+        Self.assertSource(cadenceText, containsAll: [
+            "struct AgentVisibleAssistantPreviewCadence",
+            "enum AgentStreamingProgressCadence",
+            "minimumIntervalNanoseconds: UInt64 = 50_000_000",
+            "finalPreview"
         ])
         Self.assertSource(actionResolverText, containsAll: [
             "nextTextStreamingAction",
@@ -27,9 +39,14 @@ final class ParityAgentStreamingGateTests: QuillCodeParityTestCase {
         Self.assertSource(rawCollectorText, contains: "AgentActionStreamCollector.collect")
         Self.assertSource(textCollectorText, contains: "AgentActionStreamCollector.collect")
         Self.assertSource(usageCollectorText, contains: "AgentActionStreamCollector.collect")
+        Self.assertSource(usageCollectorText, containsAll: [
+            "appendThrottled",
+            "finalPendingSummary"
+        ])
         Self.assertSource(draftPublisherText, containsAll: [
             "publishAssistantDraft",
-            "publishReasoningSummary"
+            "publishReasoningSummary",
+            "thread.events[lastIndex].summary = notice"
         ])
         Self.assertSource(agentText, excludesAll: [
             "public enum AgentActionStreamCollector",

@@ -52,6 +52,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var projectsFile: URL { home.appendingPathComponent("projects.json") }
     public var sidebarSavedSearchesFile: URL { home.appendingPathComponent("sidebar-saved-searches.json") }
     public var threadsDirectory: URL { home.appendingPathComponent("threads") }
+    public var composerDraftsDirectory: URL { home.appendingPathComponent("composer-drafts") }
     public var subagentThreadsDirectory: URL { home.appendingPathComponent("subagent-threads") }
     public var subagentApprovalPayloadsDirectory: URL { home.appendingPathComponent("subagent-approval-payloads") }
     public var attachmentsDirectory: URL { home.appendingPathComponent("attachments") }
@@ -87,6 +88,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public func ensure() throws {
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: threadsDirectory, withIntermediateDirectories: true)
+        try PrivateDirectory.ensureExists(at: composerDraftsDirectory)
         try FileManager.default.createDirectory(at: subagentThreadsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(
             at: subagentApprovalPayloadsDirectory,

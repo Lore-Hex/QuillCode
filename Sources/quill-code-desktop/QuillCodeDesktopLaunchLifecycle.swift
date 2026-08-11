@@ -75,9 +75,32 @@ struct QuillCodeDesktopUnexpectedExit: Identifiable, Equatable, Sendable {
     }
 
     var userMessage: String {
-        "The previous session ended \(phase.incidentDescription) without a normal quit. "
+        if requiresRecoveryStartup {
+            return "The previous session ended during startup. Automatic background work is paused "
+                + "for this launch to avoid repeating the problem, including project refreshes, "
+                + "automations, and account checks. Your saved workspace is available. Previous build: "
+                + "\(metadata.version) (\(metadata.build))."
+        }
+        return "The previous session ended \(phase.incidentDescription) without a normal quit. "
             + "Your saved workspace reopened, but work from an in-progress command may be incomplete. "
             + "Previous build: \(metadata.version) (\(metadata.build))."
+    }
+
+    var requiresRecoveryStartup: Bool {
+        phase == .starting
+    }
+}
+
+enum QuillCodeDesktopStartupMode: Equatable, Sendable {
+    case normal
+    case recovery
+
+    init(unexpectedExit: QuillCodeDesktopUnexpectedExit?) {
+        self = unexpectedExit?.requiresRecoveryStartup == true ? .recovery : .normal
+    }
+
+    var pausesAutomaticWorkspaceServices: Bool {
+        self == .recovery
     }
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var topBarState: TopBarState
@@ -84,10 +85,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             worktreeStatusDetail: worktreeStatus?.detail,
             worktreeStatusIsWarning: worktreeStatus?.isWarning ?? false,
             pullRequest: thread?.pullRequest,
-            branchStatusLabel: topBarState.branchStatus.flatMap { status in
-                let label = status.compactLabel
-                return label.isEmpty ? nil : label
-            },
+            branchStatusLabel: Self.branchStatusLabel(for: topBarState.branchStatus),
             usageStatusLabel: spendStatus == nil ? usageStatusLabel : nil,
             tokenBudget: tokenBudget,
             accountBalance: accountBalance,
@@ -98,6 +96,13 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             canNavigateBack: canNavigateBack,
             canNavigateForward: canNavigateForward
         )
+    }
+
+    static func branchStatusLabel(for status: GitBranchStatus?) -> String? {
+        status.flatMap { value in
+            let label = value.compactLabel
+            return label.isEmpty ? nil : label
+        }
     }
 
     private struct WorktreeStatus: Sendable, Hashable {

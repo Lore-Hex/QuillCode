@@ -95,17 +95,74 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let smokeText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchRecoverySmoke.swift")
         let reporterText = try Self.desktopSourceText(named: "QuillCodeDesktopIssueReporter.swift")
 
-        Self.assertSource(appText, contains: "launchLifecycleController?.startIfNeeded()")
-        Self.assertSource(rootViewText, contains: "launchLifecycleController?.markReady()")
+        Self.assertSource(appText, contains: "let unexpectedExit = launchLifecycleController?.startIfNeeded()")
+        Self.assertSource(appText, contains: "startupMode: QuillCodeDesktopStartupMode(")
+        Self.assertSource(rootViewText, contains: "await Task.yield()")
+        Self.assertSource(rootViewText, contains: "controller.completeStartupIfAllowed()")
+        Self.assertSource(rootViewText, contains: "controller.resumeAutomaticWorkspaceServices()")
+        Self.assertSource(rootViewText, contains: "continueWithAutomaticWorkspaceServicesPaused()")
         Self.assertSource(rootViewText, contains: "Quill Cowork closed unexpectedly")
+        Self.assertSource(rootViewText, contains: "Quill Cowork opened in recovery mode")
         Self.assertSource(rootViewText, contains: "controller.launchLifecycleController?.takeUnexpectedExit()")
         Self.assertSource(rootViewText, contains: "QuillCodeDesktopIssueReporter.open(")
         Self.assertSource(lifecycleText, contains: "flock(descriptor, LOCK_EX)")
         Self.assertSource(lifecycleText, contains: "record.launchID == launchID")
         Self.assertSource(lifecycleText, contains: "processIsRunning(record.processIdentifier)")
         Self.assertSource(lifecycleText, contains: "NSApplication.willTerminateNotification")
+        Self.assertSource(lifecycleText, contains: "var requiresRecoveryStartup: Bool")
         Self.assertSource(reporterText, contains: "## Previous session")
         Self.assertSource(appText, contains: "QuillCodeDesktopLaunchRecoverySmoke.runAndExit(request)")
         Self.assertSource(smokeText, contains: "try verify(home: root.home)")
+    }
+
+    func testDesktopCrashRecoveryCheckpointsLiveComposerDrafts() throws {
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let coordinatorText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopComposerDraftCheckpointCoordinator.swift"
+        )
+        let modelText = try Self.appSourceText(named: "WorkspaceModelComposerDraftPersistence.swift")
+        let persistenceText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Sources/QuillCodePersistence/ComposerDraftCheckpointStore.swift"),
+            encoding: .utf8
+        )
+        let downloadsText = try Self.docsText(named: "DOWNLOADS.md")
+        let crashSmokeText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopComposerDraftCrashSmoke.swift"
+        )
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let packagedSmokeText = try Self.scriptText(named: "packaged-macos-smoke.sh")
+
+        Self.assertSource(controllerText, contains: "composerDraftCheckpointCoordinator.schedule")
+        Self.assertSource(controllerText, contains: "model.updateLiveComposerDraft")
+        Self.assertSource(controllerText, contains: "isComposerDraftBindingSideEffectsSuppressed")
+        let composerActionsText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopController+ComposerAndPanes.swift"
+        )
+        Self.assertSource(composerActionsText, contains: "composerDraftCheckpointCoordinator.flush")
+        Self.assertSource(
+            composerActionsText,
+            contains: "isComposerDraftBindingSideEffectsSuppressed = true"
+        )
+        Self.assertSource(coordinatorText, contains: "defaultDelayNanoseconds: UInt64 = 350_000_000")
+        Self.assertSource(coordinatorText, contains: "ownerThreadID: model.selectedThread?.id")
+        Self.assertSource(coordinatorText, contains: "NSApplication.didResignActiveNotification")
+        Self.assertSource(coordinatorText, contains: "NSApplication.willTerminateNotification")
+        Self.assertSource(modelText, contains: "ownerThreadID == root.selectedThreadID")
+        Self.assertSource(modelText, contains: "threadPersistence.saveComposerDraft")
+        Self.assertSource(persistenceText, contains: "maximumDraftBytes = 1 * 1_024 * 1_024")
+        Self.assertSource(persistenceText, contains: "BoundedFileDataReader.readIfPresent")
+        Self.assertSource(persistenceText, contains: "filePermissions = 0o600")
+        Self.assertSource(downloadsText, contains: "Confidential and side-conversation drafts remain memory-only")
+        Self.assertSource(crashSmokeText, contains: "Darwin.kill(getpid(), SIGKILL)")
+        Self.assertSource(crashSmokeText, contains: "controller.model.composer.draft == expectedDraft")
+        Self.assertSource(crashSmokeText, contains: "controller.model.setDraft(\"\")")
+        Self.assertSource(
+            appText,
+            contains: "QuillCodeDesktopComposerDraftCrashSmoke.runAndExit"
+        )
+        Self.assertSource(packagedSmokeText, contains: "--composer-draft-crash-phase write")
+        Self.assertSource(packagedSmokeText, contains: "--composer-draft-crash-phase verify")
+        Self.assertSource(packagedSmokeText, contains: "COMPOSER_DRAFT_CRASH_STATUS\" -ne 137")
     }
 }

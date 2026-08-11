@@ -16,7 +16,8 @@ struct ParityFocusedSuiteManifest {
             "testTerminalRendererBehaviorTestsCoverScrollAndAlternateScreenParity"
         ]),
         Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
-            "testDesktopDefinesNativeMenuBarWidgetAndUnifiedCommandRouting"
+            "testDesktopDefinesNativeMenuBarWidgetAndUnifiedCommandRouting",
+            "testDesktopCrashRecoveryCheckpointsLiveComposerDrafts"
         ]),
         Suite(fileName: "ParityTopBarPresentationGateTests.swift", testNames: [
             "testTopBarViewsDelegateStatusPresentationSemantics",

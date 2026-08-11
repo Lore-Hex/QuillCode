@@ -70,6 +70,20 @@ struct QuillCodeDesktopApp: App {
             return
         }
 
+        if let request = QuillCodeDesktopComposerDraftCrashSmokeRequest(arguments: CommandLine.arguments) {
+            let workspaceRoot = QuillCodeDesktopComposerDraftCrashSmokeWorkspaceRoot(request: request)
+            let controller = workspaceRoot.makeController()
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopComposerDraftCrashSmoke.runAndExit(
+                    request,
+                    controller: controller,
+                    workspaceRoot: workspaceRoot
+                )
+            }
+            return
+        }
+
         if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
             let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
             let controller = workspaceRoot.makeController()
@@ -111,10 +125,11 @@ struct QuillCodeDesktopApp: App {
                 metadata: QuillCodeDesktopBuildMetadata.current(configuration: configuration)
             )
         }
-        _ = launchLifecycleController?.startIfNeeded()
+        let unexpectedExit = launchLifecycleController?.startIfNeeded()
         let controller = QuillCodeDesktopController(
             updateController: updateController,
             launchLifecycleController: launchLifecycleController,
+            startupMode: QuillCodeDesktopStartupMode(unexpectedExit: unexpectedExit),
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
         controller.startApplicationServices()

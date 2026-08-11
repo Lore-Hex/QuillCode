@@ -39,6 +39,9 @@ public final class QuillCodeWorkspaceModel {
     /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
     /// the running entry has been removed.
     var completedAgentRunStopReasons: [UUID: AgentRunStopReason] = [:]
+    /// One-shot structural hints for the next coalesced agent refresh. This deliberately stores no
+    /// transcript arrays, so publishing progress cannot retain a producer's large history buffers.
+    var agentTranscriptRefreshTracker = WorkspaceAgentTranscriptRefreshTracker()
     public private(set) var lastError: String?
     let startupLoadIssue: WorkspaceStartupLoadIssue?
 
@@ -180,6 +183,7 @@ public final class QuillCodeWorkspaceModel {
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
+        composerDraftStore: ComposerDraftCheckpointStore? = nil,
         threadLoadIssue: WorkspaceThreadLoadIssue? = nil,
         startupLoadIssue: WorkspaceStartupLoadIssue? = nil,
         projectStore: JSONProjectStore? = nil,
@@ -235,6 +239,7 @@ public final class QuillCodeWorkspaceModel {
         self.threadPersistenceIssueTracker = threadPersistenceIssueTracker
         self.threadPersistence = WorkspaceThreadPersistence(
             store: threadStore,
+            composerDraftStore: composerDraftStore,
             issueTracker: threadPersistenceIssueTracker
         )
         let registryPersistenceIssueTracker = WorkspaceRegistryPersistenceIssueTracker()

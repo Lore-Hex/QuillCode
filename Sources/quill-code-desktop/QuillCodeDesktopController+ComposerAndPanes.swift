@@ -4,6 +4,9 @@ import QuillCodeApp
 @MainActor
 extension QuillCodeDesktopController {
     func send() {
+        composerDraftCheckpointCoordinator.flush(on: model)
+        isComposerDraftBindingSideEffectsSuppressed = true
+        defer { isComposerDraftBindingSideEffectsSuppressed = false }
         if composerCoordinator.openBrowserSessionFromSlashIfNeeded(
             draft: &draft,
             model: model,
@@ -20,19 +23,22 @@ extension QuillCodeDesktopController {
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
             refresh: { [weak self] in self?.refresh() },
-            progressRefresh: { [weak self] in self?.scheduleProgressRefresh() },
+            progressRefresh: { [weak self] in self?.scheduleProgressRefresh(.agent) },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }
 
     func retryLastTurn() {
+        composerDraftCheckpointCoordinator.flush(on: model)
+        isComposerDraftBindingSideEffectsSuppressed = true
+        defer { isComposerDraftBindingSideEffectsSuppressed = false }
         composerCoordinator.retryLastTurn(
             draft: &draft,
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
             refresh: { [weak self] in self?.refresh() },
-            progressRefresh: { [weak self] in self?.scheduleProgressRefresh() },
+            progressRefresh: { [weak self] in self?.scheduleProgressRefresh(.agent) },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }
@@ -43,7 +49,7 @@ extension QuillCodeDesktopController {
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
             refresh: { [weak self] in self?.refresh() },
-            progressRefresh: { [weak self] in self?.scheduleProgressRefresh() },
+            progressRefresh: { [weak self] in self?.scheduleProgressRefresh(.agent) },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }

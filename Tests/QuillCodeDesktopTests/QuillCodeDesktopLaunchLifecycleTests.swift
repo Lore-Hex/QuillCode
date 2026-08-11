@@ -33,6 +33,8 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         let incident = try XCTUnwrap(second.unexpectedExit)
         XCTAssertEqual(incident.phase, .ready)
         XCTAssertEqual(incident.metadata.build, "697")
+        XCTAssertFalse(incident.requiresRecoveryStartup)
+        XCTAssertEqual(QuillCodeDesktopStartupMode(unexpectedExit: incident), .normal)
         XCTAssertTrue(incident.userMessage.contains("in-progress command may be incomplete"))
 
         try fixture.store.finishLaunch(launchID: second.currentRecord.launchID)
@@ -44,6 +46,120 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         )
         XCTAssertNil(third.unexpectedExit)
         try fixture.store.finishLaunch(launchID: third.currentRecord.launchID)
+    }
+
+    func testStartingUnexpectedExitRequestsRecoveryStartup() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+
+        _ = try fixture.store.beginLaunch(
+            metadata: metadata(build: "697"),
+            now: referenceDate,
+            processIdentifier: 11_001,
+            processIsRunning: { _ in false }
+        )
+        let recovery = try fixture.store.beginLaunch(
+            metadata: metadata(build: "698"),
+            now: referenceDate.addingTimeInterval(10),
+            processIdentifier: 11_002,
+            processIsRunning: { _ in false }
+        )
+        let incident = try XCTUnwrap(recovery.unexpectedExit)
+
+        XCTAssertEqual(incident.phase, .starting)
+        XCTAssertTrue(incident.requiresRecoveryStartup)
+        XCTAssertEqual(QuillCodeDesktopStartupMode(unexpectedExit: incident), .recovery)
+        XCTAssertTrue(incident.userMessage.contains("background work is paused"))
+        XCTAssertTrue(incident.userMessage.contains("saved workspace is available"))
+        try fixture.store.finishLaunch(launchID: recovery.currentRecord.launchID)
+    }
+
+    func testAutomaticWorkspaceServicesWaitForFirstWindowBoundary() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        XCTAssertEqual(QuillCodeDesktopStartupMode(unexpectedExit: nil), .normal)
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 12_001)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            startupMode: .normal
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+
+        XCTAssertFalse(controller.automaticWorkspaceServicesArePaused)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
+        XCTAssertFalse(controller.tasks.isRunning(.automationTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .starting)
+
+        controller.completeStartupIfAllowed()
+
+        XCTAssertTrue(controller.automaticWorkspaceServicesStarted)
+        XCTAssertTrue(controller.tasks.isRunning(.automationTicker))
+        XCTAssertTrue(controller.tasks.isRunning(.modelCatalogRefreshTicker))
+        XCTAssertTrue(controller.tasks.isRunning(.trustedRouterCreditsRefreshTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+
+        controller.completeStartupIfAllowed()
+
+        XCTAssertTrue(controller.automaticWorkspaceServicesStarted)
+        XCTAssertTrue(controller.tasks.isRunning(.automationTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+    }
+
+    func testRecoveryStartupKeepsServicesPausedUntilUserResumes() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 13_001)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            startupMode: .recovery
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+
+        controller.completeStartupIfAllowed()
+        XCTAssertTrue(controller.automaticWorkspaceServicesArePaused)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
+        XCTAssertFalse(controller.tasks.isRunning(.automationTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .starting)
+
+        controller.resumeAutomaticWorkspaceServices()
+
+        XCTAssertFalse(controller.automaticWorkspaceServicesArePaused)
+        XCTAssertTrue(controller.automaticWorkspaceServicesStarted)
+        XCTAssertTrue(controller.tasks.isRunning(.automationTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+    }
+
+    func testRecoveryStartupCanRemainPausedAndStillBecomeReady() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 14_001)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            startupMode: .recovery
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+
+        controller.continueWithAutomaticWorkspaceServicesPaused()
+
+        XCTAssertTrue(controller.automaticWorkspaceServicesArePaused)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
+        XCTAssertFalse(controller.tasks.isRunning(.automationTicker))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
     }
 
     func testLivePriorProcessDoesNotProduceFalseCrashReport() throws {
@@ -282,6 +398,44 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
             channel: "tester",
             architecture: "arm64",
             operatingSystem: "macOS 15.0.0"
+        )
+    }
+
+    private func makeLifecycle(
+        fixture: Fixture,
+        processIdentifier: Int32
+    ) -> QuillCodeDesktopLaunchLifecycleController {
+        QuillCodeDesktopLaunchLifecycleController(
+            store: fixture.store,
+            metadata: metadata(),
+            notificationCenter: NotificationCenter(),
+            now: { self.referenceDate },
+            processIdentifier: processIdentifier,
+            processIsRunning: { _ in false }
+        )
+    }
+
+    private func makeController(
+        fixture: Fixture,
+        lifecycle: QuillCodeDesktopLaunchLifecycleController,
+        startupMode: QuillCodeDesktopStartupMode
+    ) -> QuillCodeDesktopController {
+        let paths = QuillCodePaths(home: fixture.root.appendingPathComponent("state"))
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        return QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            automationNotifier: LaunchLifecycleNoopNotifier(),
+            updateController: QuillCodeDesktopUpdateController(configuration: nil, installResultURL: nil),
+            installationLocationController: QuillCodeDesktopInstallationLocationController(
+                configuration: nil
+            ),
+            launchLifecycleController: lifecycle,
+            startupMode: startupMode,
+            workspaceRoot: fixture.root
         )
     }
 

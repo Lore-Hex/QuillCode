@@ -27,7 +27,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     }
 
     @MainActor
-    public func makeModel() throws -> QuillCodeWorkspaceModel {
+    public func makeModel(
+        automaticStartupPolicy: WorkspaceAutomaticStartupPolicy = .startImmediately
+    ) throws -> QuillCodeWorkspaceModel {
         var unreadableDataKinds: [WorkspaceStartupDataKind] = []
         do {
             try paths.ensure()
@@ -42,6 +44,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             unreadableDataKinds.append(.configuration)
         }
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let composerDraftStore = ComposerDraftCheckpointStore(directory: paths.composerDraftsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
@@ -135,6 +138,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
+            composerDraftStore: composerDraftStore,
             startupLoadIssue: WorkspaceStartupLoadIssue(
                 loadedThreadCount: threads.count,
                 threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
@@ -166,8 +170,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )
         )
-        model.enforceManagedWorktreeRetention()
-        model.scheduleSelectedPullRequestReconciliation()
+        if automaticStartupPolicy == .startImmediately {
+            model.startAutomaticStartupWork()
+        }
         return model
     }
 

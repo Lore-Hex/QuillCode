@@ -1,5 +1,125 @@
 # QuillCode Decisions
 
+## 2026-08-10: Computer Use status refresh is event-driven and task-owned
+
+- **Decision:** Workspace surface projection no longer polls Computer Use permissions or launches a
+  foreground-application query. Automatic startup performs one explicit refresh, and macOS
+  application-activation notifications request later refreshes only when the foreground app can
+  actually change. Returning from Computer Use system settings uses the same path.
+- **Bounded work:** Foreground queries occupy one replaceable desktop task slot. A newer activation
+  cancels the prior owner, generation checks reject late backend results, and cancellation is checked
+  before model mutation. Repeated surface refreshes therefore retain no lookup tasks or provider
+  subprocesses. Status and foreground values publish only when they changed.
+- **Recovery boundary:** Activation observation begins with automatic workspace services, so startup
+  recovery keeps this optional work paused. Native Computer Use remains installed for explicit user
+  actions, and resolving the optional CUA driver schedules a fresh status query after the backend swap.
+- **Evidence:** Coordinator tests prove 1,000 real controller surface projections perform zero
+  permission reads and foreground lookups beyond installation, activation observation installs once,
+  late results cannot replace newer applications, and canceled work cannot mutate the model. Desktop
+  task and progress-projection parity gates require cancellable ownership and reject Computer Use work
+  from the presentation path.
+
+## 2026-08-10: startup failures reopen with automatic workspace work paused
+
+- **Decision:** Controller construction now loads and projects the usable workspace without starting
+  managed-worktree retention, pull-request reconciliation, project context and mention indexing,
+  due automations, refresh tickers, account requests, or optional Computer Use driver discovery.
+  A yielded first-window task starts that work once and then marks the launch ready.
+- **Crash-loop boundary:** An active launch record left in the `starting` phase selects recovery
+  startup on the next process. The workspace opens, but automatic background work remains paused and
+  the launch remains classified as starting until the user chooses either **Keep Background Work
+  Paused** or **Resume Background Work**. The first choice marks the usable paused session ready; the
+  second starts the same idempotent normal service set before marking it ready. Ready-state exits keep
+  the existing warning because they are not evidence that startup work caused the failure.
+- **Availability boundary:** Draft lifecycle flushes, update recovery and automatic update checks,
+  issue reporting, the installed-location recovery path, native Computer Use capability, and all
+  explicit workspace actions remain available. The optional foreground-app lookup and CUA driver
+  resolution are deferred and owned by a cancellable task slot instead of escaping controller
+  lifecycle ownership.
+- **Evidence:** `QuillCodeDesktopLaunchLifecycleTests` covers first-window deferral, both recovery
+  choices, phase transitions, and normal ready incidents. `QuillCodeDesktopComputerUseCoordinatorTests`
+  proves the startup lookup can remain dormant. Packaged launch-recovery smoke and desktop parity
+  gates pin the executable and release architecture paths.
+
+## 2026-08-10: agent transcript progress projects only proven tail changes
+
+- **Decision:** Reconciliation classifies each presentation-cadence snapshot as transcript
+  unchanged, one assistant-tail replacement, one assistant-tail append, or full rebuild. It also
+  marks message/tool/approval events and execution-context changes as projection-relevant. The next
+  coalesced agent refresh may reuse the selected transcript or patch that one tail only when the
+  model has an authoritative published baseline and every accumulated mutation remains compatible.
+- **Correctness boundary:** Hints are consumed once. A missing or changed baseline, changed message
+  identity or role, persisted message-event ambiguity, tool lifecycle mutation, structural history
+  change, project-context change, or incompatible coalesced sequence falls back to the complete
+  transcript projector. The incremental result is regression-tested against the authoritative
+  surface, including 50,000-event selected histories and 10,000-message background histories.
+- **Memory boundary:** The tracker retains only enum cases and UUIDs, never messages, events, tool
+  cards, timelines, or producer snapshots. Assistant streaming therefore reuses the already-reduced
+  tool-card buffer, and background progress reuses every selected transcript buffer, without
+  reintroducing copy-on-write coupling between the producer and workspace model.
+- **Evidence:** `WorkspaceAgentTranscriptRefreshTrackerTests`, `WorkspaceProgressSurfaceTests`,
+  `ParityDesktopTaskCoordinationGateTests`, the complete 5,831-test Swift suite, and release-packaged
+  native smoke with launch, resident-memory, repeated-interaction, and Accessibility budgets.
+
+## 2026-08-10: agent progress keeps producer and model histories independently owned
+
+- **Decision:** Presentation-cadence progress reconciles identified message, context, event, and
+  subagent histories into the model's existing arrays. Matching records update in place, new tails
+  append, truncated tails are removed, and identity changes trigger a detached structural rebuild.
+- **Memory and CPU boundary:** The model never retains the agent producer's large array storage.
+  After a callback returns, the producer can mutate its next streamed tail without a transcript-sized
+  copy-on-write clone, while the model also retains and reuses its own capacity. Reconciliation scans
+  the overlapping history without allocating; persistence still repairs legacy reasoning bursts and
+  returns healthy arrays unchanged.
+- **State ownership:** Instructions, memories, goals, composer drafts and attachments, and queued
+  follow-ups stay model-owned because they can change after the agent captures its send-start copy.
+  Completion remains the authoritative full-snapshot boundary, and destroyed ephemeral chats retain
+  their existing non-resurrection guard.
+- **Evidence:**
+  `WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent`
+  proves two independent 50,000-event buffers survive successive ticks; the structural-history test,
+  `ThreadEventLogCompactorTests`, `JSONThreadStoreTests`, `ParityAgentStreamingGateTests`, and
+  `ParityWorkspaceThreadMutationModelGateTests` cover exact replacement, durable repair, and ownership.
+
+## 2026-08-10: model streams publish at presentation cadence
+
+- **Decision:** Provider token cadence is no longer desktop presentation cadence. Visible assistant
+  drafts and reasoning summaries publish at most every 50 milliseconds while preserving an immediate
+  first update and an exact final flush on both successful and failed streams.
+- **Memory and CPU boundary:** A streamed action is limited to 16 MiB of UTF-8. The collector stops
+  before appending an over-limit chunk, and non-`say` actions stop repeated preview parsing as soon as
+  their action type is known. This bounds retained response data and removes provider-token-driven
+  parsing and full-thread copying that cannot become visible.
+- **Recovery:** An over-limit response becomes a focused warning with narrower-request guidance and a
+  direct model-picker action. Usage and the latest bounded reasoning summary remain committed on
+  failure, and the newest safe visible draft is not discarded when a provider disconnects.
+- **Evidence:** `TrustedRouterStreamingActionTests` deterministically reduces a 4,096-fragment answer
+  to two draft publications under one cadence window, verifies success and failure final flushes, and
+  rejects UTF-8 overflow. `WorkspaceRuntimeIssueBuilderTests` and `ParityAgentStreamingGateTests`
+  protect the recovery surface, shared cadence, final-flush ownership, and response limit.
+
+## 2026-08-10: live composer drafts checkpoint outside large transcripts
+
+- **Decision:** The desktop synchronizes its live composer binding into model memory immediately, then
+  debounces durable writes for 350 milliseconds. App deactivation and termination flush pending work.
+  Every delayed request retains its original optional thread identity and is ignored if selection has
+  changed before it runs.
+- **Persistence:** Standard drafts use private `0600` per-thread records beneath a `0700` directory.
+  Records are schema-checked, owner-checked, symlink-safe on read, and bounded to one MiB of draft text.
+  A nil draft is a tombstone, so a stale full-thread snapshot cannot resurrect sent or cleared text.
+  The first checkpoint makes an unsaved new chat durable; later typing does not serialize its transcript.
+- **Recovery:** A pending first message without a thread owner has a separate checkpoint and transfers
+  to the created chat. Oversized or unavailable sidecar storage removes stale checkpoint authority and
+  falls back to the established atomic full-thread save. Deleting a chat removes both stores.
+- **Privacy:** Confidential and side-conversation drafts remain memory-only. The same runtime-context
+  guard that excludes their transcripts also excludes checkpoint files.
+- **Evidence:** `ComposerDraftCheckpointStoreTests`,
+  `WorkspaceComposerDraftIntegrationTests`,
+  `QuillCodeDesktopComposerDraftCheckpointCoordinatorTests`, and
+  `ParityDesktopGateTests/testDesktopCrashRecoveryCheckpointsLiveComposerDrafts` cover storage bounds,
+  permissions, malformed/symlink rejection, burst coalescing, lifecycle flushes, relaunch, tombstones,
+  fallback, cleanup, selection races, and confidential-session exclusion.
+
 ## 2026-08-09: releases update from the untouched previous public app
 
 - **Decision:** Download Builds captures the current public manifest and matching arm64 and x86_64

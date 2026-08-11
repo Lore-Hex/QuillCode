@@ -1,5 +1,80 @@
 # Code Quality Audit
 
+## 2026-08-10 Independently Owned Agent Progress Histories
+
+Overall grade after this slice: **A+ progress ownership, A+ memory scaling, A+ structural recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Main-actor cost | A+ | Matching histories reconcile in place with no temporary history array; structural identity changes use one detached rebuild. |
+| Memory scaling | A+ | The model and producer keep independent buffers, so neither side causes the other's next streamed mutation to clone the complete transcript. |
+| State ownership | A+ | Live instructions, memories, goals, drafts, attachments, and follow-up queues cannot be rolled back by a stale send-start snapshot. |
+| Structural recovery | A+ | Appends, in-place updates, truncation, compaction, and reordered identities all produce exact snapshot semantics without retaining producer storage. |
+| Regression evidence | A+ | A two-tick 50,000-event test checks both buffer addresses and exact values; structural and parity gates protect fallback and routing. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent|WorkspaceComposerIntegrationTests/testAgentProgressReconcilesStructuralHistoryWithoutSharingProducerStorage|ThreadEventLogCompactorTests|JSONThreadStoreTests|ParityAgentStreamingGateTests|ParityWorkspaceThreadMutationModelGateTests'`
+- `swift test --disable-sandbox` (5,813 tests; 5 skipped; 0 failures)
+- Packaged direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  accessibility, and two interaction-sweep smokes passed
+- Optimized packaged performance: 263.64 ms median launch-ready, 90.42 MiB initial, 149.52 MiB
+  post-interaction, and 153.95 MiB repeated-interaction memory with 4.44 MiB repeated-sweep
+  growth across 3/3 passing processes
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-10 Crash-Safe Composer Draft Checkpoints
+
+Overall grade after this slice: **A+ crash recovery, A+ persistence boundaries, A+ typing-path cost**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash recovery | A+ | Unsent text survives abrupt exits after a short debounce, with immediate deactivate/quit flushes and pending-first-message recovery. |
+| Ownership safety | A+ | Every delayed write is bound to its original chat identity and cannot cross a rapid selection change. |
+| Persistence architecture | A+ | Small private sidecars avoid serializing large transcripts while typing; tombstones, one-time new-chat baselines, and full-thread fallback keep recovery authoritative. |
+| Privacy and bounds | A+ | One-MiB draft bounds, bounded no-follow reads, owner/schema checks, `0700`/`0600` permissions, and runtime-context guards keep confidential/side text memory-only. |
+| Runtime behavior | A+ | Live model synchronization prevents unrelated background refreshes from erasing text during the debounce window. |
+| Regression evidence | A+ | Focused store, model lifecycle, desktop debounce, lifecycle notification, fallback, deletion, relaunch, and parity tests cover the complete boundary. |
+
+Validation:
+
+- Focused checkpoint, lifecycle, path, and desktop parity boundary: 29 tests, 0 failures
+- Authoritative full Swift suite: 5,804 tests, 5 skipped, 0 failures
+- Packaged writer terminated by `SIGKILL` (status 137); a fresh packaged process restored the exact
+  unsent text and persisted a tombstone after clearing it
+- Packaged direct-executable, Launch Services, live-window, accessibility, interaction, screenshot,
+  and Computer Use smokes passed
+- Packaged performance: 277.41 ms median launch-ready, 98.62 MiB initial, 155.12 MiB
+  post-interaction, and 159.81 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-10 Bounded Streaming Presentation Cadence
+
+Overall grade after this slice: **A+ bounded streaming, A+ progress efficiency, A+ failure recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Response bounds | A+ | Every streamed action shares a 16 MiB UTF-8 limit, checked before append with a typed error and focused desktop recovery. |
+| Presentation efficiency | A+ | Visible drafts and bounded reasoning summaries publish at the existing 50 ms desktop cadence instead of rebuilding growing JSON and thread snapshots for every provider token. |
+| Per-action work | A+ | Once a stream is classified as a tool action, preview parsing stops; answer streams retain immediate first text and a forced exact terminal preview. |
+| Failure semantics | A+ | The latest safe answer and reasoning summary flush before a stream error propagates, while usage remains committed through the existing failure path. |
+| Architecture | A+ | Cadence policy lives in a focused agent type and is shared by answer and reasoning projection without coupling provider transport to SwiftUI. |
+| Regression evidence | A+ | Deterministic tests reduce 4,096 rapid fragments to two draft callbacks and cover success/error flushing, UTF-8 overflow, reasoning coalescing, recovery UX, and parity ownership. |
+
+Validation:
+
+- `swift test --filter 'TrustedRouterStreamingActionTests|AgentStreamingTests|WorkspaceRuntimeIssueBuilderTests|ParityAgentStreamingGateTests'` (35 tests, 0 failures)
+- `swift test --filter 'AgentMalformedActionRecoveryTests|AgentPromisedWorkGuardTests|AgentStreamingTests|RetryingLLMClientTests|ParityAgentStreamingGateTests|ParityTrustedRouterActionParsingGateTests'` (77 tests, 0 failures)
+- Full Swift suite: 5,809 tests, 5 skipped, 0 failures
+- Packaged direct-executable, Launch Services, SIGKILL draft recovery, live-window, Accessibility,
+  and two-pass interaction smokes passed
+- Packaged performance passed 3/3 fresh processes: 272.59 ms median launch-ready, 98.80 MiB
+  initial RSS, 158.42 MiB after interaction, and 163.12 MiB after repeated interaction
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-10 Durable Update Reminders
 
 Overall grade after this slice: **A+ interruption UX, A+ update freshness, A+ bounded persistence**.
