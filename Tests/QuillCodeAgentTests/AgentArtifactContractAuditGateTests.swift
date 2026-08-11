@@ -66,6 +66,26 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("333.952"))
     }
 
+    func testRejectsLatestPeriodTableRowWithValueBeforeLabel() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | 330.724 |
+        """
+        let artifact = """
+        | Year | CPI basis | Type |
+        | --- | --- | --- |
+        | 2026 | **325.252** | latest published monthly index - January 2026 benchmark |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("jan 2026 at 325.252"), issue)
+        XCTAssertTrue(issue.contains("Jun 2026 at 333.952"), issue)
+    }
+
     func testAllowsLatestPeriodClaimPairedBySourceHeader() {
         let evidence = """
         | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
@@ -245,6 +265,26 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("11 published values"), issue)
         XCTAssertTrue(issue.contains("322.536"), issue)
         XCTAssertTrue(issue.contains("Oct"), issue)
+    }
+
+    func testRejectsAnnualAverageTableValueBeforeTypeLabel() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2024 | 308.417 | 310.326 | 312.332 | 313.548 | 314.069 | 314.175 | 314.540 | 314.796 | 315.301 | 315.664 | 315.493 | 315.605 |
+        """
+        let artifact = """
+        | Year | CPI basis | Type |
+        | --- | --- | --- |
+        | 2024 | **314.556** | annual average |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("313.688833"), issue)
+        XCTAssertTrue(issue.contains("314.556"), issue)
     }
 
     func testAllowsAnnualProxyDerivedFromRetainedMonthlySourceTable() {

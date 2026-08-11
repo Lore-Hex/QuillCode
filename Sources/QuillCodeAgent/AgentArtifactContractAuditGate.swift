@@ -12,6 +12,7 @@ enum AgentArtifactContractAuditGate {
     }
 
     static let correctionLimitPerPath = 3
+    static let sourceContradictionCorrectionLimitPerPath = 8
 
     static let sourceTableIntegrityInstruction = """
         When evidence is tabular, align every value with its exact source header. Never relabel a \
@@ -143,6 +144,12 @@ enum AgentArtifactContractAuditGate {
         let normalized = AgentArtifactVerificationGate.normalizedPath(path)
         return "Stopped because ./\(normalized) still lacked a successful deterministic "
             + "contract audit after \(correctionLimitPerPath) corrective attempts."
+    }
+
+    static func sourceContradictionExhaustionReason(path: String, issue: String) -> String {
+        let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+        return "Stopped because ./\(normalized) still contradicted authoritative source evidence "
+            + "after \(sourceContradictionCorrectionLimitPerPath) repair attempts: \(issue)"
     }
 
     static func evidenceContradiction(
@@ -539,6 +546,24 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func aggregateClaim(for year: String, in lines: [String]) -> NumericCapture? {
+        for line in lines {
+            let cells = pipeCells(line)
+            guard let yearIndex = cells.firstIndex(where: {
+                normalizedTableLabel($0) == year
+            }), let aggregateIndex = cells.firstIndex(where: { cell in
+                let label = normalizedTableLabel(cell)
+                return ["mean", "average", "proxy"].contains(where: label.contains)
+            }), yearIndex != aggregateIndex else { continue }
+
+            let lower = min(yearIndex, aggregateIndex)
+            let upper = max(yearIndex, aggregateIndex)
+            for index in cells.indices.reversed() where index > lower && index < upper {
+                if let claim = singleNumericCell(cells[index]) {
+                    return claim
+                }
+            }
+        }
+
         let escapedYear = NSRegularExpression.escapedPattern(for: year)
         let pattern = "(?i)\\b\(escapedYear)\\b[^\\n]{0,220}\\b(?:mean|average|proxy)\\b"
             + "[^\\n]{0,220}?(\\d[\\d,]*\\.\\d+)"
@@ -574,6 +599,17 @@ enum AgentArtifactContractAuditGate {
         evidenceReceipt: String
     ) -> String? {
         for observation in latestPeriodObservations(in: evidenceReceipt) {
+            if let claimed = latestPeriodClaim(
+                for: observation.rowLabel,
+                in: artifact
+            ), !periodLabelsMatch(claimed.periodLabel, observation.periodLabel)
+                || !decimalValuesMatch(claimed.value, observation.value) {
+                return "The artifact identifies \(claimed.periodLabel) \(observation.rowLabel) "
+                    + "at \(claimed.value) as the latest eligible period, but the retained source "
+                    + "table's rightmost published monthly observation is "
+                    + "\(observation.periodLabel) \(observation.rowLabel) at \(observation.value)."
+            }
+
             let row = NSRegularExpression.escapedPattern(for: observation.rowLabel)
             let period = orderedPeriodPattern(for: observation.periodLabel)
             let metric = "(?:index|benchmark|observation|value)"
@@ -595,6 +631,46 @@ enum AgentArtifactContractAuditGate {
                         + "eligible period must be selected by header/value position."
                 }
             }
+        }
+        return nil
+    }
+
+    private static func periodLabelsMatch(_ left: String, _ right: String) -> Bool {
+        let left = left.casefolded
+        let right = right.casefolded
+        return orderedPeriodAliases.contains { aliases in
+            aliases.contains(left) && aliases.contains(right)
+        }
+    }
+
+    private static func latestPeriodClaim(
+        for row: String,
+        in artifact: String
+    ) -> PeriodObservation? {
+        let rowPattern = "\\b" + NSRegularExpression.escapedPattern(for: row) + "\\b"
+        for line in artifact.components(separatedBy: .newlines) {
+            guard line.range(of: rowPattern, options: [.regularExpression, .caseInsensitive]) != nil,
+                  line.range(of: #"\blatest\b"#, options: [.regularExpression, .caseInsensitive])
+                    != nil,
+                  let periodIndex = orderedPeriodAliases.firstIndex(where: { aliases in
+                      aliases.contains(where: { alias in
+                          line.range(
+                            of: "\\b" + NSRegularExpression.escapedPattern(for: alias) + "\\b",
+                            options: [.regularExpression, .caseInsensitive]
+                          ) != nil
+                      })
+                  })
+            else { continue }
+
+            let valuePattern = #"\b\d{2,8}\.\d+\b"#
+            guard let valueRange = line.range(of: valuePattern, options: .regularExpression) else {
+                continue
+            }
+            return .init(
+                rowLabel: row,
+                periodLabel: orderedPeriodAliases[periodIndex][0],
+                value: String(line[valueRange])
+            )
         }
         return nil
     }

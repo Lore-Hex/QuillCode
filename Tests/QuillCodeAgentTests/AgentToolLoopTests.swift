@@ -592,6 +592,65 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.stopReason, .finished, diagnostics)
     }
 
+    func testBoundedFinalizationStopsInsteadOfAuditingPersistentlyContradictorySourceClaims()
+        async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/series"])
+        )
+        let incorrectWrites = (1...9).map { revision in
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/report.md",
+                    "content": "The latest January 2026 index is 325.252 (revision \(revision)).",
+                ])
+            )
+        }
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [.tool(fetch)] + incorrectWrites.map(AgentAction.tool)),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    return ToolResult(ok: true, stdout: """
+                    | Year | Jan | Feb | Mar | Apr | May | Jun | HALF1 |
+                    | --- | --- | --- | --- | --- | --- | --- | --- |
+                    | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | 330.724 |
+                    """)
+                }
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 16,
+            boundedRunFinalizationAfterSeconds: 0.05
+        )
+
+        let result = try await runner.send(
+            "Research the official table, write outputs/report.md with the latest monthly index, "
+                + "run a deterministic validator, and read the saved output back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let diagnostics = result.thread.events.map(\.summary).joined(separator: "\n")
+        guard case .flailDetected(let reason) = result.stopReason else {
+            return XCTFail("expected fail-closed source contradiction stop, got \(result.stopReason)")
+        }
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(validatorCallCount, 0, diagnostics)
+        XCTAssertEqual(
+            diagnostics.components(separatedBy: "rejected source-contradictory artifact").count - 1,
+            AgentArtifactContractAuditGate.sourceContradictionCorrectionLimitPerPath,
+            diagnostics
+        )
+        XCTAssertTrue(reason.contains("authoritative source evidence"), reason)
+        XCTAssertTrue(reason.contains("Jun 2026"), reason)
+        XCTAssertTrue(reason.contains("333.952"), reason)
+    }
+
     func testBoundedRunFinalizationRejectsValidatorThatOnlyCommentsRequiredCSV() async throws {
         let root = try makeTempDirectory()
         let inputs = root.appendingPathComponent("inputs")

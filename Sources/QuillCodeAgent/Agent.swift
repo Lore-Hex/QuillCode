@@ -892,9 +892,25 @@ public struct AgentRunner: Sendable {
                             among: [AgentArtifactVerificationGate.normalizedPath(path)]
                         ).isEmpty
                     if isValidatorProposal,
-                       sourceContradictionCorrectionCounts[path, default: 0]
-                        < AgentArtifactContractAuditGate.correctionLimitPerPath,
                        let issue = runLoop.authoritativeEvidenceContradiction(at: path) {
+                        if sourceContradictionCorrectionCounts[path, default: 0]
+                            >= AgentArtifactContractAuditGate
+                                .sourceContradictionCorrectionLimitPerPath {
+                            let reason = AgentArtifactContractAuditGate
+                                .sourceContradictionExhaustionReason(path: path, issue: issue)
+                            appendAssistantMessage(reason, to: &next)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: \(reason)"
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            return AgentRunResult(
+                                thread: next,
+                                toolResults: runLoop.toolResults,
+                                stopReason: .flailDetected(reason: reason)
+                            )
+                        }
                         sourceContradictionCorrectionCounts[path, default: 0] += 1
                         pendingRepeatNudge = AgentBoundedRunFinalizationGate
                             .evidenceContradictionCorrectionPrompt(
@@ -2059,9 +2075,28 @@ public struct AgentRunner: Sendable {
                                     Self.boundedRunFinalizationTurnDeadlineSeconds
                                 )
                             }
-                            if sourceContradictionCorrectionCounts[auditPath, default: 0]
-                                < AgentArtifactContractAuditGate.correctionLimitPerPath,
-                               let issue = runLoop.authoritativeEvidenceContradiction(at: auditPath) {
+                            if let issue = runLoop.authoritativeEvidenceContradiction(at: auditPath) {
+                                if sourceContradictionCorrectionCounts[auditPath, default: 0]
+                                    >= AgentArtifactContractAuditGate
+                                        .sourceContradictionCorrectionLimitPerPath {
+                                    let reason = AgentArtifactContractAuditGate
+                                        .sourceContradictionExhaustionReason(
+                                            path: auditPath,
+                                            issue: issue
+                                        )
+                                    appendAssistantMessage(reason, to: &next)
+                                    next.events.append(.init(
+                                        kind: .notice,
+                                        summary: "Self-healing: \(reason)"
+                                    ))
+                                    next.updatedAt = Date()
+                                    await onProgress?(next)
+                                    return AgentRunResult(
+                                        thread: next,
+                                        toolResults: runLoop.toolResults,
+                                        stopReason: .flailDetected(reason: reason)
+                                    )
+                                }
                                 sourceContradictionCorrectionCounts[auditPath, default: 0] += 1
                                 pendingRepeatNudge = AgentBoundedRunFinalizationGate
                                     .evidenceContradictionCorrectionPrompt(
