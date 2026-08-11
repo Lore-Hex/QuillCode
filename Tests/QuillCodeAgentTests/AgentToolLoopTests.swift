@@ -69,6 +69,48 @@ final class AgentToolLoopTests: XCTestCase {
         )
     }
 
+    func testRequiredStructuredInputBindingAcceptsPathAliasPassedToReader() {
+        func validator(content: String) -> ToolCall {
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/validate-report.py",
+                    "content": content,
+                ])
+            )
+        }
+
+        let grounded = validator(content: """
+        import csv
+        SOURCE_PATH = "inputs/records.csv"
+        rows = list(csv.DictReader(open(SOURCE_PATH, newline="")))
+        report = open("outputs/report.md").read()
+        assert rows and report
+        """)
+        let assignmentOnly = validator(content: """
+        SOURCE_PATH = "inputs/records.csv"
+        report = open("outputs/report.md").read()
+        assert SOURCE_PATH and report
+        """)
+
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.missingRequiredStructuredInputBindings(
+                in: grounded,
+                deliverablePath: "outputs/report.md",
+                requiredInputPaths: ["inputs/records.csv"]
+            ),
+            []
+        )
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.missingRequiredStructuredInputBindings(
+                in: assignmentOnly,
+                deliverablePath: "outputs/report.md",
+                requiredInputPaths: ["inputs/records.csv"]
+            ),
+            ["inputs/records.csv"]
+        )
+    }
+
     func testValidatorBindingCorrectionIncludesRejectedProposalAndAcceptedReaderShape() {
         let proposed = ToolCall(
             name: ToolDefinition.fileWrite.name,

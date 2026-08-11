@@ -430,9 +430,33 @@ enum AgentBoundedRunFinalizationGate {
         let readers = #"(?:open|Path|read_csv|read_json|read_excel|readFileSync|readFile|"#
             + #"File\.(?:read|open)|CSV\.(?:read|foreach))"#
         let pattern = "(?is)\\b\(readers)\\s*\\([^\\n]{0,240}\(escapedPath)"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
         let range = NSRange(normalizedExecutable.startIndex..., in: normalizedExecutable)
-        return regex.firstMatch(in: normalizedExecutable, range: range) != nil
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           regex.firstMatch(in: normalizedExecutable, range: range) != nil {
+            return true
+        }
+
+        let assignmentPattern = #"(?im)(?:^|[;\s])(?:const\s+|let\s+|var\s+|my\s+)?"#
+            + #"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[\"'](?:\./)?"#
+            + escapedPath
+            + #"[\"']"#
+        guard let assignmentRegex = try? NSRegularExpression(pattern: assignmentPattern) else {
+            return false
+        }
+
+        return assignmentRegex.matches(in: normalizedExecutable, range: range).contains { match in
+            guard let identifierRange = Range(match.range(at: 1), in: normalizedExecutable) else {
+                return false
+            }
+            let identifier = NSRegularExpression.escapedPattern(
+                for: String(normalizedExecutable[identifierRange])
+            )
+            let aliasReadPattern = "(?is)\\b\(readers)\\s*\\([^\\n]{0,240}\\b\(identifier)\\b"
+            guard let aliasReadRegex = try? NSRegularExpression(pattern: aliasReadPattern) else {
+                return false
+            }
+            return aliasReadRegex.firstMatch(in: normalizedExecutable, range: range) != nil
+        }
     }
 
     private static func shellQuoted(_ value: String) -> String {
