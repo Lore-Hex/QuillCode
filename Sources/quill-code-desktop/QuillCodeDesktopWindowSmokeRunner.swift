@@ -219,8 +219,10 @@ enum QuillCodeDesktopWindowSmokeRunner {
             window.displayIfNeeded()
             contentView.layoutSubtreeIfNeeded()
 
-            let image = try capture(contentView: contentView, bounds: bounds, to: url)
-            let stats = try QuillCodeDesktopSmokePixelStats(image: image)
+            let stats = try autoreleasepool {
+                let image = try capture(contentView: contentView, bounds: bounds, to: url)
+                return try QuillCodeDesktopSmokePixelStats(image: image)
+            }
 
             do {
                 try validateImageStats(stats)
