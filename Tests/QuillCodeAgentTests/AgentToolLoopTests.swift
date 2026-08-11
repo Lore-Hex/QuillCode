@@ -53,9 +53,12 @@ final class AgentToolLoopTests: XCTestCase {
             completedResearchActions: 2
         )
 
-        XCTAssertTrue(prompt.contains("exactly one direct research tool call"), prompt)
+        XCTAssertTrue(prompt.contains("Return exactly one executable tool call"), prompt)
+        XCTAssertTrue(prompt.contains("If the retained evidence already supports every"), prompt)
+        XCTAssertTrue(prompt.contains("one host.file.write call"), prompt)
+        XCTAssertTrue(prompt.contains("make exactly one direct research call"), prompt)
         XCTAssertTrue(prompt.contains("Search snippets are discovery only"), prompt)
-        XCTAssertTrue(prompt.contains("Do not delegate, write the artifact"), prompt)
+        XCTAssertTrue(prompt.contains("Do not delegate, patch the artifact"), prompt)
         XCTAssertTrue(prompt.contains("10 targeted research action(s) remain"), prompt)
     }
 
@@ -91,6 +94,45 @@ final class AgentToolLoopTests: XCTestCase {
 
         XCTAssertNotNil(issue)
         XCTAssertTrue(issue?.contains("row-oriented") == true, issue ?? "")
+    }
+
+    func testTransposedComparisonWithEvidenceGapsReopensDirectResearch() {
+        let request = """
+        Compare at least three currently purchasable exact configurations. In one table, give each \
+        configuration's exact model, current price, CPU, GPU, RAM, storage, and source URL. Do not \
+        use unknown or not verified gaps.
+        """
+        let transposed = """
+        | Field | Alpha | Beta | Gamma |
+        |---|---|---|---|
+        | Exact model | Alpha 14 | Beta 15 | Gamma 16 |
+        | Current price | Not verified | $1,600 | Blocked |
+        | CPU | A | B | Unknown |
+        | GPU | D | E | F |
+        | RAM | 32 GB | 32 GB | 32 GB |
+        | Storage | 1 TB | 1 TB | 1 TB |
+        | Source URL | https://example.test/a | https://example.test/b | https://example.test/c |
+        """
+        let call = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": transposed,
+            ])
+        )
+
+        let issue = AgentBoundedRunFinalizationGate.proposedDeliverableContradiction(
+            in: call,
+            deliverablePath: "outputs/report.md",
+            evidenceReceipt: "$1,600",
+            userMessage: request
+        )
+
+        XCTAssertNotNil(issue)
+        XCTAssertTrue(issue?.contains("row-oriented") == true, issue ?? "")
+        XCTAssertTrue(issue?.contains("unresolved central-field gaps") == true, issue ?? "")
+        XCTAssertTrue(issue?.contains("Obtain direct source evidence") == true, issue ?? "")
+        XCTAssertTrue(AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(for: issue ?? ""))
     }
 
     func testBoundedAuditAllowsPatchTargetingOnlyDeliverable() {

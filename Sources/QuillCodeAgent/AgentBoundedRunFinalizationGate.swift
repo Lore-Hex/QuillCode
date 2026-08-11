@@ -406,6 +406,7 @@ enum AgentBoundedRunFinalizationGate {
             locale: .current
         )
         return normalized.contains("obtain direct price evidence")
+            || normalized.contains("obtain direct source evidence")
             || normalized.contains("no exact retained price observation")
             || normalized.contains("unresolved pricing evidence")
     }
@@ -423,15 +424,16 @@ enum AgentBoundedRunFinalizationGate {
 
         \(issue)
 
-        Reopen only a bounded, targeted evidence-recovery step. Make exactly one direct research \
-        tool call now with host.web.search, host.web.fetch, or an available host.browser.* read \
-        tool. Target one exact configuration and one missing central field named above. Search \
-        snippets are discovery only: use host.web.fetch on a direct product or measurement URL \
-        before treating a price or specification as verified. Do not delegate, write the artifact, \
-        run a validator, or answer with prose on this turn. After enough direct observations exist \
-        for every required candidate and field, rewrite ./\(path) with one candidate per table row. \
-        The host will preflight that complete rewrite before saving it. \(remaining) targeted \
-        research action(s) remain in this recovery window.
+        Reopen only a bounded, targeted evidence-recovery step. Return exactly one executable tool \
+        call now. If the retained evidence already supports every required candidate and central \
+        field, use one host.file.write call to rewrite all of ./\(path), with one candidate per \
+        table row. Otherwise make exactly one direct research call with host.web.search, \
+        host.web.fetch, or an available host.browser.* read tool, targeting one exact configuration \
+        and one missing central field named above. Search snippets are discovery only: use \
+        host.web.fetch on a direct product or measurement URL before treating a price or \
+        specification as verified. Do not delegate, patch the artifact, run a validator, or answer \
+        with prose on this turn. The host will preflight any complete rewrite before saving it. \
+        \(remaining) targeted research action(s) remain in this recovery window.
 
         Original request requirements:
         \(originalRequestExcerpt(userMessage))

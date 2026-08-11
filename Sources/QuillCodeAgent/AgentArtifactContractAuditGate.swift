@@ -840,12 +840,16 @@ enum AgentArtifactContractAuditGate {
         userMessage: String
     ) -> [String] {
         guard let contract = minimumComparisonTableContract(in: userMessage) else { return [] }
+        let evidenceRecoveryClause = comparisonEvidenceRecoveryClause(
+            artifact: artifact,
+            contract: contract
+        )
         let tables = markdownTables(in: artifact)
         guard !tables.isEmpty else {
             return [
                 "The original request requires a comparison table with at least "
                     + "\(contract.minimumRows) \(contract.entityName) rows, but the artifact has "
-                    + "no machine-readable Markdown table.",
+                    + "no machine-readable Markdown table.\(evidenceRecoveryClause)",
             ]
         }
 
@@ -917,14 +921,16 @@ enum AgentArtifactContractAuditGate {
                 "The original request requires at least \(contract.minimumRows) "
                     + "\(contract.entityName) as table rows, but no table has a row-oriented "
                     + "\(contract.entityName) or model column. A transposed field-by-product table "
-                    + "does not establish the required qualifying row count.",
+                    + "does not establish the required qualifying row count."
+                    + evidenceRecoveryClause,
             ]
         }
         if !closestMissingFields.isEmpty {
             return [
                 "The comparison table is missing required field columns from the original "
                     + "request: \(closestMissingFields.joined(separator: ", ")). Add those columns "
-                    + "before accepting the model-authored validator.",
+                    + "before accepting the model-authored validator."
+                    + evidenceRecoveryClause,
             ]
         }
 
@@ -935,8 +941,19 @@ enum AgentArtifactContractAuditGate {
         return [
             "The original request requires at least \(contract.minimumRows) complete qualifying "
                 + "\(contract.entityName) rows, but the best row-oriented table has "
-                + "\(maximumQualifyingRows)\(ceilingClause)\(gapClause).",
+                + "\(maximumQualifyingRows)\(ceilingClause)\(gapClause)."
+                + evidenceRecoveryClause,
         ]
+    }
+
+    private static func comparisonEvidenceRecoveryClause(
+        artifact: String,
+        contract: MinimumComparisonTableContract
+    ) -> String {
+        guard contract.rejectsGaps, containsUnresolvedComparisonGap(artifact) else { return "" }
+        return " The saved artifact still records unresolved central-field gaps. Obtain direct "
+            + "source evidence for those fields before rewriting; do not turn gaps into "
+            + "unsupported claims."
     }
 
     private static func minimumComparisonTableContract(
@@ -1046,10 +1063,19 @@ enum AgentArtifactContractAuditGate {
         let normalized = normalizedTableLabel(cell)
         guard !normalized.isEmpty else { return false }
         guard rejectsGaps else { return true }
-        let gapPattern = #"\b(?:not\s+(?:verified|specified|available)|unverified|unknown|unavailable|unclear|varies|tbd|todo|n/?a|confirm\s+exact|estimated|approx(?:imately)?|about)\b"#
+        let gapPattern = unresolvedComparisonGapPattern
         let approximationPattern = #"(?:^|\s)~\s*\d"#
         return normalized.range(of: gapPattern, options: .regularExpression) == nil
             && normalized.range(of: approximationPattern, options: .regularExpression) == nil
+    }
+
+    private static let unresolvedComparisonGapPattern = #"\b(?:not\s+(?:verified|specified|available)|unverified|unknown|unavailable|unclear|varies|tbd|todo|n/?a|confirm\s+exact|estimated|approx(?:imately)?|about|blocked)\b"#
+
+    private static func containsUnresolvedComparisonGap(_ artifact: String) -> Bool {
+        artifact.range(
+            of: unresolvedComparisonGapPattern,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
     }
 
     private static func delegatedPriceVerificationContradictions(
