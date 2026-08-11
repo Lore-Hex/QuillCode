@@ -139,8 +139,10 @@ enum AgentBoundedRunFinalizationGate {
             The command must include ./\(path), print a concise PASS summary, and exit nonzero with \
             named failures. If the validator needs a multiline script, write one validator helper \
             first and then execute it against ./\(path). If validation fails, you may read the \
-            saved ./\(path) once to inspect the exact failing content. Then rewrite only the complete \
-            named deliverable and validate it again.
+            saved ./\(path) once to inspect the exact failing content. Repair and completely rewrite \
+            the named deliverable only when a source-grounded assertion is correct. If the validator \
+            crashed or its parser or expected value is wrong, repair the validator helper while \
+            preserving source-correct artifact content, then validate again.
 
             \(authoritativeEvidenceSection(evidenceReceipt))
             """

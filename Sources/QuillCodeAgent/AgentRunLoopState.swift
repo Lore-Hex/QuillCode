@@ -483,8 +483,22 @@ struct AgentRunLoopState: Sendable {
                 )
                 for path in auditedPaths {
                     failedContractAuditCallSignaturesByWorkspacePath[path] = signature
-                    failedContractAuditReceiptsByWorkspacePath[path] =
-                        Self.failedContractAuditReceipt(from: completion.result)
+                    let validatorReceipt = Self.failedContractAuditReceipt(from: completion.result)
+                    if let content = currentArtifactText(at: path, workspaceRoot: workspaceRoot),
+                       let evidenceReceipt = latestResearchEvidenceReceipt,
+                       let issue = AgentArtifactContractAuditGate.evidenceContradiction(
+                           artifact: content,
+                           evidenceReceipt: evidenceReceipt
+                       ) {
+                        failedContractAuditReceiptsByWorkspacePath[path] = """
+                        VALIDATION REJECTED: \(issue)
+
+                        Validator execution also failed:
+                        \(validatorReceipt)
+                        """
+                    } else {
+                        failedContractAuditReceiptsByWorkspacePath[path] = validatorReceipt
+                    }
                 }
                 return
             }

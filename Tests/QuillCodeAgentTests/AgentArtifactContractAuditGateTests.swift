@@ -86,6 +86,26 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("Jun 2026 at 333.952"), issue)
     }
 
+    func testRejectsLatestPeriodClaimOnTask126MultiValueRow() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | | | | | | 330.724 | |
+        """
+        let artifact = """
+        | Year | CPI basis selected | Value | Note |
+        | --- | --- | --- | --- |
+        | 2026 (target) | Latest published monthly index = **July 2026** | 333.952 | No full-year 2026 CPI value exists; Jan-Jun are published. |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("jul 2026 at 333.952"), issue)
+        XCTAssertTrue(issue.contains("Jun 2026 at 333.952"), issue)
+    }
+
     func testAllowsLatestPeriodClaimPairedBySourceHeader() {
         let evidence = """
         | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
@@ -570,6 +590,17 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
         XCTAssertFalse(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
             "ModuleNotFoundError: No module named 'pandas'"
+        ))
+        XCTAssertFalse(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "Traceback (most recent call last):\n  File \"validate.py\", line 19\nKeyError: 2023"
+        ))
+        XCTAssertFalse(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "Traceback (most recent call last):\n  File \"validate.py\", line 21\n"
+                + "ValueError: invalid format string"
+        ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "VALIDATION REJECTED: July conflicts with June source data.\n\n"
+                + "Traceback (most recent call last):\nKeyError: 2026"
         ))
     }
 

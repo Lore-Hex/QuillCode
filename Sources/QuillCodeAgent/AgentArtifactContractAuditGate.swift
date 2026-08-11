@@ -230,6 +230,9 @@ enum AgentArtifactContractAuditGate {
     /// itself from running, such as syntax, import, path, or interpreter errors.
     static func failedAuditRequiresDeliverableRepair(_ receipt: String) -> Bool {
         let normalized = receipt.casefolded
+        if normalized.contains("validation rejected:") {
+            return true
+        }
         let validatorExecutionFailures = [
             "syntaxerror", "indentationerror", "taberror", "nameerror",
             "modulenotfounderror", "importerror", "filenotfounderror",
@@ -237,6 +240,15 @@ enum AgentArtifactContractAuditGate {
             "command not found", "permission denied", "unknown option",
         ]
         if validatorExecutionFailures.contains(where: normalized.contains) {
+            return false
+        }
+        let runtimeFailures = [
+            "keyerror", "valueerror", "typeerror", "indexerror", "attributeerror",
+            "unboundlocalerror", "zerodivisionerror", "overflowerror", "oserror",
+            "runtimeerror", "referenceerror", "rangeerror",
+        ]
+        if normalized.contains("traceback (most recent call last):"),
+           runtimeFailures.contains(where: normalized.contains) {
             return false
         }
         return !normalized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1000,6 +1012,28 @@ enum AgentArtifactContractAuditGate {
             else { continue }
 
             let valuePattern = #"\b\d{2,8}\.\d+\b"#
+            let periodAliases = orderedPeriodAliases.flatMap { $0 }
+                .map(NSRegularExpression.escapedPattern(for:))
+                .joined(separator: "|")
+            let explicitPairPattern = "(?i)\\b(\(periodAliases))\\b"
+                + "\\s+(?:\\*{1,2})?\\s*\(rowPattern)\\b"
+                + "[^0-9\\n]{0,64}(\(valuePattern))"
+            if let regex = try? NSRegularExpression(pattern: explicitPairPattern),
+               let match = regex.firstMatch(
+                   in: line,
+                   range: NSRange(line.startIndex..., in: line)
+               ),
+               let periodRange = Range(match.range(at: 1), in: line),
+               let valueRange = Range(match.range(at: 2), in: line) {
+                let period = String(line[periodRange]).casefolded
+                let canonical = orderedPeriodAliases.first(where: { $0.contains(period) })?.first
+                    ?? period
+                return .init(
+                    rowLabel: row,
+                    periodLabel: canonical,
+                    value: String(line[valueRange])
+                )
+            }
             guard let valueRegex = try? NSRegularExpression(pattern: valuePattern) else { continue }
             let lineRange = NSRange(line.startIndex..., in: line)
             let valueMatches = valueRegex.matches(in: line, range: lineRange)

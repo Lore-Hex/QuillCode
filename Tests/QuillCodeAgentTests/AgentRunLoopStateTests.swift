@@ -827,6 +827,57 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testCrashingValidatorRetainsAuthoritativeSourceContradiction() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: """
+        Calculate every row, run a deterministic validator, and save outputs/report.md.
+        """)
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: """
+            | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | HALF1 |
+            | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+            | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | 330.724 |
+            """),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": """
+                | Year | CPI basis selected | Value |
+                | --- | --- | --- |
+                | 2026 (target) | Latest published monthly index = July 2026 | 333.952 |
+                """,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        let audit = shellCall(
+            "python3 validate.py outputs/report.md # validator assertions"
+        )
+        _ = state.recordCompletedStep(
+            completed(
+                call: audit,
+                stdout: "Traceback (most recent call last):\nKeyError: 2026",
+                ok: false
+            ),
+            workspaceRoot: root
+        ) { _ in "audit" }
+
+        let receipt = try XCTUnwrap(state.failedContractAuditReceipt(at: "outputs/report.md"))
+        XCTAssertTrue(receipt.contains("VALIDATION REJECTED: The artifact identifies jul 2026"))
+        XCTAssertTrue(receipt.contains("Validator execution also failed"))
+        XCTAssertTrue(receipt.contains("KeyError: 2026"))
+        XCTAssertTrue(state.requiresContractAuditDeliverableRepair(at: "outputs/report.md"))
+    }
+
     func testResearchEvidenceLedgerKeepsStrongestObservationForRepeatedURL() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(
