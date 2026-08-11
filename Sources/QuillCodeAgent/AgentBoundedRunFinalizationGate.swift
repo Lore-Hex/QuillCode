@@ -280,17 +280,15 @@ enum AgentBoundedRunFinalizationGate {
 
         \(issue)
 
-        Repair only the fields named by this issue with one host.apply_patch call targeting \
-        exactly ./\(path). Preserve every unmentioned byte and source-grounded field; do not \
-        rewrite the complete artifact for a narrow contradiction. Recompute every dependent \
-        aggregate, amount, rate, and conclusion implicated by the issue. Treat each \
-        host-computed expected value in the issue and source aggregate reference as canonical: \
-        copy it verbatim instead of independently recomputing it. Omit optional intermediate \
-        factors or subtotals when they are not required. The patch must be a raw git unified diff \
-        with exact current context. Do not write or run a validator on this turn. If one exact \
-        patch cannot be formed, host.file.write for the same deliverable remains the fallback, but \
-        its content must preserve every unmentioned field verbatim. The deterministic audit will \
-        resume against the complete saved artifact after the mutation.
+        Rewrite the complete artifact with one host.file.write call targeting exactly ./\(path). \
+        Preserve every source-grounded field that is not implicated by the issue, and repair every \
+        dependent aggregate, amount, rate, and conclusion. Source aggregate references computed \
+        from retained evidence are canonical inputs. Arithmetic expected values in the issue only \
+        diagnose the operands currently displayed in the artifact: if a source-input operand must \
+        change, recompute all dependent values from the corrected operands instead of copying a \
+        stale arithmetic result. Omit optional intermediate factors or subtotals when they are not \
+        required. Do not use host.apply_patch and do not write or run a validator on this turn. \
+        The deterministic audit will resume against the complete saved artifact after the write.
 
         Original request requirements (authoritative over prior draft text and any \
         model-authored validator):
@@ -303,8 +301,8 @@ enum AgentBoundedRunFinalizationGate {
             attempt: attempt,
             limit: limit,
             alternatives: [
-                "patch only the contradictory fields in ./\(path), copy every host-computed "
-                    + "expected value verbatim, and omit optional intermediate numeric claims",
+                "rewrite ./\(path) completely with host.file.write, using canonical source inputs "
+                    + "and recomputing every dependent value from those corrected inputs",
             ]
         )
     }

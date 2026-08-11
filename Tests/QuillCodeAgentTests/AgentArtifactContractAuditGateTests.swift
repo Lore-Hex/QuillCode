@@ -387,6 +387,44 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testMonthlyMeanAuditUsesSelectedCPIColumnInsteadOfNominalRevenue() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 |
+        """
+        let artifact = """
+        ### 2025 observed-month proxy
+
+        | Month | 2025 CPI |
+        |---|---|
+        | Jan | 317.671 |
+        | Feb | 319.082 |
+        | Mar | 319.799 |
+        | Apr | 320.795 |
+        | May | 321.465 |
+        | Jun | 322.561 |
+        | Jul | 323.048 |
+        | Aug | 323.976 |
+        | Sep | 324.800 |
+        | Nov | 324.122 |
+        | Dec | 324.054 |
+
+        Mean = 322.852. This is an observed-month proxy.
+
+        | fiscal_year | nominal_revenue_usd | selected CPI basis | real_revenue_usd |
+        |---|---|---|---|
+        | 2025 | $6,000,000 | 322.852 (proxy) | $6,206,290 |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("not 322.852"), issue)
+        XCTAssertFalse(issue.contains("not $6,000,000"), issue)
+    }
+
     func testRejectsWrongProxyColumnWithoutTreatingNominalRevenueAsClaim() throws {
         let evidence = """
         | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |

@@ -705,7 +705,7 @@ enum AgentArtifactContractAuditGate {
 
             let candidates = table.headers.indices.compactMap { index -> (Int, NumericCapture)? in
                 guard index != yearIndex, index < row.count,
-                      let claim = singleNumericCell(row[index])
+                      let claim = aggregateNumericCell(row[index])
                 else { return nil }
                 let header = normalizedTableLabel(table.headers[index])
                 guard tableHeaderSignals.contains(where: header.contains),
@@ -733,7 +733,10 @@ enum AgentArtifactContractAuditGate {
             let lower = min(yearIndex, aggregateIndex)
             let upper = max(yearIndex, aggregateIndex)
             for index in cells.indices.reversed() where index > lower && index < upper {
-                if let claim = singleNumericCell(cells[index]) {
+                if let claim = singleNumericCell(cells[index]),
+                   !claim.raw.hasPrefix("$"),
+                   !claim.raw.hasPrefix("€"),
+                   !claim.raw.hasPrefix("£") {
                     return claim
                 }
             }
@@ -751,6 +754,22 @@ enum AgentArtifactContractAuditGate {
             return claim
         }
         return nil
+    }
+
+    private static func aggregateNumericCell(_ raw: String) -> NumericCapture? {
+        if let claim = singleNumericCell(raw) { return claim }
+
+        let trimmed = raw.replacingOccurrences(of: "`", with: "")
+            .replacingOccurrences(of: "**", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = #"^(-?\d[\d,]*(?:\.\d+)?)\s*\([^)]*(?:mean|average|proxy)[^)]*\)$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(
+                  in: trimmed,
+                  range: NSRange(trimmed.startIndex..., in: trimmed)
+              )
+        else { return nil }
+        return numericCapture(1, in: match, text: trimmed)
     }
 
     private static func isMonthLabel(_ raw: String) -> Bool {
