@@ -60,6 +60,12 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)
         let controller = workspaceRoot.makeController()
         XCTAssertTrue(controller.model.root.trustedRouterAPIKeyConfigured)
+        XCTAssertFalse(
+            QuillCodeDesktopAccessibilityActivationSampler.applicableActivationContractIDs(
+                includesInitialSurface: true,
+                controller: controller
+            ).contains("onboarding.developer-key")
+        )
         XCTAssertEqual(
             try QuillCodeDesktopDailyDriverSmokeFixture.validate(
                 workloadID: request.performanceWorkloadID,
@@ -67,6 +73,28 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
                 workspaceRoot: workspaceRoot
             ),
             .dailyDriver100Chats
+        )
+    }
+
+    func testActivationSamplerRequiresOnboardingForUnconfiguredFirstRun() throws {
+        let parent = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let stateRoot = parent.appendingPathComponent("first-run", isDirectory: true)
+        let request = try XCTUnwrap(QuillCodeDesktopWindowSmokeRequest(arguments: [
+            "Quill Cowork",
+            "--native-window-smoke",
+            "--window-smoke-state-root",
+            stateRoot.path
+        ]))
+        let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)
+        let controller = workspaceRoot.makeController()
+
+        XCTAssertFalse(controller.model.root.trustedRouterAPIKeyConfigured)
+        XCTAssertTrue(
+            QuillCodeDesktopAccessibilityActivationSampler.applicableActivationContractIDs(
+                includesInitialSurface: true,
+                controller: controller
+            ).contains("onboarding.developer-key")
         )
     }
 
