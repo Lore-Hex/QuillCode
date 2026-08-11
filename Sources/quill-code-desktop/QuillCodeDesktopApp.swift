@@ -13,7 +13,7 @@ struct QuillCodeDesktopApp: App {
 
     init() {
         _ = QuillCodeDesktopLaunchClock.appEntryUptime
-        QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
+        let updateLaunchHandshake = QuillCodeDesktopUpdateLaunchHandshake()
         if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }
@@ -134,6 +134,7 @@ struct QuillCodeDesktopApp: App {
         let controller = QuillCodeDesktopController(
             updateController: updateController,
             launchLifecycleController: launchLifecycleController,
+            updateLaunchHandshake: updateLaunchHandshake,
             startupMode: QuillCodeDesktopStartupMode(unexpectedExit: unexpectedExit),
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )

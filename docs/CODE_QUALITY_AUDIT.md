@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-11 First-Window Update Activation Handshake
+
+Overall grade after this slice: **A+ rollback safety, A+ readiness ownership, A+ recovery behavior**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Rollback safety | A+ | The helper cannot accept a replacement merely because its executable entered and remained alive; acknowledgement waits for the native workspace's first-window-ready transition. |
+| Readiness ownership | A+ | Crash classification and update/relocation activation now share one controller transition instead of maintaining separate definitions of a successful launch. |
+| Recovery behavior | A+ | A recovery-mode replacement keeps its acknowledgement pending until the user explicitly chooses paused or resumed background work. |
+| Failure semantics | A+ | The one-shot request clears only after an atomic acknowledgement write succeeds, so transient write failure remains retryable and preserves helper rollback. |
+| Regression evidence | A+ | Focused lifecycle tests pin normal and recovery timing; source parity prevents process-entry acknowledgement from returning. |
+
+Validation:
+
+- Focused launch-lifecycle, updater, and relocation boundary: 19 tests, 0 failures
+- Broader updater, installation, relocation, and publication boundary: 77 tests, 0 failures
+- `swift test --disable-sandbox` (5,861 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, native interaction, and DMG Move & Relaunch smokes passed
+- Optimized packaged performance: 359.99 ms median launch-ready, 103.52 MiB initial, 180.44 MiB
+  post-interaction, and 187.23 MiB repeated-interaction memory across 3/3 passing processes
+- The post-publication workflow remains the authoritative previous-public-build updater gate on
+  both Apple silicon and Intel because unpublished builds cannot advance the GitHub-only feed
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
 ## 2026-08-11 Serialized Update Recovery And Durable Relaunch
 
 Overall grade after this slice: **A+ update isolation, A+ relaunch durability, A+ crash classification**.

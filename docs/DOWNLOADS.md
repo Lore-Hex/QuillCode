@@ -172,7 +172,11 @@ After publication, each native runner launches that untouched previous public ap
 against the newly live feed. The gate requires the app
 to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
 then checks the exact source and target metadata, activated version and source
-commit, code signature, launch handshake, and staging cleanup. A channel with no
+commit, code signature, first-window-ready launch handshake, post-handshake process
+stability, and staging cleanup. The acknowledgement is parsed at process entry but
+is not written until the native workspace crosses the same ready boundary used for
+unexpected-exit classification, so a replacement that hangs during bootstrap keeps
+the previous build available for rollback. A channel with no
 previous release uses an explicitly recorded synthetic one-build-behind fallback;
 once a public source exists, metadata rewriting and re-signing are not allowed.
 This catches cross-version compatibility failures that a self-update of newly built

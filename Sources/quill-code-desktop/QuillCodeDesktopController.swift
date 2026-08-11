@@ -60,6 +60,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let updateController: QuillCodeDesktopUpdateController
     let installationLocationController: QuillCodeDesktopInstallationLocationController
     let launchLifecycleController: QuillCodeDesktopLaunchLifecycleController?
+    var updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
     var automaticStartupState: QuillCodeDesktopStartupState
@@ -85,6 +86,7 @@ final class QuillCodeDesktopController: ObservableObject {
         updateController: QuillCodeDesktopUpdateController? = nil,
         installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
         launchLifecycleController: QuillCodeDesktopLaunchLifecycleController? = nil,
+        updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake? = nil,
         startupMode: QuillCodeDesktopStartupMode = .normal,
         workspaceRoot: URL? = nil
     ) {
@@ -123,6 +125,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.installationLocationController = installationLocationController
             ?? QuillCodeDesktopInstallationLocationController()
         self.launchLifecycleController = launchLifecycleController
+        self.updateLaunchHandshake = updateLaunchHandshake
         self.automaticStartupState = QuillCodeDesktopStartupState(mode: startupMode)
         do {
             self.model = try bootstrap.makeModel(automaticStartupPolicy: .deferUntilRequested)

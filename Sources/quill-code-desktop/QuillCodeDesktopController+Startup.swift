@@ -52,12 +52,12 @@ extension QuillCodeDesktopController {
         if automaticStartupState.startAutomaticWorkspaceServicesIfAllowed() {
             startAutomaticWorkspaceServices()
         }
-        launchLifecycleController?.markReady()
+        markLaunchReady()
     }
 
     func continueWithAutomaticWorkspaceServicesPaused() {
         startPostWindowApplicationServicesIfNeeded()
-        launchLifecycleController?.markReady()
+        markLaunchReady()
     }
 
     func resumeAutomaticWorkspaceServices() {
@@ -65,7 +65,15 @@ extension QuillCodeDesktopController {
         if automaticStartupState.resumeAutomaticWorkspaceServices() {
             startAutomaticWorkspaceServices()
         }
+        markLaunchReady()
+    }
+
+    private func markLaunchReady() {
         launchLifecycleController?.markReady()
+        guard let updateLaunchHandshake,
+              updateLaunchHandshake.acknowledge()
+        else { return }
+        self.updateLaunchHandshake = nil
     }
 
     private func startPostWindowApplicationServicesIfNeeded() {
