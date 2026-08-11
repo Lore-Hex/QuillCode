@@ -52,6 +52,9 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         let computerUseCoordinatorText = try Self.desktopSourceText(
             named: "QuillCodeDesktopComputerUseCoordinator.swift"
         )
+        let computerUseControllerText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopController+ComputerUse.swift"
+        )
 
         Self.assertSource(text, contains: "QuillCodeDesktopSettingsCoordinator")
         Self.assertSource(text, contains: "MacSystemSettingsOpener")
@@ -69,10 +72,15 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(settingsCoordinatorText, contains: "model.applySettings")
         Self.assertSource(settingsCoordinatorText, contains: "model.applyRuntime")
         Self.assertSource(controllerText, contains: "computerUseCoordinator.openSystemSettings")
-        Self.assertSource(controllerText, contains: "computerUseCoordinator.refreshStatus")
+        Self.assertSource(computerUseControllerText, contains: "coordinator.refreshStatus")
+        Self.assertSource(computerUseControllerText, contains: "coordinator.refreshForegroundApplication")
+        Self.assertSource(controllerText, contains: "func refreshComputerUseStatus()")
+        Self.assertSource(controllerText, contains: "scheduleComputerUseStatusRefresh()")
         Self.assertSource(computerUseCoordinatorText, contains: "ComputerUseBackendFactory.platformDefault")
-        Self.assertSource(computerUseCoordinatorText, contains: "model.setComputerUseBackend")
+        Self.assertSource(computerUseCoordinatorText, contains: "model.installComputerUseBackend")
+        Self.assertSource(computerUseCoordinatorText, contains: "Task.detached(priority: .utility)")
         Self.assertSource(computerUseCoordinatorText, contains: "model.setComputerUseStatus")
+        Self.assertSource(computerUseCoordinatorText, excludes: "model.setComputerUseBackend")
         Self.assertSource(computerUseCoordinatorText, contains: "ComputerUseForegroundApplicationProviding")
         Self.assertSource(computerUseCoordinatorText, contains: "model.setComputerUseForegroundApplication")
         Self.assertSource(computerUseCoordinatorText, contains: "systemSettingsOpener.open")

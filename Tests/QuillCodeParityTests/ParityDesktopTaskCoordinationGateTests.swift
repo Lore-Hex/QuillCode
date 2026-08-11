@@ -54,9 +54,16 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         Self.assertSource(terminalCoordinatorText, contains: "draft.trimmingCharacters(in: .whitespacesAndNewlines)")
         Self.assertSource(terminalCoordinatorText, contains: "model.setTerminalDraft(draft)")
         Self.assertSource(browserCoordinatorText, contains: "tasks.replace(.browserPreview")
-        Self.assertSource(desktopTaskText, contains: "case computerUseForegroundRefresh")
-        Self.assertSource(computerUseControllerText, contains: "tasks.replace(.computerUseForegroundRefresh)")
-        Self.assertSource(computerUseControllerText, contains: "guard !Task.isCancelled, changed else { return }")
+        Self.assertSource(desktopTaskText, containsAll: [
+            "case computerUseStatusRefresh",
+            "case computerUseForegroundRefresh",
+        ])
+        Self.assertSource(computerUseControllerText, containsAll: [
+            "tasks.replace(.computerUseStatusRefresh)",
+            "let changed = await coordinator.refreshStatus",
+            "tasks.replace(.computerUseForegroundRefresh)",
+            "let changed = await coordinator.refreshForegroundApplication",
+        ])
         Self.assertSource(controllerText, contains: "QuillCodeDesktopAutomationCoordinator")
         Self.assertSource(controllerText, contains: "automationCoordinator.startTicker")
         Self.assertSource(automationCoordinatorText, contains: "tasks.replace(.automationTicker")

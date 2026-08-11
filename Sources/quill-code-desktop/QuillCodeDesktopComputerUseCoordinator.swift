@@ -17,6 +17,8 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     private let applicationActivationNotificationCenter: NotificationCenter
     private let applicationActivationNotification: Notification.Name
     private var applicationActivationHandler: (@MainActor () -> Void)?
+    /// Invalidates a permission preflight when a newer refresh or backend replacement wins.
+    private var statusRefreshGeneration = 0
     /// Monotonic token so an in-flight foreground-app lookup cannot overwrite a newer one after a
     /// backend swap or rapid application activation sequence.
     private var foregroundRefreshGeneration = 0
@@ -39,7 +41,7 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     }
 
     func install(on model: QuillCodeWorkspaceModel) {
-        model.setComputerUseBackend(backend)
+        model.installComputerUseBackend(backend)
     }
 
     func startApplicationActivationObservation(
@@ -63,11 +65,14 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
         on model: QuillCodeWorkspaceModel,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         locator: CuaDriverLocator = CuaDriverLocator()
-    ) async {
-        guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return }
-        guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return }
+    ) async -> Bool {
+        guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return false }
+        guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return false }
+        statusRefreshGeneration &+= 1
+        foregroundRefreshGeneration &+= 1
         backend = cua
-        model.setComputerUseBackend(cua) // also sets status
+        model.installComputerUseBackend(cua)
+        return true
     }
 
     @discardableResult
@@ -88,8 +93,16 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     }
 
     @discardableResult
-    func refreshStatus(on model: QuillCodeWorkspaceModel) -> Bool {
-        let status = backend.status
+    func refreshStatus(on model: QuillCodeWorkspaceModel) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        statusRefreshGeneration &+= 1
+        let generation = statusRefreshGeneration
+        let backend = backend
+        let statusTask = Task.detached(priority: .utility) {
+            backend.status
+        }
+        let status = await statusTask.value
+        guard !Task.isCancelled, statusRefreshGeneration == generation else { return false }
         guard model.root.topBar.computerUseStatus != status else { return false }
         model.setComputerUseStatus(status)
         return true
