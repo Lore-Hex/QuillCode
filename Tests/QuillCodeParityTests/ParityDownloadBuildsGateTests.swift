@@ -460,6 +460,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeSigningTeamIdentifier",
             #"${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}"#
         ])
+        Self.assertSource(buildScript, contains: """
+          <key>NSSupportsSuddenTermination</key>
+          <false/>
+        """)
         Self.assertSource(packageScript, containsAll: [
             "bundleIdentifier=$BUNDLE_ID",
             "minimumSystemVersion=$MINIMUM_SYSTEM_VERSION",
@@ -498,6 +502,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
             "assert_plist_value QuillCodeBuildCommit \"$EXPECTED_BUILD_COMMIT\"",
+            "assert_plist_value NSSupportsSuddenTermination false",
             "assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json",
             "assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json",
             "assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"

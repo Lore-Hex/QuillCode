@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-08-11 Graceful Termination And Accurate Crash Recovery
+
+Overall grade after this slice: **A+ crash classification, A+ lifecycle integrity, A+ release enforcement**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash classification | A+ | Normal logout, shutdown, automatic termination, and explicit Quit must pass through AppKit termination and clear the matching active-launch record instead of looking like a crash. |
+| Lifecycle integrity | A+ | The packaged capability now matches the launch store's existing write-before-remove graceful boundary and leaves genuine `SIGKILL` and process-loss detection intact. |
+| Recovery UX | A+ | Ordinary system termination cannot trigger a false unexpected-exit warning or pause automatic workspace services on the next launch. |
+| Release enforcement | A+ | Packaged smoke validates the generated Boolean value, while source parity pins both generation and artifact verification. |
+
+Validation:
+
+- `swift test --filter ParityDownloadBuildsGateTests/testMacOSDownloadPackagingEmbedsUpdaterMetadata`
+- Built release `Info.plist` inspection
+- `bash -n scripts/build-macos-app.sh scripts/packaged-macos-smoke.sh`
+- `git diff --check`
+
 ## 2026-08-10 Independently Owned Agent Progress Histories
 
 Overall grade after this slice: **A+ progress ownership, A+ memory scaling, A+ structural recovery**.
