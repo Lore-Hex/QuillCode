@@ -156,59 +156,75 @@ enum AgentArtifactContractAuditGate {
         artifact: String,
         evidenceReceipt: String
     ) -> String? {
-        if let issue = explicitArithmeticContradiction(in: artifact) {
-            return issue
-        }
-        if let issue = duplicateTableFieldContradiction(in: artifact) {
-            return issue
-        }
-        if let issue = monthlyTableMeanContradiction(in: artifact) {
-            return issue
-        }
-        if let issue = sourceMonthlyMeanContradiction(
+        var issues = explicitArithmeticContradictions(in: artifact)
+        issues.append(contentsOf: duplicateTableFieldContradictions(in: artifact))
+        issues.append(contentsOf: monthlyTableMeanContradictions(in: artifact))
+        issues.append(contentsOf: sourceMonthlyMeanContradictions(
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
-        ) {
-            return issue
-        }
-        if let issue = latestPeriodContradiction(
+        ))
+        issues.append(contentsOf: latestPeriodContradictions(
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
-        ) {
-            return issue
-        }
+        ))
 
         let evidenceValues = decimalObservations(in: evidenceReceipt)
-        guard evidenceValues.count >= 4,
-              structuredObservationLineCount(in: evidenceReceipt) >= 2,
-              containsUnavailableEvidenceClaim(artifact)
-        else { return nil }
+        if evidenceValues.count >= 4,
+           structuredObservationLineCount(in: evidenceReceipt) >= 2,
+           containsUnavailableEvidenceClaim(artifact) {
+            let artifactValues = decimalObservations(in: artifact)
+            if evidenceValues.isDisjoint(with: artifactValues) {
+                let examples = evidenceValues.sorted().prefix(4).joined(separator: ", ")
+                issues.append(
+                    "The validator passed an artifact that says source values were unavailable, "
+                        + "but retained structured evidence contains numeric observations including "
+                        + "\(examples). Reconcile the artifact and validate the requested calculations."
+                )
+            }
+        }
 
-        let artifactValues = decimalObservations(in: artifact)
-        guard evidenceValues.isDisjoint(with: artifactValues) else { return nil }
-        let examples = evidenceValues.sorted().prefix(4).joined(separator: ", ")
-        return "The validator passed an artifact that says source values were unavailable, "
-            + "but retained structured evidence contains numeric observations including "
-            + "\(examples). Reconcile the artifact and validate the requested calculations."
+        var seen: Set<String> = []
+        let uniqueIssues = issues.filter { seen.insert($0).inserted }
+        guard let firstIssue = uniqueIssues.first else { return nil }
+        guard uniqueIssues.count > 1 else { return firstIssue }
+
+        let limit = 16
+        let selectedIssues = Array(uniqueIssues.prefix(limit))
+        var result = "The artifact has \(uniqueIssues.count) independent deterministic "
+            + "contradictions. Repair all of them in one complete rewrite and preserve every "
+            + "source-grounded field that is not named below:\n"
+        result += selectedIssues.enumerated().map { index, issue in
+            "\(index + 1). \(issue)"
+        }.joined(separator: "\n")
+        if uniqueIssues.count > limit {
+            result += "\nOnly the first \(limit) contradictions are shown; rerun the audit after repair."
+        }
+
+        let references = sourceMonthlyAggregateReferences(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        )
+        if !references.isEmpty {
+            result += "\nHost-computed source aggregate reference (round only for display):\n"
+            result += references.map { "- \($0)" }.joined(separator: "\n")
+        }
+        return result
     }
 
-    private static func explicitArithmeticContradiction(in artifact: String) -> String? {
+    private static func explicitArithmeticContradictions(in artifact: String) -> [String] {
         let auditText = artifact
             .replacingOccurrences(of: "**", with: "")
             .replacingOccurrences(of: "__", with: "")
             .replacingOccurrences(of: "`", with: "")
-        if let issue = explicitSumDivisionContradiction(in: auditText) {
-            return issue
-        }
-        if let issue = explicitProductDivisionContradiction(in: auditText) {
-            return issue
-        }
-        return explicitGrowthContradiction(in: auditText)
+        return explicitSumDivisionContradictions(in: auditText)
+            + explicitProductDivisionContradictions(in: auditText)
+            + explicitGrowthContradictions(in: auditText)
     }
 
-    private static func explicitSumDivisionContradiction(in artifact: String) -> String? {
+    private static func explicitSumDivisionContradictions(in artifact: String) -> [String] {
         let pattern = #"\((\s*\d{1,8}(?:\.\d+)?(?:\s*\+\s*\d{1,8}(?:\.\d+)?){2,}\s*)\)\s*(?:/|÷)\s*(\d+)\s*=\s*(\d{1,8}(?:\.\d+)?)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        var issues: [String] = []
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
             guard let termsRange = Range(match.range(at: 1), in: artifact),
@@ -227,21 +243,22 @@ enum AgentArtifactContractAuditGate {
             let claim = String(artifact[claimRange])
             let tolerance = displayedRoundingTolerance(for: claim)
             guard abs(expected - claimed) > tolerance else { continue }
-            return String(
+            issues.append(String(
                 format: "The artifact's explicit sum/division equation evaluates to %.6f, not %@. "
                     + "Recompute the aggregate and every downstream value from it.",
                 expected,
                 claim
-            )
+            ))
         }
-        return nil
+        return issues
     }
 
-    private static func sourceMonthlyMeanContradiction(
+    private static func sourceMonthlyMeanContradictions(
         artifact: String,
         evidenceReceipt: String
-    ) -> String? {
+    ) -> [String] {
         let artifactLines = artifact.components(separatedBy: .newlines)
+        var issues: [String] = []
         for table in markdownTables(in: evidenceReceipt) {
             guard let yearColumn = table.headers.firstIndex(where: {
                 normalizedTableLabel($0) == "year"
@@ -271,7 +288,7 @@ enum AgentArtifactContractAuditGate {
                 let missing = missingPeriods.isEmpty
                     ? ""
                     : " Missing or nonnumeric periods: \(missingPeriods.joined(separator: ", "))."
-                return String(
+                issues.append(String(
                     format: "The retained source table's %@ monthly observations average to "
                         + "%.6f across %d published values, not %@.%@ Recompute the aggregate "
                         + "from the month columns and propagate it to every downstream value.",
@@ -280,22 +297,19 @@ enum AgentArtifactContractAuditGate {
                     observations.count,
                     claim.raw,
                     missing
-                )
+                ))
             }
         }
-        return nil
+        return issues
     }
 
-    private static func explicitProductDivisionContradiction(in artifact: String) -> String? {
-        if let issue = explicitChainedProductDivisionContradiction(in: artifact) {
-            return issue
-        }
-
+    private static func explicitProductDivisionContradictions(in artifact: String) -> [String] {
+        var issues = explicitChainedProductDivisionContradictions(in: artifact)
         let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
         let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:×|\\*)\\s*\\(?\\s*(\(number))"
             + "\\s*\\)?\\s*(?:/|÷)\\s*(\(number))\\s*\\)?\\s*=\\s*(\(number))"
             + "(?![\\d,.]|\\s*(?:×|\\*))"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return issues }
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
             guard let left = numericCapture(1, in: match, text: artifact),
@@ -309,24 +323,25 @@ enum AgentArtifactContractAuditGate {
             guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
                 continue
             }
-            return String(
+            issues.append(String(
                 format: "The artifact's explicit multiplication/division equation evaluates to "
                     + "%.6f, not %@. Recompute the value and every repeated downstream field.",
                 expected,
                 claimed.raw
-            )
+            ))
         }
-        return nil
+        return issues
     }
 
-    private static func explicitChainedProductDivisionContradiction(
+    private static func explicitChainedProductDivisionContradictions(
         in artifact: String
-    ) -> String? {
+    ) -> [String] {
         let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
         let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:×|\\*)\\s*\\(?\\s*(\(number))"
             + "\\s*(?:/|÷)\\s*(\(number))\\s*\\)?\\s*=\\s*(\(number))"
             + "\\s*(?:×|\\*)\\s*(\(number))\\s*=\\s*(\(number))(?![\\d,.])"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        var issues: [String] = []
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
             guard let left = numericCapture(1, in: match, text: artifact),
@@ -338,46 +353,46 @@ enum AgentArtifactContractAuditGate {
                   let claimed = numericCapture(6, in: match, text: artifact)
             else { continue }
 
-            guard abs(left.value - repeatedLeft.value) <= max(
+            if abs(left.value - repeatedLeft.value) > max(
                 displayedRoundingTolerance(for: left.raw),
                 displayedRoundingTolerance(for: repeatedLeft.raw)
-            ) else {
-                return "The artifact's chained multiplication/division equation changes its "
+            ) {
+                issues.append("The artifact's chained multiplication/division equation changes its "
                     + "left operand from \(left.raw) to \(repeatedLeft.raw). Keep the source "
-                    + "amount unchanged through the calculation."
+                    + "amount unchanged through the calculation.")
             }
 
             let expectedFactor = multiplier.value / divisor.value
-            guard abs(expectedFactor - factor.value)
-                    <= displayedRoundingTolerance(for: factor.raw) else {
-                return String(
+            if abs(expectedFactor - factor.value)
+                > displayedRoundingTolerance(for: factor.raw) {
+                issues.append(String(
                     format: "The artifact's chained multiplication/division factor evaluates to "
                         + "%.9f, not %@. Recompute the factor and final value.",
                     expectedFactor,
                     factor.raw
-                )
+                ))
             }
 
             let expected = left.value * expectedFactor
-            guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
-                continue
+            if abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) {
+                issues.append(String(
+                    format: "The artifact's chained multiplication/division equation evaluates to "
+                        + "%.6f, not %@. Recompute the value and every repeated downstream field.",
+                    expected,
+                    claimed.raw
+                ))
             }
-            return String(
-                format: "The artifact's chained multiplication/division equation evaluates to "
-                    + "%.6f, not %@. Recompute the value and every repeated downstream field.",
-                expected,
-                claimed.raw
-            )
         }
-        return nil
+        return issues
     }
 
-    private static func explicitGrowthContradiction(in artifact: String) -> String? {
+    private static func explicitGrowthContradictions(in artifact: String) -> [String] {
         let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
         let percent = #"-?\d[\d,]*(?:\.\d+)?"#
         let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:−|-)\\s*(\(number))\\s*\\)?"
             + "\\s*(?:/|÷)\\s*(\(number))\\s*=\\s*(\(percent))\\s*%"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        var issues: [String] = []
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
             guard let current = numericCapture(1, in: match, text: artifact),
@@ -391,14 +406,14 @@ enum AgentArtifactContractAuditGate {
             guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
                 continue
             }
-            return String(
+            issues.append(String(
                 format: "The artifact's explicit growth equation evaluates to %.6f%%, not %@%%. "
                     + "Recompute the rate from the displayed operands.",
                 expected,
                 claimed.raw
-            )
+            ))
         }
-        return nil
+        return issues
     }
 
     private struct NumericCapture {
@@ -430,8 +445,9 @@ enum AgentArtifactContractAuditGate {
         var rows: [[String]]
     }
 
-    private static func duplicateTableFieldContradiction(in artifact: String) -> String? {
+    private static func duplicateTableFieldContradictions(in artifact: String) -> [String] {
         var seen: [String: NumericCapture] = [:]
+        var issues: [String] = []
         for table in markdownTables(in: artifact) where table.headers.count >= 2 {
             let rowHeader = normalizedTableLabel(table.headers[0])
             for row in table.rows where row.count >= table.headers.count {
@@ -446,19 +462,21 @@ enum AgentArtifactContractAuditGate {
                            displayedRoundingTolerance(for: prior.raw),
                            displayedRoundingTolerance(for: value.raw)
                        ) {
-                        return "The artifact repeats table field \(table.headers[column]) for "
+                        issues.append("The artifact repeats table field \(table.headers[column]) for "
                             + "\(table.headers[0]) \(row[0]) with conflicting values "
-                            + "\(prior.raw) and \(value.raw). Keep one canonical value everywhere."
+                            + "\(prior.raw) and \(value.raw). Keep one canonical value everywhere.")
+                        continue
                     }
                     seen[key] = value
                 }
             }
         }
-        return nil
+        return issues
     }
 
-    private static func monthlyTableMeanContradiction(in artifact: String) -> String? {
+    private static func monthlyTableMeanContradictions(in artifact: String) -> [String] {
         let lines = artifact.components(separatedBy: .newlines)
+        var issues: [String] = []
         for index in lines.indices {
             let headers = pipeCells(lines[index])
             guard headers.count >= 2,
@@ -483,16 +501,60 @@ enum AgentArtifactContractAuditGate {
             guard abs(expected - claim.value) > displayedRoundingTolerance(for: claim.raw) else {
                 continue
             }
-            return String(
+            issues.append(String(
                 format: "The artifact's %@ monthly table averages to %.6f across %d numeric "
                     + "observations, not %@. Recompute the stated mean and downstream values.",
                 year,
                 expected,
                 observations.count,
                 claim.raw
-            )
+            ))
         }
-        return nil
+        return issues
+    }
+
+    private static func sourceMonthlyAggregateReferences(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> [String] {
+        let artifactLines = artifact.components(separatedBy: .newlines)
+        var references: [String] = []
+        var seenYears: Set<String> = []
+        for table in markdownTables(in: evidenceReceipt) {
+            guard let yearColumn = table.headers.firstIndex(where: {
+                normalizedTableLabel($0) == "year"
+            }) else { continue }
+            let monthColumns = table.headers.indices.filter {
+                $0 != yearColumn && isMonthlyPeriodHeader(table.headers[$0])
+            }
+            guard monthColumns.count >= 6 else { continue }
+
+            for row in table.rows where row.count == table.headers.count {
+                let year = row[yearColumn].trimmingCharacters(in: .whitespacesAndNewlines)
+                guard year.range(of: #"^(?:19|20)\d{2}$"#, options: .regularExpression) != nil,
+                      aggregateClaim(for: year, in: artifactLines) != nil,
+                      seenYears.insert(year).inserted
+                else { continue }
+
+                let observations = monthColumns.compactMap { decimalValue(row[$0]) }
+                guard observations.count >= 3 else { continue }
+                let expected = observations.reduce(0, +) / Double(observations.count)
+                let missingPeriods = monthColumns.compactMap { index -> String? in
+                    decimalValue(row[index]) == nil ? table.headers[index] : nil
+                }
+                let missing = missingPeriods.isEmpty
+                    ? ""
+                    : "; missing/non-numeric \(missingPeriods.joined(separator: ", "))"
+                references.append(String(
+                    format: "%@ monthly mean = %.6f (%d published values%@)",
+                    year,
+                    expected,
+                    observations.count,
+                    missing
+                ))
+            }
+        }
+        return Array(references.prefix(8))
     }
 
     private static func markdownTables(in artifact: String) -> [MarkdownTable] {
@@ -635,20 +697,21 @@ enum AgentArtifactContractAuditGate {
         var value: String
     }
 
-    private static func latestPeriodContradiction(
+    private static func latestPeriodContradictions(
         artifact: String,
         evidenceReceipt: String
-    ) -> String? {
+    ) -> [String] {
+        var issues: [String] = []
         for observation in latestPeriodObservations(in: evidenceReceipt) {
             if let claimed = latestPeriodClaim(
                 for: observation.rowLabel,
                 in: artifact
             ), !periodLabelsMatch(claimed.periodLabel, observation.periodLabel)
                 || !decimalValuesMatch(claimed.value, observation.value) {
-                return "The artifact identifies \(claimed.periodLabel) \(observation.rowLabel) "
+                issues.append("The artifact identifies \(claimed.periodLabel) \(observation.rowLabel) "
                     + "at \(claimed.value) as the latest eligible period, but the retained source "
                     + "table's rightmost published monthly observation is "
-                    + "\(observation.periodLabel) \(observation.rowLabel) at \(observation.value)."
+                    + "\(observation.periodLabel) \(observation.rowLabel) at \(observation.value).")
             }
 
             let row = NSRegularExpression.escapedPattern(for: observation.rowLabel)
@@ -666,14 +729,14 @@ enum AgentArtifactContractAuditGate {
                     guard let valueRange = Range(match.range(at: 1), in: artifact) else { continue }
                     let claimed = String(artifact[valueRange])
                     guard !decimalValuesMatch(claimed, observation.value) else { continue }
-                    return "The artifact pairs \(observation.periodLabel) "
+                    issues.append("The artifact pairs \(observation.periodLabel) "
                         + "\(observation.rowLabel) with \(claimed), but the retained source table "
                         + "pairs that exact header and row with \(observation.value). The latest "
-                        + "eligible period must be selected by header/value position."
+                        + "eligible period must be selected by header/value position.")
                 }
             }
         }
-        return nil
+        return issues
     }
 
     private static func periodLabelsMatch(_ left: String, _ right: String) -> Bool {

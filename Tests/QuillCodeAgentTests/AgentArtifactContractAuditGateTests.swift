@@ -386,6 +386,44 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertFalse(issue.contains("not $6,000,000"), issue)
     }
 
+    func testBatchesEveryTask126SourceAndArithmeticContradiction() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2023 | 299.170 | 300.840 | 301.836 | 303.363 | 304.127 | 305.109 | 305.691 | 307.026 | 307.789 | 307.671 | 307.051 | 306.746 | 302.408 | 306.996 |
+        | 2024 | 308.417 | 310.326 | 312.332 | 313.548 | 314.069 | 314.175 | 314.540 | 314.796 | 315.301 | 315.664 | 315.493 | 315.605 | 312.145 | 315.233 |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 | 320.229 | 324.000 |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | | | | | | 330.724 | |
+        """
+        let artifact = """
+        | Year | CPI basis type | Selected CPI basis index |
+        | --- | --- | --- |
+        | 2023 | Annual average | 304.702 |
+        | 2024 | Annual average | 313.689 |
+        | 2025 | Observed-month proxy | 322.533 |
+        | 2026 | Latest monthly benchmark (June) | 333.952 |
+
+        2023 real = $4,200,000 × (333.952 / 304.702) = $4,603,178
+        2024 real = $5,100,000 × (333.952 / 313.689) = $5,429,365
+        2025 real = $6,000,000 × (333.952 / 321.943) = $6,212,157
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+
+        XCTAssertTrue(issue.contains("independent deterministic contradictions"), issue)
+        XCTAssertTrue(issue.contains("4603180.812729"), issue)
+        XCTAssertTrue(issue.contains("5429438.711590"), issue)
+        XCTAssertTrue(issue.contains("6223809.804841"), issue)
+        XCTAssertTrue(issue.contains("2023 monthly mean = 304.701583"), issue)
+        XCTAssertTrue(issue.contains("2024 monthly mean = 313.688833"), issue)
+        XCTAssertTrue(issue.contains("2025 monthly mean = 321.943000"), issue)
+        XCTAssertTrue(issue.contains("322.533"), issue)
+        XCTAssertTrue(issue.contains("missing/non-numeric Oct"), issue)
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)
