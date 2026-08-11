@@ -664,8 +664,8 @@ final class AgentToolLoopTests: XCTestCase {
             For this task the required inputs are: `inputs/source-map.md`, \
             `inputs/conference-leads.csv`.
             Draft exactly three emails for each of six prospects (18 emails total).
-            Save the result to `outputs/task-33-deliverable.md`. After writing, read the saved \
-            artifact back and verify it.
+            Save the result to `outputs/task-33-deliverable.md`. Run a deterministic validator \
+            against it, then read the saved artifact back and verify it.
             """,
             in: ChatThread(mode: .auto),
             workspaceRoot: root

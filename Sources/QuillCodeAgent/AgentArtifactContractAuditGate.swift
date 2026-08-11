@@ -34,10 +34,10 @@ enum AgentArtifactContractAuditGate {
 
     static func requiresAudit(in userMessage: String) -> Bool {
         let patterns = [
-            #"(?is)\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:rows?|records?|entries|items|sections?|emails?|slides?|sheets?|columns?|cells?|series)\b"#,
+            #"(?is)\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:rows?|records?|entries|items|sections?|slides?|sheets?|columns?|cells?|series)\b"#,
             #"(?is)\bfirst\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:cells?|columns?|rows?|fields?)\b"#,
             #"(?is)\b(?:same|single)\s+<(?:tr|td|th)\b"#,
-            #"(?is)\b(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|section|email|slide|sheet|column|cell|series)\b.{0,120}\b(?:must|needs?\s+to|has\s+to|include|contain)\b"#,
+            #"(?is)\b(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|section|slide|sheet|column|cell|series)\b.{0,120}\b(?:must|needs?\s+to|has\s+to|include|contain)\b"#,
             #"(?is)\b(?:restate|convert|calculate|compute|reconcile|transform)\s+(?:each|every)\s+(?:[\w-]+\s+){0,4}(?:rows?|records?|entries?|items?)\b"#,
             #"(?is)\b(?:deterministic|programmatic|machine[- ]checkable)\s+(?:post[- ]write\s+)?(?:validator|validation|audit)\b"#,
         ]
