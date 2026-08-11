@@ -151,6 +151,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             isPresented = true
             return
         }
+        let recoveryTask = cancelRecoveryAndTakeTask()
         let generation = beginNewOperation()
         state = .downloading(release)
         preparationProgress = .downloading(receivedBytes: 0, totalBytes: release.asset.sizeBytes)
@@ -158,6 +159,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             guard let self else { return }
             defer { self.finishOperation(generation: generation) }
             do {
+                if let recoveryTask {
+                    await recoveryTask.value
+                }
+                try Task.checkCancellation()
+                guard self.generation == generation else { return }
                 let prepared = try await self.prepareUpdate(
                     release: release,
                     configuration: configuration,
@@ -322,6 +328,13 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         preparationProgress = nil
         generation = UUID()
         return generation
+    }
+
+    private func cancelRecoveryAndTakeTask() -> Task<Void, Never>? {
+        let task = recoveryTask
+        recoveryTask = nil
+        task?.cancel()
+        return task
     }
 
     private func prepareUpdate(

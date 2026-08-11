@@ -74,9 +74,11 @@ in-app diagnostic is deliberately content-free and should report `Private conten
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
-termination clears the matching marker. If the process disappears after it was ready, the next
-launch shows **Quill Cowork closed unexpectedly** and warns that an in-progress command may be
-incomplete. Choose **Continue** to return to the workspace or **Report Issue...** to open a prefilled
+termination clears the matching marker. Update and Move & Relaunch exits synchronously flush pending
+composer text and clear that marker before their bounded termination fallback. If the process
+disappears after it was ready, the next launch shows **Quill Cowork closed unexpectedly** and warns
+that an in-progress command may be incomplete. Choose **Continue** to return to the workspace or
+**Report Issue...** to open a prefilled
 crash report.
 
 Packaged apps require graceful macOS termination rather than opting into sudden process death. This
@@ -242,6 +244,10 @@ downloads on demand, and verifies
 the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
+
+Startup recovery waits two minutes before removing abandoned updater staging apps. Starting a fresh
+foreground update cancels and fully joins that recovery first, so cleanup can never remove the new
+installer's live staging bundle.
 
 Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
 updates must contain an actual ad-hoc signature with no team. A Developer ID

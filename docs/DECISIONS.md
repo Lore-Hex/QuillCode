@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-11: updater relaunches serialize cleanup and durable exit work
+
+- **Decision:** A foreground update cancels and joins the one-shot interrupted-update recovery task
+  before downloading or staging a fresh app. Relaunch termination synchronously broadcasts a private
+  lifecycle boundary before asking AppKit to quit or using its bounded forced-exit fallback.
+- **Why:** Startup recovery removes orphaned `.update-<uuid>.app` bundles beside the installed app. If
+  its delayed scan overlapped a new install, it could delete that installer's live staging bundle.
+  AppKit may also defer sheet-driven termination long enough to reach the fallback, which otherwise
+  bypasses the normal launch-marker and pending-draft cleanup notifications.
+- **Correctness boundary:** Cancellation alone is insufficient because recovery may already be in a
+  detached filesystem scan. The update awaits complete recovery termination, then rechecks operation
+  cancellation and generation before preparation. Relaunch cleanup is synchronous and idempotent;
+  the later AppKit notification may safely repeat it.
+- **Evidence:** Controller coverage blocks recovery behind a deterministic gate and proves neither
+  preparation nor installation begins until cancelled recovery exits. Lifecycle and composer tests
+  prove the relaunch boundary removes the active-launch marker and flushes pending draft text.
+
 ## 2026-08-11: packaged launches require graceful termination
 
 - **Decision:** Packaged Quill Cowork apps explicitly disable macOS sudden termination. Automatic
