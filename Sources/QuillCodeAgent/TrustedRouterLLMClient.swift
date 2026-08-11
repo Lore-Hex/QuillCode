@@ -5,7 +5,7 @@ import TrustedRouter
 import FoundationNetworking
 #endif
 
-public enum TrustedRouterAgentError: Error, CustomStringConvertible {
+public enum TrustedRouterAgentError: Error, CustomStringConvertible, LocalizedError {
     case missingAPIKey
     case emptyResponse
     case invalidActionJSON(String)
@@ -33,6 +33,8 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
             return "\(message) \(diagnosticSummary)"
         }
     }
+
+    public var errorDescription: String? { description }
 }
 
 public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
