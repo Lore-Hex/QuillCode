@@ -21,6 +21,8 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
     public static let browserSignInCaption = "Secure sign-in opens in your browser"
     public static let createAccountTitle = "Create a TrustedRouter account"
     public static let developerKeyTitle = "Use a developer key"
+    public static let returningUserSubtitle =
+        "Your saved chats are ready. Connect before starting or resuming model work."
     public static let defaultAccountURL = "https://trustedrouter.com"
     /// The three-beat "what happens next" reassurance under the button.
     public static let steps = ["Connect", "Choose a model", "Start a task"]
@@ -33,5 +35,20 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
     public static func make(hasStoredAPIKey: Bool) -> TranscriptConnectPrompt? {
         guard !hasStoredAPIKey else { return nil }
         return TranscriptConnectPrompt()
+    }
+}
+
+enum TranscriptConnectPlacement: Equatable {
+    case hidden
+    case hero
+    case banner
+
+    static func resolve(
+        hasPrompt: Bool,
+        requiresProjectSelection: Bool,
+        emptyStateVisible: Bool
+    ) -> Self {
+        guard hasPrompt, !requiresProjectSelection else { return .hidden }
+        return emptyStateVisible ? .hero : .banner
     }
 }

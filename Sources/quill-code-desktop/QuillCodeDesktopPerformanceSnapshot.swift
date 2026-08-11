@@ -37,10 +37,12 @@ struct QuillCodeDesktopProcessResourceSnapshot: Equatable, Sendable {
 struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
     static let measurement = "initial-live-window"
 
+    var workload: QuillCodeDesktopPerformanceWorkload
     var launchReadyMilliseconds: Double
     var resources: QuillCodeDesktopProcessResourceSnapshot
 
     static func capture(
+        workload: QuillCodeDesktopPerformanceWorkload = .firstRunEmpty,
         launchStartedAtUptime: TimeInterval,
         nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime
     ) throws -> Self {
@@ -51,6 +53,7 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
         let milliseconds = (elapsed * 100_000).rounded() / 100
 
         return Self(
+            workload: workload,
             launchReadyMilliseconds: milliseconds,
             resources: try QuillCodeDesktopProcessResourceSnapshot.capture()
         )
@@ -60,6 +63,7 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
         firstSweepResources: QuillCodeDesktopProcessResourceSnapshot
     ) throws -> QuillCodeDesktopPerformanceSnapshot {
         QuillCodeDesktopPerformanceSnapshot(
+            workload: workload,
             launchReadyMilliseconds: launchReadyMilliseconds,
             initialResources: resources,
             postInteractionResources: firstSweepResources,
@@ -69,12 +73,13 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
 }
 
 struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
-    static let schemaVersion = 3
+    static let schemaVersion = 4
     static let measurement = QuillCodeDesktopInitialPerformanceSnapshot.measurement
     static let postInteractionMeasurement = "settled-after-native-interaction-sweep"
     static let repeatedInteractionMeasurement = "settled-after-repeated-native-interaction-sweep"
     static let interactionSweepCount = 2
 
+    var workload: QuillCodeDesktopPerformanceWorkload = .firstRunEmpty
     var launchReadyMilliseconds: Double
     var initialResources: QuillCodeDesktopProcessResourceSnapshot
     var postInteractionResources: QuillCodeDesktopProcessResourceSnapshot
@@ -98,6 +103,7 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
     var dictionary: [String: Any] {
         [
             "schemaVersion": Self.schemaVersion,
+            "workload": workload.rawValue,
             "measurement": Self.measurement,
             "launchReadyMilliseconds": launchReadyMilliseconds,
             "residentMemoryBytes": residentMemoryBytes,

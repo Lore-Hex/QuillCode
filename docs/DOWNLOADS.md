@@ -174,10 +174,13 @@ code, manifest-only checks, and unit-level updater tests cannot prove.
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
-boundary. Release packaging measures three fresh processes with isolated state,
-requires at least two launches to meet the time budget, and requires every memory
-sample to meet its budget. The median-launch attempt, every attempt, thread
-counts, and enforced budgets ship as both architecture-specific `PERFORMANCE.json` assets.
+boundary. Each attempt atomically seeds and verifies one project with 100 saved
+chats and a 200-message active transcript before timing the real packaged launch.
+Release packaging measures three fresh processes with isolated state, requires at
+least two launches to meet the time budget, and requires every memory sample to
+meet its budget. The workload identity, median-launch attempt, every attempt,
+thread counts, and enforced budgets ship as both architecture-specific
+`PERFORMANCE.json` assets.
 
 Each process then completes the packaged native interaction sweep twice, including
 reversible navigation, sheet, search, model-picker, and text-entry checks. The gate

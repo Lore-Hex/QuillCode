@@ -19,6 +19,7 @@ from performance_evidence_contract import (
     INTERACTION_SWEEP_COUNT,
     PERFORMANCE_PRODUCT,
     PERFORMANCE_SCHEMA_VERSION,
+    PERFORMANCE_WORKLOAD,
     POST_INTERACTION_MEASUREMENT,
     REPEATED_INTERACTION_MEASUREMENT,
 )
@@ -91,6 +92,10 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
     require(
         performance.get("schemaVersion") == PERFORMANCE_SCHEMA_VERSION,
         "unsupported performance evidence schema",
+    )
+    require(
+        performance.get("workload") == PERFORMANCE_WORKLOAD,
+        "unexpected packaged performance workload",
     )
     require(
         performance.get("measurement") == INITIAL_MEASUREMENT,
@@ -324,6 +329,7 @@ def write_performance_manifest(
         "schemaVersion": PERFORMANCE_SCHEMA_VERSION,
         "ok": True,
         "product": PERFORMANCE_PRODUCT,
+        "workload": PERFORMANCE_WORKLOAD,
         "measurement": INITIAL_MEASUREMENT,
         "postInteractionMeasurement": POST_INTERACTION_MEASUREMENT,
         "launchReadyMilliseconds": launch_ready,

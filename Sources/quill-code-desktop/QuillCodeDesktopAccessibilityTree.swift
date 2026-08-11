@@ -97,6 +97,24 @@ struct QuillCodeDesktopAccessibilityTree {
         elements = collected
     }
 
+    init(root: NSView, matchingAnyIdentifier identifiers: Set<String>) {
+        _ = root
+        guard !identifiers.isEmpty else {
+            elements = []
+            return
+        }
+        var visited = Set<QuillCodeDesktopAccessibilityElementIdentity>()
+        var collected: [QuillCodeDesktopAccessibilityElementSnapshot] = []
+        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        _ = Self.collect(
+            firstMatching: identifiers,
+            from: application,
+            into: &collected,
+            visited: &visited
+        )
+        elements = collected
+    }
+
     static func hitTest(at point: CGPoint) -> QuillCodeDesktopAccessibilityHitTestResult {
         let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
         var hitElement: AXUIElement?
@@ -173,6 +191,36 @@ struct QuillCodeDesktopAccessibilityTree {
                 matchingIdentifiers: identifiers,
                 into: &collected,
                 matchedIdentifiers: &matchedIdentifiers,
+                visited: &visited
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func collect(
+        firstMatching identifiers: Set<String>,
+        from element: AXUIElement,
+        into collected: inout [QuillCodeDesktopAccessibilityElementSnapshot],
+        visited: inout Set<QuillCodeDesktopAccessibilityElementIdentity>
+    ) -> Bool {
+        guard visited.insert(.init(element: element)).inserted else { return false }
+
+        let identifier = stringAttribute(kAXIdentifierAttribute, from: element)
+        if identifiers.contains(identifier),
+           let snapshot = snapshot(for: element, identifier: identifier),
+           snapshot.frameArea > 0
+        {
+            collected.append(snapshot)
+            return true
+        }
+
+        for child in children(of: element) {
+            if collect(
+                firstMatching: identifiers,
+                from: child,
+                into: &collected,
                 visited: &visited
             ) {
                 return true

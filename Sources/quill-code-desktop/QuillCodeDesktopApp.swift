@@ -17,6 +17,9 @@ struct QuillCodeDesktopApp: App {
         if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }
+        if let seedRequest = QuillCodeDesktopDailyDriverSmokeSeedRequest(arguments: CommandLine.arguments) {
+            Darwin.exit(QuillCodeDesktopDailyDriverSmokeFixture.runAndReport(seedRequest))
+        }
 
         if let relocationSmokeRequest = QuillCodeDesktopRelocationSmokeRequest(
             arguments: CommandLine.arguments

@@ -84,6 +84,27 @@ final class WorkspaceNavigationHistoryTests: XCTestCase {
         XCTAssertEqual(model.root.selectedProjectID, secondProject.id)
     }
 
+    func testHistoryRestoresSelectedProjectAlongsideProjectlessThread() {
+        let project = ProjectRef(name: "Workspace", path: "/tmp/workspace")
+        let projectThread = ChatThread(title: "Project chat", projectID: project.id)
+        let projectlessThread = ChatThread(title: "Legacy global chat")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [projectlessThread, projectThread],
+            selectedThreadID: projectlessThread.id
+        ))
+
+        model.selectThread(projectThread.id)
+        XCTAssertTrue(model.navigateBackInWorkspace())
+
+        XCTAssertEqual(model.root.selectedThreadID, projectlessThread.id)
+        XCTAssertEqual(model.root.selectedProjectID, project.id)
+        XCTAssertTrue(model.navigateForwardInWorkspace())
+        XCTAssertEqual(model.root.selectedThreadID, projectThread.id)
+        XCTAssertEqual(model.root.selectedProjectID, project.id)
+    }
+
     func testWorkspaceModelPrunesDeletedThreadFromHistory() {
         let firstThread = ChatThread(title: "First")
         let secondThread = ChatThread(title: "Second")

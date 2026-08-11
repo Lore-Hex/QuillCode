@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-10: public performance measures a verified daily-driver workspace
+
+- **Decision:** Every packaged performance attempt first invokes the app's own fixture helper to
+  atomically create one project, 100 saved chats, and a 200-message selected transcript. The timed
+  process loads that state normally and validates the marker, project binding, chat count, selected
+  chat, and message counts before capturing launch or resource evidence.
+- **Evidence contract:** Version-4 performance evidence identifies the workload as
+  `daily-driver-100-chats`. Raw window reports and the public architecture-specific manifests must
+  agree on that exact identity; an empty, malformed, mislabeled, or partially seeded workspace fails
+  closed. Seeding runs in a separate process so fixture creation is outside launch timing.
+- **Coverage boundary:** The full packaged smoke keeps its first-run empty-state window for onboarding,
+  Accessibility frames, and Computer Use proof, then starts a second, separately seeded daily-driver
+  window for its performance manifest. It packages an optimized release executable by default (with
+  an explicit diagnostic override), so production budgets never judge debug-code memory behavior.
+  Published speed and memory numbers therefore represent a returning user's restored workspace
+  without surrendering first-run coverage.
+- **Why:** Empty-state launch evidence could remain green while persistence loading, transcript
+  restoration, navigation context, or reconnect UX regressed for established users. Distribution
+  claims should measure the state people keep after adopting the product.
+
 ## 2026-08-10: process-owned application services begin after the first window
 
 - **Decision:** Normal desktop launch no longer registers notification categories, inspects the
