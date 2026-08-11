@@ -943,6 +943,29 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
                 {path.name for path in (root / "inputs" / "Board" / "July").glob("*.docx")},
             )
 
+    def test_confidential_wave_five_fixtures_are_task_specific(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            PRIOR.write_fixture(self.rows[148], root)
+            documents = sorted((root / "inputs" / "msa-redlines").glob("*.docx"))
+            contents = [PRIOR.validate_artifact(path, "docx")[2] for path in documents]
+
+        self.assertEqual(len(contents), 2)
+        self.assertNotEqual(contents[0], contents[1])
+        self.assertTrue(any("net 30" in content for content in contents))
+        self.assertTrue(any("net 60" in content for content in contents))
+
+        survey = PRIOR.task_table(self.rows[152], "employee-pulse-survey.csv")
+        self.assertEqual(len(survey) - 1, 412)
+        self.assertEqual(len({row[0] for row in survey[1:]}), 412)
+        self.assertEqual(len({row[4] for row in survey[1:]}), 7)
+
+        shortlist = PRIOR.task_table(self.rows[163], "shortlist.xlsx")
+        self.assertEqual(len(shortlist) - 1, 8)
+        self.assertEqual(len({row[0] for row in shortlist[1:]}), 8)
+        self.assertTrue(all(";" in row[4] for row in shortlist[1:]))
+        self.assertTrue(all(row[8] == 45 for row in shortlist[1:]))
+
     def test_source_reference_extraction_keeps_workspace_relative_paths(self):
         references = PRIOR.source_references(
             "Read ~/Board/July/deck.pptx, budget.xlsx, and /notes/source.md."

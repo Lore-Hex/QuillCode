@@ -473,6 +473,15 @@ Use only these paths for internal-link recommendations. The local invoice CSV is
 materialized source-file smoke fixture, not evidence for the SEO topic; do not cite or
 summarize its invoice rows in the brief.
 """
+    if row["id"] == 144:
+        return """# Confidential board-research assignment
+
+Evidence date: 2026-08-08. Atlas Labs identifies OpenRouter as its top competitor for
+this board exercise. Research OpenRouter's most recent publicly reported funding round,
+headcount growth, and material product launches using live public sources. Cite every
+claim and distinguish company statements, third-party estimates, and calculated growth.
+Do not invent an exact employee count when only an estimate or range is available.
+"""
     terms = ", ".join(task_terms(row)) or row["category"]
     return f"""# Controlled source packet for catalog task {row['id']}
 
@@ -658,6 +667,84 @@ def task_table(row, reference="", item_index=1, count=40):
             ("CUS-008", "Atlas Works", "Columbus", "OH", "43215"),
             ("CUS-009", "Beacon Legal", "Boston", "MA", "02108"),
             ("CUS-010", "Summit Outdoor", "Denver", "CO", "80202"),
+        ]
+
+    if row["id"] == 153:
+        themes = (
+            ("manager communication", "My manager explains why priorities change and follows up in writing."),
+            ("career growth", "I need a clearer path from my current level to the next one."),
+            ("workload", "The team can deliver the plan, but only if we stop adding unplanned work."),
+            ("cross-team coordination", "Dependencies are found too late and ownership is often unclear."),
+            ("recognition", "Specific recognition for behind-the-scenes work would improve morale."),
+            ("tools and process", "Too many handoffs are manual and the same data is entered twice."),
+            ("leadership trust", "Leadership is candid about bad news, but decisions need more context."),
+        )
+        rows = []
+        departments = ("Engineering", "Product", "Sales", "Customer Success", "Operations", "Finance")
+        tenures = ("<1 year", "1-2 years", "3-5 years", "5+ years")
+        for index in range(1, 413):
+            theme, answer = themes[(index - 1) % len(themes)]
+            rows.append((
+                f"RESP-{index:04d}", f"2026-07-{((index - 1) % 28) + 1:02d}",
+                departments[(index - 1) % len(departments)],
+                tenures[(index - 1) % len(tenures)], theme,
+                f"{answer} Response {index:04d} adds a distinct anonymous observation.",
+            ))
+        return [("response_id", "submitted_at", "department", "tenure", "theme", "free_text_answer"), *rows]
+
+    if row["id"] == 158:
+        departments = ("Engineering", "Product", "Sales", "Customer Success", "Operations", "Finance")
+        rows = []
+        exit_dates = {
+            31: "2026-02-14", 32: "2026-03-28", 33: "2026-04-18",
+            34: "2026-05-30", 35: "2026-06-21", 36: "2026-07-19",
+        }
+        for index in range(1, 37):
+            department = departments[(index - 1) % len(departments)]
+            exit_date = exit_dates.get(index, "")
+            rows.append((
+                "employee", f"EMP-{index:03d}", f"Employee {index:03d}", department,
+                f"{department} role", "active" if not exit_date else "terminated",
+                f"202{2 + (index % 4)}-{((index - 1) % 12) + 1:02d}-01", exit_date,
+                "", "",
+            ))
+        for index, department in enumerate(departments[:5], start=1):
+            rows.append((
+                "open_req", f"REQ-{index:03d}", "", department,
+                f"Open {department} role", "open", "", "", f"2026-0{6 + (index % 2)}-15", "Priya Shah",
+            ))
+        return [
+            ("record_type", "record_id", "employee_name", "department", "role", "status",
+             "start_date", "exit_date", "req_opened_date", "req_owner"),
+            *rows,
+        ]
+
+    if row["id"] == 164:
+        candidates = (
+            ("CAND-001", "Amina", "amina.chen@example.com", "Design Lead", "Priya Shah; Jo Chen", "2026-08-18", "09:00"),
+            ("CAND-002", "Bruno", "bruno.diaz@example.com", "Design Lead", "Jo Chen; Avery Lin", "2026-08-18", "10:30"),
+            ("CAND-003", "Camille", "camille.ng@example.com", "Design Lead", "Priya Shah; Avery Lin", "2026-08-18", "13:00"),
+            ("CAND-004", "Dev", "dev.patel@example.com", "Design Lead", "Rafael Ortiz; Jo Chen", "2026-08-18", "14:30"),
+            ("CAND-005", "Elena", "elena.rossi@example.com", "Design Lead", "Priya Shah; Jo Chen", "2026-08-19", "09:00"),
+            ("CAND-006", "Farah", "farah.khan@example.com", "Design Lead", "Jo Chen; Avery Lin", "2026-08-19", "10:30"),
+            ("CAND-007", "Gabriel", "gabriel.martin@example.com", "Design Lead", "Priya Shah; Avery Lin", "2026-08-19", "13:00"),
+            ("CAND-008", "Hana", "hana.sato@example.com", "Design Lead", "Rafael Ortiz; Jo Chen", "2026-08-19", "14:30"),
+        )
+        return [
+            ("candidate_id", "first_name", "email", "role", "panel_names", "interview_date", "start_time", "timezone", "duration_minutes"),
+            *((candidate_id, first_name, email, role, panel, date, start, "America/Los_Angeles", 45)
+              for candidate_id, first_name, email, role, panel, date, start in candidates),
+        ]
+
+    if row["id"] == 171:
+        return [
+            ("evidence_id", "evidence_date", "workstream", "owner", "status", "root_cause", "schedule_impact", "approved_budget_usd", "forecast_cost_usd", "approval_needed"),
+            ("CRM-001", "2026-05-12", "data migration", "Avery Lin", "blocked", "source-field mapping was not approved before build", "six weeks", 720000, 952000, "approve canonical data dictionary"),
+            ("CRM-002", "2026-05-26", "integrations", "Jo Chen", "at risk", "vendor sandbox rate limits were absent from the plan", "three weeks", 720000, 952000, "approve paid test tenant"),
+            ("CRM-003", "2026-06-09", "sales process", "Priya Shah", "blocked", "regional workflows have conflicting stage definitions", "four weeks", 720000, 952000, "name one process owner"),
+            ("CRM-004", "2026-06-23", "testing", "Rafael Ortiz", "at risk", "acceptance criteria arrived after configuration", "two weeks", 720000, 952000, "fund dedicated UAT lead"),
+            ("CRM-005", "2026-07-14", "program plan", "Priya Shah", "forecast", "dependencies were tracked by team instead of on one critical path", "baseline 2026-08-31; forecast 2026-11-15", 720000, 952000, "select recovery schedule"),
+            ("CRM-006", "2026-07-28", "budget", "Rafael Ortiz", "forecast", "extended vendor and contractor time", "$232,000 over approved budget", 720000, 952000, "approve revised not-to-exceed budget"),
         ]
 
     if "kpi-dashboard" in reference.casefold():
@@ -1083,6 +1170,80 @@ For each claim, report the current status, scope or material limitation, evidenc
 and direct URL. Mark it unverifiable rather than inferring currency from a generic page.
 """
 
+    if row["id"] == 149:
+        documents = (
+            """# Atlas Labs Current Master Services Agreement
+Version: executed baseline dated 2026-01-01
+Term: 24 months. Renewal: automatic one-year renewals with 60 days' non-renewal notice.
+Payment: net 30. Termination: uncured material breach after 30 days; no convenience right.
+Liability: aggregate cap equal to fees paid in the prior 12 months; confidentiality,
+data-security breach, and IP-indemnity obligations are excluded from the cap.
+Security incident notice: within 48 hours. Data return or deletion: within 30 days.
+Governing law and venue: Delaware state and federal courts.
+""",
+            """# Vendor Redline of Atlas Labs Master Services Agreement
+Version: vendor markup received 2026-07-30
+Term: reduced to 12 months. Renewal: automatic renewal deleted; 30-day extension by agreement.
+Payment: changed to net 60. Vendor may terminate for convenience on 15 days' notice.
+Breach cure: changed from 30 to 45 days. Liability cap reduced to six months of fees;
+all confidentiality, data-security breach, and IP-indemnity carve-outs are deleted.
+Security incident notice: changed from 48 hours to 10 business days.
+Data return or deletion: changed from 30 to 120 days.
+Disputes: Delaware courts replaced with confidential arbitration in San Francisco, California.
+""",
+        )
+        return documents[(item_index - 1) % len(documents)]
+
+    if row["id"] == 150:
+        sections = (
+            ("Parties and scope", "Atlas Labs provides the hosted workflow service to Northwind Logistics LLC for 850 named users in the United States."),
+            ("Fees and payment", "Annual subscription fee is $408,000, invoiced annually in advance, net 30; undisputed late amounts accrue 1 percent monthly."),
+            ("Customer obligations", "Northwind must control credentials, obtain user consents, configure roles, and use the service lawfully."),
+            ("Service obligations", "Atlas must meet the support policy, maintain administrative safeguards, and provide the contracted export functions."),
+            ("Initial term", "The initial term begins 2026-01-01 and ends 2027-12-31."),
+            ("Renewal", "The agreement renews for successive one-year periods unless either party gives notice at least 60 days before the current term ends."),
+            ("Termination for cause", "Either party may terminate for material breach not cured within 30 days; insolvency permits immediate termination."),
+            ("Termination for convenience", "Neither party has a termination-for-convenience right during the initial or renewal term."),
+            ("Data handling", "Atlas must notify Northwind of a confirmed security incident within 48 hours and return or delete customer data within 30 days after termination."),
+            ("Liability cap", "Each party's aggregate liability is capped at fees paid in the preceding 12 months."),
+            ("Cap exclusions and indemnity", "Confidentiality breaches and IP indemnity are outside the cap; Atlas indemnifies third-party IP claims, while Northwind indemnifies unlawful customer content."),
+            ("Governing law and notices", "Delaware law governs; formal notices go to the listed legal addresses by courier or confirmed email."),
+        )
+        heading, body = sections[(item_index - 1) % len(sections)]
+        return f"# Northwind MSA - Section {item_index}: {heading}\n\n{body}\n"
+
+    if row["id"] == 154:
+        messages = (
+            ("2026-06-03", "Maya Patel, Northwind", "Reported duplicate order creation after the v4 connector rollout; 38 orders affected."),
+            ("2026-06-05", "Jo Chen, Atlas", "Acknowledged the escalation and assigned Avery Lin to reproduce it by June 7."),
+            ("2026-06-08", "Avery Lin, Atlas", "Confirmed retries lacked an idempotency key and proposed a connector patch plus reconciliation script."),
+            ("2026-06-11", "Maya Patel, Northwind", "Accepted the technical plan but requested daily status and an executive owner."),
+            ("2026-06-14", "Priya Shah, Atlas", "Became executive owner and committed to a June 18 patch candidate, subject to validation."),
+            ("2026-06-18", "Avery Lin, Atlas", "Validation found four legacy mappings that would fail; recommended staged remediation instead of broad release."),
+            ("2026-06-22", "Maya Patel, Northwind", "Warned that month-end close was at risk and requested a decision by June 26."),
+            ("2026-06-26", "Priya Shah, Atlas", "Presented three paths: freeze and reconcile, staged patch, or full rollback; no option was yet approved."),
+        )
+        date, sender, body = messages[(item_index - 1) % len(messages)]
+        return f"From: {sender}\nDate: {date}\nSubject: Northwind connector escalation\n\n{body}\n"
+
+    if row["id"] == 155:
+        if "all-hands" in reference.casefold():
+            return """# Last All-Hands Transcript - 2026-07-10
+The CEO said the company would preserve customer-facing coverage, publish role changes
+before manager conversations, and avoid claiming there would be no job impact before
+the board decision. Employees asked about reporting lines, location policy, severance,
+and how priorities would change. Leadership promised direct answers, one source of
+truth, and a follow-up channel for questions it could not answer live.
+"""
+        return """# Approved Reorganization FAQ - 2026-08-05
+The reorganization takes effect 2026-09-01. Product and Engineering remain separate
+departments but move to one operating cadence under the COO. Three director roles are
+eliminated; affected employees are notified privately before the all-hands. There is no
+change to base pay, benefits, remote-work policy, or current customer ownership. Managers
+receive reporting-line rosters on August 20. Employees may ask People Operations about
+individual impact; leaders must not speculate about future reductions or name people.
+"""
+
     if row["id"] == 129 and reference == "release-notes-july.md":
         return """# Atlas Labs July 2026 Release Notes
 
@@ -1137,6 +1298,74 @@ Protective provision: sell the company, liquidate, dissolve, or change the princ
 Approval threshold: consent of holders of a majority of outstanding Series A Preferred
 Status: non-binding except confidentiality, exclusivity, expenses, and governing law
 """
+
+    if row["id"] in {159, 161}:
+        departments = ("Engineering", "Product", "Sales", "Customer Success")
+        quarters = ("2026-Q1", "2026-Q2", "2026-Q2")
+        drivers = (
+            "Role scope changed repeatedly without a written decision owner.",
+            "Promotion criteria were unclear despite strong performance feedback.",
+            "Workload stayed above the agreed staffing plan for two quarters.",
+            "A competing offer provided materially higher base pay and clearer growth.",
+            "Manager communication improved late, after trust had already declined.",
+            "Cross-team conflict remained unresolved because escalation paths were unclear.",
+        )
+        department = departments[(item_index - 1) % len(departments)]
+        quarter = quarters[(item_index - 1) % len(quarters)]
+        driver = drivers[(item_index - 1) % len(drivers)]
+        return f"""# Anonymized Exit Interview Note {item_index:02d}
+Department: {department}
+Exit quarter: {quarter}
+Tenure band: {('<1 year', '1-2 years', '3-5 years')[item_index % 3]}
+Primary driver: {driver}
+Positive signal: The employee valued peer support and the mission.
+Anonymization rule: Do not include names, exact titles, or uniquely identifying details.
+"""
+
+    if row["id"] == 160:
+        observations = (
+            ("2026-05-08", "Two customer handoff documents missed the agreed 24-hour deadline; no advance warning was sent."),
+            ("2026-05-22", "The revised handoff checklist was completed on time for three consecutive accounts."),
+            ("2026-06-05", "A status update described work as complete while two required approvals were still pending."),
+            ("2026-06-19", "The employee corrected the status within one hour and documented the remaining approvals."),
+            ("2026-07-02", "During planning, the employee interrupted two peers repeatedly after the facilitator asked for turn-taking."),
+            ("2026-07-09", "In the next planning session, the employee used the agenda and invited both peers to finish their points."),
+            ("2026-07-16", "One escalation lacked customer impact, owner, and requested decision, delaying triage by a day."),
+            ("2026-07-30", "The next two escalations used the required template and were routed without rework."),
+        )
+        date, observation = observations[(item_index - 1) % len(observations)]
+        return f"""# Manager 1:1 Note - {date}
+Employee: Direct report A
+Observed behavior: {observation}
+Existing expectation: customer handoffs within 24 hours; accurate status; respectful
+meeting conduct; escalations must include impact, owner, and requested decision.
+HR review required before issue: confirm policy, proportionality, support offered,
+measurement period, accommodation process, and whether any protected activity is implicated.
+"""
+
+    if row["id"] == 166:
+        documents = (
+            """# Atlas Labs Mutual NDA - Standard Template
+Purpose: evaluating a potential commercial relationship. Mutual obligations apply.
+Confidential Information excludes public, previously known, independently developed,
+and lawfully third-party information. Use is limited to the Purpose. Disclosure is
+limited to representatives with a need to know and equivalent duties. Compelled
+disclosure requires prompt notice when lawful. Confidentiality lasts three years;
+trade-secret duties last while protected by law. Residuals use is prohibited. No IP
+license is granted. Liability is not predetermined. Delaware law and courts govern.
+""",
+            """# Counterparty Redline - Mutual NDA
+Purpose expanded to any present or future business discussion. Counterparty obligations
+are deleted, making duties one-way against Atlas Labs. Previously known information is
+no longer excluded unless proved by a notarized record. Counterparty may disclose to
+affiliates and financing sources without a need-to-know limit. Compelled-disclosure notice
+is deleted. The term is extended to ten years for all information. A residuals clause
+permits unaided-memory use. Feedback receives a perpetual, irrevocable IP license.
+Atlas liability is capped at $25,000, while counterparty liability is uncapped.
+Delaware venue is replaced by New York arbitration with prevailing-party fees.
+""",
+        )
+        return documents[(item_index - 1) % len(documents)]
 
     key = f"{row['category']} {row['task']} {reference}".casefold()
     base = fixture_context(row)
