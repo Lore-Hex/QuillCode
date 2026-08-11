@@ -1,5 +1,18 @@
 # QuillCode Decisions
 
+## 2026-08-11: packaged launches require graceful termination
+
+- **Decision:** Packaged Quill Cowork apps explicitly disable macOS sudden termination. Automatic
+  termination support remains unchanged, but every operating-system termination must cross AppKit's
+  normal `willTerminate` boundary before the process exits.
+- **Why:** The active-launch record is intentionally removed only at that graceful boundary. Apple
+  documents that sudden termination skips `willTerminate`; advertising it made an ordinary fast
+  logout or shutdown indistinguishable from a crash and could show a false unexpected-exit warning or
+  pause automatic workspace services on the next launch.
+- **Release boundary:** Packaged smoke reads the built `Info.plist` and fails unless
+  `NSSupportsSuddenTermination` is false. Source parity separately pins both the generated plist entry
+  and the artifact assertion so future packaging changes cannot silently reintroduce the mismatch.
+
 ## 2026-08-11: pane visibility changes reuse the current workspace projection
 
 - **Decision:** Opening or closing Automations, Extensions, Memories, or Activity updates only that

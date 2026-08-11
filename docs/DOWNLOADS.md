@@ -79,6 +79,10 @@ launch shows **Quill Cowork closed unexpectedly** and warns that an in-progress 
 incomplete. Choose **Continue** to return to the workspace or **Report Issue...** to open a prefilled
 crash report.
 
+Packaged apps require graceful macOS termination rather than opting into sudden process death. This
+ensures normal logout, shutdown, automatic termination, and explicit Quit cross the same marker-clearing
+boundary; macOS cannot skip that cleanup and make an ordinary system action look like a crash.
+
 If the process disappears before reaching its first-window startup boundary, the next launch opens
 the saved workspace in recovery mode. Managed-worktree retention, pull-request reconciliation,
 project indexing, due automations, account refreshes, and optional Computer Use driver discovery stay

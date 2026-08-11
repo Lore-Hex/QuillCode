@@ -198,6 +198,7 @@ assert_plist_value CFBundlePackageType APPL
 assert_plist_value QuillCodeBuildCommit "$EXPECTED_BUILD_COMMIT"
 assert_plist_value LSApplicationCategoryType public.app-category.developer-tools
 assert_plist_value NSPrincipalClass NSApplication
+assert_plist_value NSSupportsSuddenTermination false
 assert_plist_value QuillCodeUpdateChannel tester
 assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
 assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
