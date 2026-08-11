@@ -138,8 +138,44 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testRejectsIncorrectExplicitMeanWithMarkdownEmphasis() throws {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 +
+        323.976 + 324.800 + 324.122 + 324.054) / 11 = **321.466**
+        """
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("321.943000"), issue)
+        XCTAssertTrue(issue.contains("321.466"), issue)
+    }
+
+    func testAllowsCorrectExplicitMeanWithMarkdownEmphasis() {
+        let artifact = """
+        (317.671 + 319.082 + 319.799 + 320.795 + 321.465 + 322.561 + 323.048 +
+        323.976 + 324.800 + 324.122 + 324.054) / 11 = **321.943**
+        """
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+    }
+
     func testRejectsIncorrectExplicitProductDivision() throws {
         let artifact = "2023 real = 4,200,000 × 333.952 / 304.702 = $4,603,818"
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("4603180.812729"), issue)
+        XCTAssertTrue(issue.contains("$4,603,818"), issue)
+    }
+
+    func testRejectsIncorrectExplicitProductDivisionWithMarkdownEmphasis() throws {
+        let artifact = "**2023 real** = **4,200,000** × (333.952 / 304.702) = **$4,603,818**"
         let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
             artifact: artifact,
             evidenceReceipt: "retained source evidence"
@@ -180,6 +216,17 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
 
     func testRejectsIncorrectExplicitGrowthRate() throws {
         let artifact = "(5,429,439 − 4,603,181) / 4,603,181 = 18.50%"
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("explicit growth equation"), issue)
+        XCTAssertTrue(issue.contains("18.50%"), issue)
+    }
+
+    func testRejectsIncorrectExplicitGrowthRateInsideInlineCode() throws {
+        let artifact = "`(5,429,439 − 4,603,181) / 4,603,181 = 18.50%`"
         let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
             artifact: artifact,
             evidenceReceipt: "retained source evidence"

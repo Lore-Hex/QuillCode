@@ -193,13 +193,17 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func explicitArithmeticContradiction(in artifact: String) -> String? {
-        if let issue = explicitSumDivisionContradiction(in: artifact) {
+        let auditText = artifact
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "__", with: "")
+            .replacingOccurrences(of: "`", with: "")
+        if let issue = explicitSumDivisionContradiction(in: auditText) {
             return issue
         }
-        if let issue = explicitProductDivisionContradiction(in: artifact) {
+        if let issue = explicitProductDivisionContradiction(in: auditText) {
             return issue
         }
-        return explicitGrowthContradiction(in: artifact)
+        return explicitGrowthContradiction(in: auditText)
     }
 
     private static func explicitSumDivisionContradiction(in artifact: String) -> String? {
