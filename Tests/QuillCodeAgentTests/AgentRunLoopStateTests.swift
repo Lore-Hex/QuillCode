@@ -101,6 +101,48 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testUnrelatedWriteIsRejectedOnlyAfterEveryRequiredReadbackCompletes() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and read the saved file back to verify it."
+        )
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n",
+            ])
+        )
+        let deliverableRewrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "./outputs/report.md",
+                "content": "# Final Report\n",
+            ])
+        )
+        let unrelatedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "conference-leads.csv",
+                "content": "unrelated\n",
+            ])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: deliverableWrite, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        XCTAssertFalse(state.isUnrelatedFileWriteAfterRequiredReadback(unrelatedWrite))
+
+        _ = state.recordCompletedStep(
+            completed(call: fileReadCall("outputs/report.md"), stdout: "# Report"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        XCTAssertTrue(state.isUnrelatedFileWriteAfterRequiredReadback(unrelatedWrite))
+        XCTAssertFalse(state.isUnrelatedFileWriteAfterRequiredReadback(deliverableRewrite))
+        XCTAssertFalse(state.isUnrelatedFileWriteAfterRequiredReadback(fileReadCall("notes.md")))
+    }
+
     func testRequestedReadbackDoesNotIncludeHelperWrites() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

@@ -240,7 +240,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and an immediate readback after each write")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("clean text formatting")
@@ -304,7 +304,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and an immediate readback after each write")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("placeholder-free text")
@@ -368,7 +368,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and an immediate readback after each write")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("consistent enumerated counts")
@@ -431,7 +431,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and an immediate readback after each write")
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("complete Markdown sections")
         })

@@ -545,7 +545,9 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             "Completed and verified outputs/report.md."
         )
         XCTAssertEqual(result.thread.events.filter {
-            $0.summary.contains("advanced one exact read of ./outputs/report.md")
+            $0.summary.contains(
+                "advanced the exact required readback of ./outputs/report.md"
+            )
         }.count, 1)
         let requestCount = await state.recorded().count
         XCTAssertLessThanOrEqual(requestCount, 9)

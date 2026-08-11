@@ -847,7 +847,11 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 5, "two writes need two audits and a final readback")
+        XCTAssertEqual(
+            result.toolResults.count,
+            6,
+            "two writes each need an immediate readback and a deterministic contract audit"
+        )
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertEqual(
             result.thread.events.filter {
@@ -857,7 +861,7 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         )
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "The audited report is complete and verified."
+            "The audited report is complete."
         )
     }
 

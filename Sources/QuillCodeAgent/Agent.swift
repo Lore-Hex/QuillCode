@@ -243,8 +243,9 @@ public struct AgentRunner: Sendable {
             /// path instead of discarding evidence that is already sufficient for a named artifact.
             var hasRecoveredConfirmedFlailIntoFinalization = false
             /// Mechanical closure actions do not need another model turn once the model has
-            /// authored a validator. They still execute through the normal tool and safety path.
-            var pendingBoundedRunFinalizationAction: AgentAction?
+            /// written a required artifact or authored a validator. They still execute through
+            /// the normal tool, safety, and terminal-quality paths.
+            var pendingControlledAction: AgentAction?
             var autoReadbackAfterContractAuditPath: String?
             var hasEmittedModelAction = false
             var hasCompletedWorkspaceMutation = false
@@ -351,9 +352,15 @@ public struct AgentRunner: Sendable {
             var hasPromotedFallbackRoute = false
             var consecutiveStandbyRecoveries = 0
             let limit = max(1, maxToolSteps)
+            let controlledActionLimit = 8
+            var modelActionSteps = 0
+            var controlledActionSteps = 0
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
-            actionLoop: for _ in 0..<limit {
+            actionLoop: while modelActionSteps < limit
+                || ((pendingControlledAction != nil
+                     || controlledSourceGroundingFinalization != nil)
+                    && controlledActionSteps < controlledActionLimit) {
                 if hasEnteredBoundedRunFinalization {
                     boundedRunFinalizationPath = runLoop.boundedRunFinalizationTargetPath()
                 }
@@ -418,7 +425,7 @@ public struct AgentRunner: Sendable {
                         unverifiedPaths: runLoop.pendingArtifactReadbackWorkspacePaths
                        ), let path = AgentArtifactVerificationGate.pathArgument(from: readCall),
                        forcedArtifactReadbackPaths.insert(path).inserted {
-                        pendingBoundedRunFinalizationAction = .tool(readCall)
+                        pendingControlledAction = .tool(readCall)
                         next.events.append(.init(
                             kind: .notice,
                             summary: "Self-healing: corrective sampling could not express the "
@@ -498,11 +505,16 @@ public struct AgentRunner: Sendable {
                 } else {
                     .synthesis
                 }
-                let isControlledBoundedRunFinalizationAction =
-                    pendingBoundedRunFinalizationAction != nil
+                let isControlledAction = pendingControlledAction != nil
+                    || controlledSourceGroundingFinalization != nil
+                if isControlledAction {
+                    controlledActionSteps += 1
+                } else {
+                    modelActionSteps += 1
+                }
                 let action: AgentAction
-                if let controlledAction = pendingBoundedRunFinalizationAction {
-                    pendingBoundedRunFinalizationAction = nil
+                if let controlledAction = pendingControlledAction {
+                    pendingControlledAction = nil
                     action = controlledAction
                 } else if let controlledSourceGroundingFinalization {
                     action = controlledSourceGroundingFinalization
@@ -813,6 +825,18 @@ public struct AgentRunner: Sendable {
                         continue actionLoop
                     }
                 }
+                if case .tool(let proposedCall) = resolvedAction,
+                   runLoop.pendingArtifactContractAuditPath() == nil,
+                   runLoop.isUnrelatedFileWriteAfterRequiredReadback(proposedCall) {
+                    resolvedAction = .say("Completed and verified the requested artifact.")
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: rejected an unrelated file write after every "
+                            + "required artifact had passed readback verification."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 if case .say = resolvedAction,
                    let requiredRead = AgentExplicitSourceReadRecovery.nextAction(
                     userMessage: userMessage,
@@ -832,7 +856,7 @@ public struct AgentRunner: Sendable {
                 if let path = boundedRunFinalizationPath,
                    runLoop.boundedRunFinalizationPhase(at: path) == .audit,
                    runLoop.requiresContractAuditDeliverableRepair(at: path),
-                   !isControlledBoundedRunFinalizationAction {
+                   !isControlledAction {
                     let isRequiredRepair: Bool
                     if case .tool(let call) = resolvedAction {
                         isRequiredRepair = AgentBoundedRunFinalizationGate
@@ -868,7 +892,7 @@ public struct AgentRunner: Sendable {
                     resolvedAction,
                     deliverablePath: path,
                     phase: runLoop.boundedRunFinalizationPhase(at: path)
-                   ), !isControlledBoundedRunFinalizationAction,
+                   ), !isControlledAction,
                    !(isSemanticArtifactCorrection
                         && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
                             resolvedAction,
@@ -921,7 +945,7 @@ public struct AgentRunner: Sendable {
                 }
                 if let path = boundedRunFinalizationPath,
                    runLoop.boundedRunFinalizationPhase(at: path) == .audit,
-                   !isControlledBoundedRunFinalizationAction,
+                   !isControlledAction,
                    case .tool(let proposedCall) = resolvedAction {
                     let isValidatorProposal = AgentBoundedRunFinalizationGate
                         .validatorHelperExecutionCall(
@@ -1470,11 +1494,14 @@ public struct AgentRunner: Sendable {
                         // never written). Route the synthesized say through the same gate; if the
                         // corrective sample answers with a fresh tool action (e.g. the missing
                         // file's write), execute it below like any tool step.
-                        var finalized: AgentAction = .say(Self.finalAnswer(
-                            for: lastCompletion.call,
-                            result: lastCompletion.result,
-                            followUpReviewResult: lastCompletion.followUpReviewResult
-                        ))
+                        let repeatedCallFinalAnswer = runLoop
+                            .verifiedRequiredArtifactCompletionMessage()
+                            ?? Self.finalAnswer(
+                                for: lastCompletion.call,
+                                result: lastCompletion.result,
+                                followUpReviewResult: lastCompletion.followUpReviewResult
+                            )
+                        var finalized: AgentAction = .say(repeatedCallFinalAnswer)
                         if let requiredRead = AgentExplicitSourceReadRecovery.nextAction(
                             userMessage: userMessage,
                             workspaceRoot: workspaceRoot,
@@ -2195,7 +2222,7 @@ public struct AgentRunner: Sendable {
                            let path = runLoop.pendingArtifactContractAuditPath(),
                            runLoop.needsContractAuditRepairReadback(at: path),
                            tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
-                            pendingBoundedRunFinalizationAction = .tool(ToolCall(
+                            pendingControlledAction = .tool(ToolCall(
                                 name: ToolDefinition.fileRead.name,
                                 argumentsJSON: ToolArguments.json(["path": path])
                             ))
@@ -2204,6 +2231,39 @@ public struct AgentRunner: Sendable {
                                 summary: "Self-healing: the failed validator left ./\(path) on "
                                     + "disk; advanced one exact repair read before allowing a "
                                     + "rewrite."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
+                        if pendingControlledAction == nil,
+                           completion.result.ok,
+                           runLoop.pendingArtifactContractAuditPath() == nil,
+                           let readCall = AgentArtifactVerificationGate.requiredReadbackCall(
+                            userMessage: userMessage,
+                            tools: tools,
+                            unverifiedPaths: runLoop.pendingArtifactReadbackWorkspacePaths
+                           ), let path = AgentArtifactVerificationGate.pathArgument(from: readCall) {
+                            pendingControlledAction = .tool(readCall)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: advanced the exact required readback of "
+                                    + "./\(path) immediately after the artifact write."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
+                        if pendingControlledAction == nil,
+                           modelActionSteps >= limit,
+                           completion.result.ok,
+                           runLoop.pendingArtifactContractAuditPath() == nil,
+                           let completionMessage = runLoop
+                            .verifiedRequiredArtifactCompletionMessage() {
+                            pendingControlledAction = .say(completionMessage)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the required artifact readback succeeded "
+                                    + "at the model-action ceiling; advanced through terminal "
+                                    + "quality gates without another model turn."
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
@@ -2284,7 +2344,7 @@ public struct AgentRunner: Sendable {
                                 after: completion.call,
                                 deliverablePath: path
                             ), runLoop.boundedRunFinalizationPhase(at: path) == .audit {
-                            pendingBoundedRunFinalizationAction = .tool(validatorCall)
+                            pendingControlledAction = .tool(validatorCall)
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: executed the authored validator helper "
@@ -2301,7 +2361,7 @@ public struct AgentRunner: Sendable {
                             switch runLoop.boundedRunFinalizationPhase(at: path) {
                             case .readback:
                                 autoReadbackAfterContractAuditPath = path
-                                pendingBoundedRunFinalizationAction = .say(
+                                pendingControlledAction = .say(
                                     "Completed and verified `\(path)`."
                                 )
                                 next.events.append(.init(
@@ -2313,7 +2373,7 @@ public struct AgentRunner: Sendable {
                                 next.updatedAt = Date()
                                 await onProgress?(next)
                             case .complete:
-                                pendingBoundedRunFinalizationAction = .say(
+                                pendingControlledAction = .say(
                                     "Completed and verified `\(path)`."
                                 )
                             case .synthesize, .audit:
@@ -2327,7 +2387,7 @@ public struct AgentRunner: Sendable {
                                     phase: .readback
                                   ), runLoop.boundedRunFinalizationPhase(at: path) == .complete {
                             autoReadbackAfterContractAuditPath = nil
-                            pendingBoundedRunFinalizationAction = .say(
+                            pendingControlledAction = .say(
                                 "Completed and verified `\(path)`."
                             )
                             next.events.append(.init(
@@ -2342,10 +2402,9 @@ public struct AgentRunner: Sendable {
                 }
             }
 
-            // Reaching here means the loop ran its full tool-step budget without the model ever
-            // returning a final answer — the run hit its ceiling. Synthesize an answer as before, but
-            // record it HONESTLY (a notice + a distinct stopReason) so it is not mistaken for a real
-            // finish on an unattended run.
+            // Reaching here means the loop ran its full model-action budget without a final answer,
+            // or exhausted the separate bounded allowance for harness-owned closure actions.
+            // Preserve the latest result, but label the ceiling honestly.
             if let lastCompletion = runLoop.latestCompletion {
                 appendAssistantMessage(Self.finalAnswer(
                     for: lastCompletion.call,

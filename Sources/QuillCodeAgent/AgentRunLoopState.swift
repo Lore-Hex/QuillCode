@@ -314,6 +314,42 @@ struct AgentRunLoopState: Sendable {
         })
     }
 
+    func verifiedRequiredArtifactCompletionMessage() -> String? {
+        let paths = requiredReadbackWorkspacePaths.sorted()
+        guard !paths.isEmpty,
+              paths.allSatisfy({ requiredPath in
+                  writtenWorkspacePaths.contains(where: {
+                      AgentArtifactVerificationGate.pathsMatch($0, requiredPath)
+                  }) && !unverifiedWrittenWorkspacePaths.contains(where: {
+                      AgentArtifactVerificationGate.pathsMatch($0, requiredPath)
+                  })
+              })
+        else { return nil }
+
+        if paths.count == 1, let path = paths.first {
+            return "Completed and verified `\(path)`."
+        }
+        return "Completed and verified the requested artifacts."
+    }
+
+    func isUnrelatedFileWriteAfterRequiredReadback(_ call: ToolCall) -> Bool {
+        guard !requiredReadbackWorkspacePaths.isEmpty,
+              call.name == ToolDefinition.fileWrite.name,
+              let path = AgentArtifactVerificationGate.pathArgument(from: call),
+              requiredReadbackWorkspacePaths.allSatisfy({ requiredPath in
+                  writtenWorkspacePaths.contains(where: {
+                      AgentArtifactVerificationGate.pathsMatch($0, requiredPath)
+                  }) && !unverifiedWrittenWorkspacePaths.contains(where: {
+                      AgentArtifactVerificationGate.pathsMatch($0, requiredPath)
+                  })
+              })
+        else { return false }
+
+        return !requiredReadbackWorkspacePaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
+    }
+
     func pendingResearchCheckpointPath(minimumResearchWeight: Int) -> String? {
         guard researchPressureWeightBeforeDraft >= minimumResearchWeight else { return nil }
         return namedTextDeliverableWorkspacePaths.sorted().first { path in

@@ -287,11 +287,7 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         )
 
         XCTAssertEqual(result.toolResults.count, 5, "draft write/read, fetch, final write/read")
-        XCTAssertTrue(
-            result.thread.messages.last?.content.contains(
-                "final [source](https://example.com/source)"
-            ) == true
-        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Updated and verified.")
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),
             "final [source](https://example.com/source)"
@@ -340,7 +336,11 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 4, "the stale local read must not execute")
+        XCTAssertEqual(
+            result.toolResults.count,
+            5,
+            "the initial and final readbacks execute, while the stale local read does not"
+        )
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),
             "final [source](https://example.com/source)"
@@ -394,8 +394,8 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
 
         XCTAssertEqual(
             result.toolResults.count,
-            1 + AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps + 2,
-            "the fetch proposed after the phase budget must not execute"
+            1 + AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps + 3,
+            "the initial readback executes, while the fetch after the phase budget does not"
         )
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),

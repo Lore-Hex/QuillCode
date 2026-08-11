@@ -94,13 +94,13 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
 
         XCTAssertEqual(result.toolResults.count, 2, "the premature read must not create a failed tool result")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
-        XCTAssertEqual(result.thread.messages.last?.content, "The report is complete and verified.")
+        XCTAssertEqual(result.thread.messages.last?.content, "The report is complete.")
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("before creating it")
         })
     }
 
-    func testRunnerDoesNotVerifyRequiredOutputByReadingRootLevelDuplicate() async throws {
+    func testRunnerClosesAfterRequiredOutputReadbackWithoutUnrelatedWrites() async throws {
         let root = try makeWorkspace()
         let outputWrite = ToolCall(
             name: "host.file.write",
@@ -137,9 +137,16 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 4, "the required output needs its own forced readback")
+        XCTAssertEqual(result.toolResults.count, 2, "only the required write and readback should run")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
-        XCTAssertEqual(result.thread.messages.last?.content, "The required output is complete and verified.")
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified the requested artifact."
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("report.md").path))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("rejected an unrelated file write")
+        })
     }
 
     func testRunnerForcesReadbackOfShellGeneratedNamedDeliverable() async throws {
@@ -187,7 +194,7 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         XCTAssertTrue(result.toolResults.last?.stdout.contains("Verified shell output") == true)
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "The shell-generated report is complete and verified."
+            "The shell-generated report is complete."
         )
     }
 }

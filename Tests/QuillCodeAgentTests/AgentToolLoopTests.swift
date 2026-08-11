@@ -342,7 +342,10 @@ final class AgentToolLoopTests: XCTestCase {
 
         let delegatedCallCount = await capture.count
         XCTAssertEqual(delegatedCallCount, 1)
-        XCTAssertTrue(result.thread.messages.last?.content.contains("# Final report") == true)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/report.md`."
+        )
         XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("redirected repeated delegated research")
         })

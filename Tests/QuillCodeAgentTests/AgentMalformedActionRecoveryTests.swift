@@ -476,7 +476,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no action after successful source work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 9)
+        XCTAssertEqual(
+            calls.count,
+            9,
+            "the exact artifact readback is local and preserves the final model turn"
+        )
         XCTAssertTrue(calls[3].userMessage.contains("QuillCode continuation"))
         XCTAssertTrue(calls[3].userMessage.contains("continuation 1 of 3"))
         XCTAssertTrue(calls[5].userMessage.contains("continuation 2 of 3"))
@@ -631,7 +635,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 6, "local source recovery must not consume another model call")
+        XCTAssertEqual(calls.count, 5, "local source and artifact recovery consume no model calls")
         XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
     }
 
@@ -760,7 +764,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("malformed terminal output")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 5)
+        XCTAssertEqual(calls.count, 4, "the exact artifact readback is advanced locally")
     }
 
     func testExhaustedEmptyReadArgumentsAfterWriteStillEnforceReadback() async throws {
@@ -791,7 +795,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("required artifact readback")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 5)
+        XCTAssertEqual(calls.count, 4, "the exact artifact readback is advanced locally")
     }
 
     func testUserStopAtBudgetExhaustionSurfacesAsCancellationNotFailure() async throws {
