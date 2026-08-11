@@ -10,7 +10,7 @@ import QuillComputerUseKit
 struct WorkspaceAgentSendSessionFactory: Sendable {
     /// Delegated roles remain bounded, but research workers need enough turns to search, fetch,
     /// recover from blocked pages, and verify a complete evidence track before reporting back.
-    static let maximumSubagentToolSteps = 32
+    static let maximumSubagentToolSteps = 128
 
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?

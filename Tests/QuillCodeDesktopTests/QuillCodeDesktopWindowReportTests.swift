@@ -129,21 +129,21 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
         XCTAssertFalse(request.isConfidential)
         XCTAssertEqual(request.timeoutSeconds, 3_600)
-        XCTAssertEqual(request.subagentDelegationBudget, .seconds(900))
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(2_400))
         XCTAssertEqual(request.maxToolSteps, 512)
         XCTAssertNil(request.runSpendFuseUSD)
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
     }
 
-    func testCoworkEvalReservesTwoThirdsOfRunForSynthesisAndRepair() throws {
+    func testCoworkEvalReservesFinalThirdOfRunForSynthesisAndRepair() throws {
         let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
             "QuillCode",
             "--cowork-eval",
             "--cowork-eval-timeout-seconds", "900",
         ]))
 
-        XCTAssertEqual(request.subagentDelegationBudget, .seconds(300))
-        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 300)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(600))
+        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 600)
     }
 
     func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
@@ -157,6 +157,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
         XCTAssertEqual(request.timeoutSeconds, QuillCodeDesktopCoworkEvalRequest.maximumTimeoutSeconds)
         XCTAssertEqual(request.maxToolSteps, QuillCodeDesktopCoworkEvalRequest.maximumToolSteps)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(7_200))
         XCTAssertEqual(request.runSpendFuseUSD, 1.0)
     }
 
