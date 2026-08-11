@@ -477,6 +477,37 @@ struct AgentRunLoopState: Sendable {
             recordSuccessfulFileReads(paths: paths, output: completion.result.stdout)
             return
         }
+        if completion.call.name == ToolDefinition.applyPatch.name,
+           let arguments = try? ToolArguments(completion.call.argumentsJSON),
+           let patch = arguments.string("patch") {
+            for path in PatchToolExecutor.targetPaths(in: patch) {
+                let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+                let url = workspaceRoot.appendingPathComponent(normalized)
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+                    invalidateContractAudit(for: normalized)
+                    unverifiedWrittenWorkspacePaths.insert(normalized)
+                    markResearchArtifactRefreshed(normalized)
+                    continue
+                }
+                let syntheticCall = ToolCall(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": normalized,
+                        "content": content,
+                    ])
+                )
+                recordArtifactVerification(
+                    AgentToolStepCompletion(
+                        call: syntheticCall,
+                        result: completion.result,
+                        followUpReviewResult: nil,
+                        toolResults: []
+                    ),
+                    workspaceRoot: workspaceRoot
+                )
+            }
+            return
+        }
         guard let path = AgentArtifactVerificationGate.pathArgument(from: completion.call) else {
             return
         }
@@ -808,13 +839,18 @@ struct AgentRunLoopState: Sendable {
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {
         guard completion.result.ok else { return }
         let name = completion.call.name
-        // Whole-file producers register their requested path plus the executor's absolute artifact
-        // path. apply_patch reports no artifacts; a patch-authored deliverable is simply not scanned.
-        if name == ToolDefinition.fileWrite.name || name == ToolDefinition.chartRender.name {
+        // Workspace producers register both requested paths and executor-reported absolute artifacts.
+        if name == ToolDefinition.fileWrite.name || name == ToolDefinition.chartRender.name
+            || name == ToolDefinition.applyPatch.name {
             if let data = completion.call.argumentsJSON.data(using: .utf8),
                let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let path = arguments["path"] as? String {
                 writtenWorkspacePaths.insert(path)
+            }
+            if name == ToolDefinition.applyPatch.name,
+               let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let patch = arguments.string("patch") {
+                writtenWorkspacePaths.formUnion(PatchToolExecutor.targetPaths(in: patch))
             }
             for artifact in completion.result.artifacts {
                 writtenWorkspacePaths.insert(artifact)

@@ -2079,11 +2079,11 @@ public struct AgentRunner: Sendable {
                             $0.isFinite && $0 >= 0
                            }) == true,
                            completion.result.ok,
-                           completion.call.name == ToolDefinition.fileWrite.name,
-                           let writtenPath = AgentArtifactVerificationGate.pathArgument(
-                            from: completion.call
-                           ), let auditPath = runLoop.pendingArtifactContractAuditPath(),
-                           AgentArtifactVerificationGate.pathsMatch(writtenPath, auditPath) {
+                           let auditPath = runLoop.pendingArtifactContractAuditPath(),
+                           AgentBoundedRunFinalizationGate.isDeliverableMutation(
+                            completion.call,
+                            deliverablePath: auditPath
+                           ) {
                             let justEnteredFinalization = !hasEnteredBoundedRunFinalization
                             if justEnteredFinalization {
                                 hasEnteredBoundedRunFinalization = true
@@ -2133,7 +2133,7 @@ public struct AgentRunner: Sendable {
                                 next.events.append(.init(
                                     kind: .notice,
                                     summary: "Self-healing: rejected source-contradictory artifact "
-                                        + "immediately after writing ./\(auditPath): \(issue)"
+                                        + "immediately after updating ./\(auditPath): \(issue)"
                                 ))
                                 next.updatedAt = Date()
                                 await onProgress?(next)

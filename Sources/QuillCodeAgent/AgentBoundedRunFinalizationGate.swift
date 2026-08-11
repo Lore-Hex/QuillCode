@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 /// Converts the final portion of a host-bounded run from open-ended research into guaranteed
 /// artifact synthesis. Interactive runs do not configure this gate and remain unbounded.
@@ -50,6 +51,10 @@ enum AgentBoundedRunFinalizationGate {
         if call.name == ToolDefinition.fileWrite.name,
            let path = AgentArtifactVerificationGate.pathArgument(from: call),
            AgentArtifactVerificationGate.pathsMatch(path, deliverablePath) {
+            return true
+        }
+
+        if phase == .audit, isTargetedDeliverablePatch(call, deliverablePath: deliverablePath) {
             return true
         }
 
@@ -274,12 +279,17 @@ enum AgentBoundedRunFinalizationGate {
 
         \(issue)
 
-        Rewrite the complete ./\(path) now with the corrected source-header association and \
-        recompute every dependent aggregate, amount, rate, and conclusion. Treat each \
+        Repair only the fields named by this issue with one host.apply_patch call targeting \
+        exactly ./\(path). Preserve every unmentioned byte and source-grounded field; do not \
+        rewrite the complete artifact for a narrow contradiction. Recompute every dependent \
+        aggregate, amount, rate, and conclusion implicated by the issue. Treat each \
         host-computed expected value in the issue and source aggregate reference as canonical: \
         copy it verbatim instead of independently recomputing it. Omit optional intermediate \
-        factors or subtotals when they are not required. Do not write or run a validator on this \
-        turn. The deterministic audit will resume after the corrected write.
+        factors or subtotals when they are not required. The patch must be a raw git unified diff \
+        with exact current context. Do not write or run a validator on this turn. If one exact \
+        patch cannot be formed, host.file.write for the same deliverable remains the fallback, but \
+        its content must preserve every unmentioned field verbatim. The deterministic audit will \
+        resume against the complete saved artifact after the mutation.
 
         \(authoritativeEvidenceSection(evidenceReceipt))
         """
@@ -288,10 +298,34 @@ enum AgentBoundedRunFinalizationGate {
             attempt: attempt,
             limit: limit,
             alternatives: [
-                "rewrite ./\(path) using every host-computed expected value verbatim and omit "
-                    + "optional intermediate numeric claims",
+                "patch only the contradictory fields in ./\(path), copy every host-computed "
+                    + "expected value verbatim, and omit optional intermediate numeric claims",
             ]
         )
+    }
+
+    static func isTargetedDeliverablePatch(
+        _ call: ToolCall,
+        deliverablePath: String
+    ) -> Bool {
+        guard call.name == ToolDefinition.applyPatch.name,
+              let arguments = try? ToolArguments(call.argumentsJSON),
+              let patch = arguments.string("patch")
+        else { return false }
+        let targets = PatchToolExecutor.targetPaths(in: patch)
+        return targets.count == 1
+            && AgentArtifactVerificationGate.pathsMatch(targets[0], deliverablePath)
+    }
+
+    static func isDeliverableMutation(
+        _ call: ToolCall,
+        deliverablePath: String
+    ) -> Bool {
+        if call.name == ToolDefinition.fileWrite.name,
+           let path = AgentArtifactVerificationGate.pathArgument(from: call) {
+            return AgentArtifactVerificationGate.pathsMatch(path, deliverablePath)
+        }
+        return isTargetedDeliverablePatch(call, deliverablePath: deliverablePath)
     }
 
     static func escalatedCorrectionPrompt(

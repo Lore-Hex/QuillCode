@@ -100,6 +100,27 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testRejectsLatestMonthlyBenchmarkRelabeledAsHalfYearMean() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | 330.724 |
+        """
+        let artifact = """
+        | Fiscal year | Basis type | Selected basis index | Observation basis |
+        | --- | --- | --- | --- |
+        | 2026 | Monthly benchmark | 330.724167 | Arithmetic mean of Jan-Jun published indexes |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("Jun 2026"), issue)
+        XCTAssertTrue(issue.contains("330.724167"), issue)
+        XCTAssertTrue(issue.contains("333.952"), issue)
+    }
+
     func testAllowsUnrelatedMetricFromSameMonthAndYear() {
         let evidence = """
         | Year | May | Jun | HALF1 |

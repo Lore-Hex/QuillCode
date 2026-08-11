@@ -817,25 +817,32 @@ enum AgentArtifactContractAuditGate {
         let rowPattern = "\\b" + NSRegularExpression.escapedPattern(for: row) + "\\b"
         for line in artifact.components(separatedBy: .newlines) {
             guard line.range(of: rowPattern, options: [.regularExpression, .caseInsensitive]) != nil,
-                  line.range(of: #"\blatest\b"#, options: [.regularExpression, .caseInsensitive])
-                    != nil,
-                  let periodIndex = orderedPeriodAliases.firstIndex(where: { aliases in
-                      aliases.contains(where: { alias in
-                          line.range(
-                            of: "\\b" + NSRegularExpression.escapedPattern(for: alias) + "\\b",
-                            options: [.regularExpression, .caseInsensitive]
-                          ) != nil
-                      })
-                  })
+                  line.range(
+                    of: #"\b(?:latest|monthly\s+benchmark|(?:selected|target)\s+(?:cpi\s+)?(?:basis|index|benchmark))\b"#,
+                    options: [.regularExpression, .caseInsensitive]
+                  ) != nil
             else { continue }
 
             let valuePattern = #"\b\d{2,8}\.\d+\b"#
-            guard let valueRange = line.range(of: valuePattern, options: .regularExpression) else {
+            guard let valueRegex = try? NSRegularExpression(pattern: valuePattern) else { continue }
+            let lineRange = NSRange(line.startIndex..., in: line)
+            let valueMatches = valueRegex.matches(in: line, range: lineRange)
+            guard valueMatches.count == 1,
+                  let valueRange = Range(valueMatches[0].range, in: line) else {
                 continue
             }
+            let periodIndex = orderedPeriodAliases.indices.reversed().first(where: { index in
+                orderedPeriodAliases[index].contains(where: { alias in
+                    line.range(
+                        of: "\\b" + NSRegularExpression.escapedPattern(for: alias) + "\\b",
+                        options: [.regularExpression, .caseInsensitive]
+                    ) != nil
+                })
+            })
             return .init(
                 rowLabel: row,
-                periodLabel: orderedPeriodAliases[periodIndex][0],
+                periodLabel: periodIndex.map { orderedPeriodAliases[$0][0] }
+                    ?? "unspecified monthly benchmark",
                 value: String(line[valueRange])
             )
         }

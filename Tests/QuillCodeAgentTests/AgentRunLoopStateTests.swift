@@ -960,6 +960,68 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(issue.contains("333.952"))
     }
 
+    func testSuccessfulPatchRefreshesAuthoritativeArtifactText() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research and write outputs/report.md with a deterministic validator."
+        )
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/data"])
+        )
+        let table = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | HALF1 |
+        | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | 330.724 |
+        """
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: table),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        let outputs = root.appendingPathComponent("outputs")
+        try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+        let report = outputs.appendingPathComponent("report.md")
+        let incorrect = "The latest monthly benchmark is June 2026, index 326.785.\n"
+        try incorrect.write(to: report, atomically: true, encoding: .utf8)
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": incorrect,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        XCTAssertNotNil(state.authoritativeEvidenceContradiction(at: "outputs/report.md"))
+
+        try "The latest monthly benchmark is June 2026, index 333.952.\n".write(
+            to: report,
+            atomically: true,
+            encoding: .utf8
+        )
+        let patch = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": """
+            diff --git a/outputs/report.md b/outputs/report.md
+            --- a/outputs/report.md
+            +++ b/outputs/report.md
+            @@ -1 +1 @@
+            -The latest monthly benchmark is June 2026, index 326.785.
+            +The latest monthly benchmark is June 2026, index 333.952.
+            """])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: patch, stdout: "Patch applied."),
+            workspaceRoot: root
+        ) { _ in "patch" }
+
+        XCTAssertNil(state.authoritativeEvidenceContradiction(at: "outputs/report.md"))
+        XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
+    }
+
     func testEmptyVisibleBrowserExtractionDoesNotReplaceUsefulReceipt() throws {
         var state = AgentRunLoopState()
         let fetch = ToolCall(
