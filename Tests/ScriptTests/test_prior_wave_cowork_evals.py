@@ -290,6 +290,8 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not promise unsupported turnaround times", prompt)
         self.assertIn("Do not add defensive statements that those items are not prepared", prompt)
         self.assertIn("use neutral conditional language", prompt)
+        self.assertIn("exactly the `first_name` field", prompt)
+        self.assertIn("Do not infer or add surnames", prompt)
         self.assertIn("Omit unrelated company finance and operating context", prompt)
 
     def test_prompt_keeps_completion_details_scoped_to_the_original_task(self):
@@ -1367,6 +1369,16 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
 
             valid, detail = PRIOR.validate_task_33_sequence(artifact)
             self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                artifact.read_text(encoding="utf-8").replace(
+                    "## C-001 - Alice", "## C-001 - Alice Chen", 1
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_33_sequence(artifact)
+            self.assertFalse(valid)
+            self.assertIn("invented contact names=['C-001: Alice Chen']", detail)
 
             artifact.write_text(
                 "# Conference follow-up\n\n## C-001\n### Email 1\nSubject: Hi {Company}\n",
