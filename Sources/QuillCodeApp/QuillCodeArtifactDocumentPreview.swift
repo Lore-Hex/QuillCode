@@ -1624,7 +1624,7 @@ struct QuillCodeArtifactDocumentPreview: View {
     @ViewBuilder
     private func appshotThumbnail(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
         if let screenshotURL = appshotPreview.screenshotURL.flatMap(URL.init(string:)) {
-            AsyncImage(url: screenshotURL) { phase in
+            QuillCodeBoundedAsyncImage(url: screenshotURL, maximumPixelSize: 256) { phase in
                 switch phase {
                 case .success(let image):
                     image

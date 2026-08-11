@@ -81,7 +81,10 @@ private struct QuillCodeAttachmentImage: View {
     var attachment: ImageAttachmentSurface
 
     var body: some View {
-        AsyncImage(url: URL(string: attachment.previewURL)) { phase in
+        QuillCodeBoundedAsyncImage(
+            url: URL(string: attachment.previewURL),
+            maximumPixelSize: 512
+        ) { phase in
             switch phase {
             case .success(let image):
                 image
