@@ -44,6 +44,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var forkParentThreadID: UUID?
     /// The turn (a `TurnRevertPlan.turnMessageID`) a decision-point fork branched at. nil otherwise.
     public var forkAnchorTurnMessageID: UUID?
+    /// Runtime-only transcript ownership. Old archived chats may retain only a bounded summary until
+    /// selected or mutated; this state is deliberately omitted from Codable.
+    public var payloadResidency: ThreadPayloadResidency
     /// Session-only behavior such as a transient side conversation. This field is deliberately
     /// omitted from Codable; decoded threads are always standard durable conversations.
     public var runtimeContext: ThreadRuntimeContext
@@ -73,6 +76,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         pullRequest: PullRequestLink? = nil,
         forkParentThreadID: UUID? = nil,
         forkAnchorTurnMessageID: UUID? = nil,
+        payloadResidency: ThreadPayloadResidency = .loaded,
         runtimeContext: ThreadRuntimeContext = .standard
     ) {
         self.id = id
@@ -99,6 +103,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.pullRequest = pullRequest
         self.forkParentThreadID = forkParentThreadID
         self.forkAnchorTurnMessageID = forkAnchorTurnMessageID
+        self.payloadResidency = payloadResidency
         self.runtimeContext = runtimeContext
     }
 
@@ -166,6 +171,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.pullRequest = try container.decodeIfPresent(PullRequestLink.self, forKey: .pullRequest)
         self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
         self.forkAnchorTurnMessageID = try container.decodeIfPresent(UUID.self, forKey: .forkAnchorTurnMessageID)
+        self.payloadResidency = .loaded
         self.runtimeContext = .standard
     }
 

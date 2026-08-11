@@ -42,7 +42,8 @@ extension QuillCodeWorkspaceModel {
         threadID: UUID,
         reason: ManagedWorktreeRemovalReason
     ) -> Bool {
-        guard let store = worktreeSnapshotStore,
+        guard hydrateThreadPayload(threadID),
+              let store = worktreeSnapshotStore,
               let threadIndex = root.threads.firstIndex(where: { $0.id == threadID }),
               !root.threads[threadIndex].isPinned,
               !agentRuns.isRunning(threadID),
@@ -97,7 +98,8 @@ extension QuillCodeWorkspaceModel {
             setLastError("Stop this task before restoring its worktree.")
             return false
         }
-        guard let store = worktreeSnapshotStore,
+        guard hydrateThreadPayload(threadID),
+              let store = worktreeSnapshotStore,
               let threadIndex = root.threads.firstIndex(where: { $0.id == threadID }),
               var binding = root.threads[threadIndex].worktree,
               let reference = binding.snapshot,

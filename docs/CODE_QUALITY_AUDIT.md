@@ -17338,3 +17338,25 @@ Validation:
 - `scripts/app-server-smoke.sh`
 - `python3 scripts/grade-code-quality.py --root .`
 - `git diff --check`
+
+## 2026-08-11 Historical Archive Payload Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ data safety, A+ packaged performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory architecture | A+ | Bootstrap retains current-period archives but replaces older transcripts with bounded runtime summaries, avoiding historical message and event residency during ordinary use. |
+| Cache safety | A+ | The disposable summary index is schema- and fingerprint-validated, size-bounded, atomically written with mode `0600`, and ignored when corrupt, stale, oversized, symlinked, or nonregular. |
+| Data integrity | A+ | Selection and mutation hydrate canonical JSON first; metadata-only saves merge against authoritative payloads, while attempted deferred transcript mutation fails closed. |
+| Behavioral fidelity | A+ | Deferred summaries preserve the existing bounded search projection, attachment references, agent-import provenance, and Attention rows without changing ordinary CLI or app-server listing semantics. |
+| Lifecycle coverage | A+ | Selection, duplication, unarchive, automation follow-up, worktree retention/restoration, attachment cleanup, archived rewrites, and deletion honor deferred residency. |
+| Packaged performance | A+ | The final 100-chat run reached readiness in 294.68 ms with a 41.00 MiB initial physical footprint, 89.94 MiB after the repeated interaction sweep, 2.02 MiB repeated growth, and a thread count that fell from seven to six. |
+| Regression evidence | A+ | Cold and warm cache paths, invalidation, corruption recovery, 200-archive scale, data-loss rejection, current-month policy, search, provenance, Attention, hydration, and packaged fixture behavior are covered. |
+
+Validation:
+
+- `swift test` (6,174 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, Accessibility, computer-use contracts, and repeated 100-chat interaction passed)
+- Final physical-footprint evidence: 294.68 ms launch-ready, 41.00 MiB initial, 87.92 MiB post-interaction, 89.94 MiB repeated-interaction, and 2.02 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all touched modules A+)
+- `git diff --check`

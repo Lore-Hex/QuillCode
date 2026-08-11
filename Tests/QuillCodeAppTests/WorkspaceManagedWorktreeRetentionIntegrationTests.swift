@@ -50,6 +50,39 @@ final class WorkspaceManagedWorktreeRetentionIntegrationTests: XCTestCase {
         XCTAssertNotNil(model.root.threads.first { $0.id == oldest.id }?.worktree?.snapshot)
         XCTAssertTrue(FileManager.default.fileExists(atPath: newest.worktree?.path ?? ""))
     }
+
+    func testEnforcementHydratesDeferredArchiveBeforeRecordingSnapshot() throws {
+        let fixture = try RetentionFixture(count: 2, retentionLimit: 1)
+        defer { fixture.remove() }
+        var archived = try XCTUnwrap(fixture.threads.first)
+        archived.isArchived = true
+        archived.messages = [ChatMessage(role: .user, content: "preserve archived context")]
+        try fixture.threadStore.save(archived)
+        let cutoff = Date(timeIntervalSince1970: 10_000)
+        let bootstrapped = fixture.threadStore.bootstrapListing(
+            deferArchivedBefore: cutoff
+        ).threads
+        XCTAssertFalse(
+            try XCTUnwrap(bootstrapped.first { $0.id == archived.id })
+                .payloadResidency.isLoaded
+        )
+        let model = fixture.model(
+            threads: bootstrapped,
+            selectedThreadID: fixture.threads.last?.id
+        )
+
+        XCTAssertEqual(model.enforceManagedWorktreeRetention(), 1)
+
+        let retained = try XCTUnwrap(model.root.threads.first { $0.id == archived.id })
+        XCTAssertTrue(retained.payloadResidency.isLoaded)
+        XCTAssertEqual(retained.messages.map(\.content), ["preserve archived context"])
+        XCTAssertNotNil(retained.worktree?.snapshot)
+        let persisted = try fixture.threadStore.load(archived.id)
+        XCTAssertEqual(persisted.messages.map(\.content), ["preserve archived context"])
+        XCTAssertTrue(
+            persisted.events.contains { $0.summary.contains("worktree") }
+        )
+    }
 }
 
 private final class RetentionFixture {
@@ -121,13 +154,16 @@ private final class RetentionFixture {
     }
 
     @MainActor
-    func model(selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
+    func model(
+        threads: [ChatThread]? = nil,
+        selectedThreadID: UUID?
+    ) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(
             root: QuillCodeRootState(
                 config: AppConfig(managedWorktrees: settings),
                 projects: [project],
                 selectedProjectID: project.id,
-                threads: threads,
+                threads: threads ?? self.threads,
                 selectedThreadID: selectedThreadID
             ),
             threadStore: threadStore,

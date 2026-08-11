@@ -83,7 +83,7 @@ extension QuillCodeWorkspaceModel {
             _ = returnFromSideConversation()
             _ = discardConfidentialThreadOnExit()
         }
-        guard root.threads.contains(where: { $0.id == id }) else { return }
+        guard hydrateThreadPayload(id) else { return }
         let previousLocation = currentNavigationLocation
         // The user is leaving the current thread: persist its morning-triage return watermark to its
         // current tail so background growth on it surfaces as "unseen" on return (cross-session).

@@ -28,6 +28,10 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         XCTAssertEqual(threads.count, QuillCodeDesktopDailyDriverSmokeFixture.chatCount)
         XCTAssertEqual(Set(threads.map(\.id)).count, threads.count)
         XCTAssertTrue(threads.allSatisfy { $0.projectID == projects.first?.id })
+        XCTAssertEqual(
+            threads.filter(\.isArchived).count,
+            QuillCodeDesktopDailyDriverSmokeFixture.archivedChatCount
+        )
         XCTAssertEqual(selectedThread.title, "Keyboard ergonomics 100")
         XCTAssertTrue(selectedThread.isPinned)
         XCTAssertEqual(
@@ -65,6 +69,15 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
                 includesInitialSurface: true,
                 controller: controller
             ).contains("onboarding.developer-key")
+        )
+        XCTAssertEqual(
+            controller.model.root.threads.filter(\.isArchived).count,
+            QuillCodeDesktopDailyDriverSmokeFixture.archivedChatCount
+        )
+        XCTAssertTrue(
+            controller.model.root.threads.filter(\.isArchived).allSatisfy {
+                !$0.payloadResidency.isLoaded && $0.messages.isEmpty
+            }
         )
         XCTAssertEqual(
             try QuillCodeDesktopDailyDriverSmokeFixture.validate(

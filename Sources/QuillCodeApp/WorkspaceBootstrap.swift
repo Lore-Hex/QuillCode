@@ -13,17 +13,20 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     public var runtimeFactory: QuillCodeRuntimeFactory
     public var modelCatalogFetcher: ModelCatalogFetcher?
     public var accountCreditsFetcher: AccountCreditsFetcher?
+    public var now: @Sendable () -> Date
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
         runtimeFactory: QuillCodeRuntimeFactory? = nil,
         modelCatalogFetcher: ModelCatalogFetcher? = nil,
-        accountCreditsFetcher: AccountCreditsFetcher? = nil
+        accountCreditsFetcher: AccountCreditsFetcher? = nil,
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.paths = paths
         self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(paths: paths)
         self.modelCatalogFetcher = modelCatalogFetcher
         self.accountCreditsFetcher = accountCreditsFetcher
+        self.now = now
     }
 
     @MainActor
@@ -57,7 +60,14 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         }
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
-        let threadListing = threadStore.listing()
+        let currentDate = now()
+        let archiveDeferralCutoff = Calendar.current.dateInterval(
+            of: .month,
+            for: currentDate
+        )?.start ?? currentDate
+        let threadListing = threadStore.bootstrapListing(
+            deferArchivedBefore: archiveDeferralCutoff
+        )
         let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
             threadListing.threads,
             childStore: childStore,
