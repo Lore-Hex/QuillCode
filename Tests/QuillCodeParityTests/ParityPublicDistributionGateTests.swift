@@ -41,6 +41,7 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
 
     func testFirstRunConnectSurfaceHidesDeveloperCallbackDetails() throws {
         let connectView = try Self.appSourceText(named: "QuillCodeConnectView.swift")
+        let connectBannerView = try Self.appSourceText(named: "QuillCodeConnectBannerView.swift")
         let connectPrompt = try Self.appSourceText(named: "TranscriptConnectPrompt.swift")
         let settingsView = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
         let workspaceView = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
@@ -52,12 +53,41 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
             "quillcode-connect-developer-key",
             "onUseDeveloperKey"
         ])
+        Self.assertSource(connectBannerView, containsAll: [
+            "TranscriptConnectPrompt.returningUserSubtitle",
+            "quillcode-connect-sign-in",
+            "quillcode-connect-developer-key"
+        ])
+        Self.assertSource(connectPrompt, contains: "case banner")
         Self.assertSource(connectPrompt, excludes: "var signInURL")
         Self.assertSource(settingsView, contains: "Text(settings.signInURL)")
+        Self.assertSource(settingsView, containsAll: [
+            "LazyVStack(alignment: .leading, spacing: 14)",
+            "authenticationSection",
+            "QuillCodeNotificationSettingsCard"
+        ])
+        let authenticationIndex = try XCTUnwrap(settingsView.range(of: "authenticationSection")).lowerBound
+        let notificationIndex = try XCTUnwrap(
+            settingsView.range(of: "QuillCodeNotificationSettingsCard")
+        ).lowerBound
+        XCTAssertLessThan(authenticationIndex, notificationIndex)
         Self.assertSource(workspaceView, containsAll: [
             "onUseDeveloperKey: presentDeveloperKeySettings",
             "settingsAuthModeOverride = .developerOverride"
         ])
         Self.assertSource(workspaceSheets, contains: "authModeOverride: settingsAuthModeOverride")
+    }
+
+    func testNotificationServicesRequireCanonicalPackagedProcessIdentity() throws {
+        let controller = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+
+        Self.assertSource(controller, containsAll: [
+            "QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(",
+            #"pathExtension.caseInsensitiveCompare("app")"#,
+            #"appendingPathComponent("Contents/MacOS", isDirectory: true)"#
+        ])
+        Self.assertSource(controller, excludesAll: [
+            "guard bundle.bundleIdentifier == updateController.configuration?.bundleIdentifier else"
+        ])
     }
 }

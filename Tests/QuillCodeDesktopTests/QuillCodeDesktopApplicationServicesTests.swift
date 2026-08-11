@@ -7,6 +7,48 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopApplicationServicesTests: XCTestCase {
+    func testNotificationOwnershipRequiresCanonicalPackagedApplicationLayout() {
+        let applicationURL = URL(
+            fileURLWithPath: "/Applications/Quill Cowork.app",
+            isDirectory: true
+        )
+        let executableURL = applicationURL
+            .appendingPathComponent("Contents/MacOS/Quill Cowork")
+
+        XCTAssertTrue(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: applicationURL,
+            executableURL: executableURL,
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: URL(fileURLWithPath: "/tmp/.build/debug", isDirectory: true),
+            executableURL: URL(fileURLWithPath: "/tmp/.build/debug/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+    }
+
+    func testNotificationOwnershipRejectsMismatchedIdentityAndEscapedExecutable() {
+        let applicationURL = URL(
+            fileURLWithPath: "/Applications/Quill Cowork.app",
+            isDirectory: true
+        )
+
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.example.Lookalike",
+            bundleURL: applicationURL,
+            executableURL: applicationURL.appendingPathComponent("Contents/MacOS/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: applicationURL,
+            executableURL: URL(fileURLWithPath: "/tmp/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+    }
+
     func testApplicationServicesStartAtFirstWindowBoundaryAndRemainIdempotent() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

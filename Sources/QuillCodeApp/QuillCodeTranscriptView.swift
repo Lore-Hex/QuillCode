@@ -2,8 +2,6 @@ import SwiftUI
 import QuillCodeCore
 
 struct QuillCodeTranscriptView: View {
-    private static let reviewAnchorID = "quillcode-review-pane-anchor"
-
     var transcript: TranscriptSurface
     /// The currently selected thread, so the "N new turns" watermark is tracked per thread and a
     /// thread that grew in the background shows its pill on return. `nil` for the empty/no-thread
@@ -110,6 +108,14 @@ struct QuillCodeTranscriptView: View {
         return runtimeIssue == nil || runtimeIssueIsSetupRelated
     }
 
+    private var connectPlacement: TranscriptConnectPlacement {
+        TranscriptConnectPlacement.resolve(
+            hasPrompt: connectPrompt != nil,
+            requiresProjectSelection: requiresProjectSelection,
+            emptyStateVisible: isEmptyStateVisible
+        )
+    }
+
     private var runtimeIssueIsSetupRelated: Bool {
         switch runtimeIssue?.recovery?.reason {
         case .trustedRouterSignInRequired, .developerKeyMissing:
@@ -143,6 +149,16 @@ struct QuillCodeTranscriptView: View {
                 )
                 Divider()
             }
+            if connectPlacement == .banner {
+                QuillCodeConnectBannerView(
+                    onSignIn: onStartTrustedRouterSignIn,
+                    onUseDeveloperKey: onUseDeveloperKey
+                )
+                .frame(maxWidth: Self.contentColumnMaxWidth)
+                .padding(.horizontal, 22)
+                .padding(.top, 14)
+                .frame(maxWidth: .infinity)
+            }
             transcriptBody
         }
         .background(isConfidentialAppearance ? QuillCodePalette.Confidential.background : QuillCodePalette.background)
@@ -164,12 +180,22 @@ struct QuillCodeTranscriptView: View {
             // watermark) as it grows while the user watches.
             newTurnsStore.observe(threadID: threadID, transcript: transcript)
         }
+        .onChange(of: review.isVisible) { _, isVisible in
+            guard !isVisible else { return }
+            // Review is a focused viewport rather than a transcript row. Reopening the transcript
+            // therefore starts at its latest turn, matching the previous review-close behavior
+            // without laying out every intervening row during a top-to-bottom anchor jump.
+            isPinnedToBottom = true
+            scrollMetrics.resetContentOffsetBaseline()
+        }
     }
 
     @ViewBuilder
     private var transcriptBody: some View {
         Group {
-            if isEmptyStateVisible {
+            if review.isVisible {
+                reviewBody
+            } else if isEmptyStateVisible {
                 // Two spacers CENTER the hero in the transcript void — bottom-anchoring it against
                 // the composer left a large dead area above at tall windows.
                 Spacer(minLength: 0)
@@ -198,21 +224,6 @@ struct QuillCodeTranscriptView: View {
                                 )
                                 .frame(maxWidth: 760, alignment: .leading)
                             }
-                            if review.isVisible {
-                                QuillCodeReviewPaneView(
-                                    review: review,
-                                    onClose: onCloseReview,
-                                    onReviewScopeChange: onReviewScopeChange,
-                                    onReviewAction: onReviewAction,
-                                    onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
-                                    onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
-                                    onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
-                                    onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
-                                    onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
-                                    onAddReviewComment: onAddReviewComment
-                                )
-                                .id(Self.reviewAnchorID)
-                            }
                             timelineItems
                             if let thinking = transcript.thinking {
                                 QuillCodeThinkingView(thinking: thinking)
@@ -223,7 +234,7 @@ struct QuillCodeTranscriptView: View {
                         // Readable measure: cap the conversation column and center it, instead of
                         // letting text run edge-to-edge at wide windows (a ~1200pt line is unreadable
                         // and user bubbles end up a screen-width away from replies). Everything —
-                        // messages, tool cards, banners, the review pane — shares one column, so
+                        // messages, tool cards, and banners share one column, so
                         // alignment contexts (trailing user bubbles) pin to the column, not the pane.
                         .frame(maxWidth: Self.contentColumnMaxWidth)
                         .padding(22)
@@ -267,9 +278,6 @@ struct QuillCodeTranscriptView: View {
                     .overlay(alignment: .bottom) {
                         jumpToLatestOverlay(proxy)
                     }
-                    .onAppear {
-                        scrollForReviewVisibility(review.isVisible, proxy: proxy)
-                    }
                     .onChange(of: threadID) { _, _ in
                         // A different thread opens at ITS latest turn, never inheriting the previous
                         // thread's scroll-pin (codex review): otherwise switching away from a
@@ -278,7 +286,6 @@ struct QuillCodeTranscriptView: View {
                         // re-baselined instead of read as a giant scroll-up.
                         isPinnedToBottom = true
                         scrollMetrics.resetContentOffsetBaseline()
-                        scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollContentSignature) { _, _ in
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
@@ -298,13 +305,31 @@ struct QuillCodeTranscriptView: View {
                     .onChange(of: pendingJumpAnchorID) { _, id in
                         scrollToPendingJump(proxy, id: id)
                     }
-                    .onChange(of: review.isVisible) { _, isVisible in
-                        scrollForReviewVisibility(isVisible, proxy: proxy)
-                    }
                 }
             }
         }
         .background(isConfidentialAppearance ? QuillCodePalette.Confidential.background : QuillCodePalette.background)
+    }
+
+    private var reviewBody: some View {
+        ScrollView {
+            QuillCodeReviewPaneView(
+                review: review,
+                onClose: onCloseReview,
+                onReviewScopeChange: onReviewScopeChange,
+                onReviewAction: onReviewAction,
+                onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
+                onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
+                onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
+                onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
+                onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
+                onAddReviewComment: onAddReviewComment
+            )
+            .frame(maxWidth: Self.contentColumnMaxWidth)
+            .padding(22)
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier("quillcode-review-viewport")
     }
 
     private var timelineItems: some View {
@@ -330,7 +355,7 @@ struct QuillCodeTranscriptView: View {
     private var emptyState: some View {
         if requiresProjectSelection {
             QuillCodeProjectSetupView(onOpenProject: onOpenProject)
-        } else if let connectPrompt {
+        } else if connectPlacement == .hero, let connectPrompt {
             // Not connected yet: the sign-in gate takes precedence over the starter cards (and even
             // confidential mode) — there is nothing to start until an account is connected.
             QuillCodeConnectView(
@@ -504,7 +529,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?, force: Bool = false) {
-        guard let id, !isFindPresented, !review.isVisible else { return }
+        guard let id, !isFindPresented else { return }
         // Only follow the stream when the reader is already at the bottom; `force` lets first-open and
         // the Jump-to-latest tap override. This is what stops a streamed chunk from yanking a
         // scrolled-up reader back down.
@@ -526,18 +551,6 @@ struct QuillCodeTranscriptView: View {
             transaction.disablesAnimations = true
             withTransaction(transaction) {
                 proxy.scrollTo(id, anchor: .bottom)
-            }
-        }
-    }
-
-    private func scrollForReviewVisibility(_ isVisible: Bool, proxy: ScrollViewProxy) {
-        DispatchQueue.main.async {
-            quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
-                if isVisible {
-                    proxy.scrollTo(Self.reviewAnchorID, anchor: .top)
-                } else if let scrollAnchorID {
-                    proxy.scrollTo(scrollAnchorID, anchor: .bottom)
-                }
             }
         }
     }
@@ -592,13 +605,13 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
-    /// Follow-scroll is suppressed (`scrollToTranscriptEnd` early-returns) while Find or the review pane
-    /// owns the scroll position. A chunk that grows past the threshold then will NOT auto-catch-up, so
+    /// Follow-scroll is suppressed (`scrollToTranscriptEnd` early-returns) while Find owns the scroll
+    /// position. A chunk that grows past the threshold then will NOT auto-catch-up, so
     /// the bottom-sentinel must un-pin (surface the Jump chip, honest state) rather than preserve a pin
     /// the viewport no longer reflects — otherwise closing Find strands the reader behind with no chip
     /// and the next chunk yanks them down.
     private var isFollowScrollSuppressed: Bool {
-        isFindPresented || review.isVisible
+        isFindPresented
     }
 
     /// Resolve the pin against a sentinel/viewport move that is NOT a user scroll (content growth,

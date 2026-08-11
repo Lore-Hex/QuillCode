@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import QuillCodeApp
 
 @MainActor
 enum QuillCodeDesktopAccessibilityInteractionVerifier {
@@ -73,6 +74,7 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     ) -> QuillCodeDesktopAccessibilityActivationState {
         .workspaceThreads(QuillCodeDesktopWorkspaceThreadActivationState(
             selectedThreadID: controller.model.root.selectedThreadID,
+            selectedProjectID: controller.model.root.selectedProjectID,
             threadIDs: Set(controller.model.root.threads.map(\.id))
         ))
     }
@@ -110,11 +112,13 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         for threadID in current.threadIDs.subtracting(baseline.threadIDs) {
             _ = controller.model.deleteThread(threadID)
         }
-        if let selectedThreadID = baseline.selectedThreadID,
-           controller.model.root.threads.contains(where: { $0.id == selectedThreadID })
-        {
-            controller.model.selectThread(selectedThreadID, recordsNavigation: false)
-        }
+        _ = controller.model.selectWorkspaceLocation(
+            WorkspaceNavigationLocation(
+                threadID: baseline.selectedThreadID,
+                projectID: baseline.selectedProjectID
+            ),
+            recordsNavigation: false
+        )
         controller.modelStateCoordinator.syncComposerDraft(from: controller.model, draft: &controller.draft)
         controller.refresh()
     }
@@ -469,7 +473,10 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         _ identifier: String,
         in contentView: NSView
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        QuillCodeDesktopAccessibilityTree(
+            root: contentView,
+            matchingIdentifiers: [identifier]
+        ).elements
             .first { $0.identifier == identifier }
     }
 
@@ -510,7 +517,10 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         _ identifier: String,
         in contentView: NSView
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        QuillCodeDesktopAccessibilityTree(
+            root: contentView,
+            matchingIdentifiers: [identifier]
+        ).elements
             .filter { $0.identifier == identifier }
             .max { $0.frameArea < $1.frameArea }
     }

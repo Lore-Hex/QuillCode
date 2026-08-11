@@ -11,6 +11,7 @@ from performance_evidence_contract import (
     INTERACTION_SWEEP_COUNT,
     PERFORMANCE_PRODUCT,
     PERFORMANCE_SCHEMA_VERSION,
+    PERFORMANCE_WORKLOAD,
     POST_INTERACTION_MEASUREMENT,
     RELEASE_ATTEMPT_COUNT,
     REPEATED_INTERACTION_MEASUREMENT,
@@ -64,6 +65,7 @@ TOP_LEVEL_KEYS = frozenset(
         "threadCount",
         "threadGrowth",
         "withinBudget",
+        "workload",
     }
 )
 
@@ -93,6 +95,7 @@ def validate_performance_evidence(evidence: dict[str, Any]) -> None:
         "schemaVersion": PERFORMANCE_SCHEMA_VERSION,
         "ok": True,
         "product": PERFORMANCE_PRODUCT,
+        "workload": PERFORMANCE_WORKLOAD,
         "measurement": INITIAL_MEASUREMENT,
         "postInteractionMeasurement": POST_INTERACTION_MEASUREMENT,
         "repeatedInteractionMeasurement": REPEATED_INTERACTION_MEASUREMENT,
