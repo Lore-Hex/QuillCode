@@ -516,6 +516,43 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(state.didFetchSuccessfully)
     }
 
+    func testStructuredDirectFetchSuppressesForcedDelegationSignal() {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/series"])
+        )
+        let table = """
+        | Year | Jan | Feb | Mar |
+        | --- | --- | --- | --- |
+        | 2023 | 299.170 | 300.840 | 301.836 |
+        | 2024 | 308.417 | 310.326 | 312.332 |
+        | 2025 | 317.671 | 319.082 | 319.799 |
+        """
+
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: table),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        XCTAssertTrue(state.hasSubstantialStructuredDirectResearchEvidence)
+    }
+
+    func testThinDirectFetchDoesNotSuppressForcedDelegationSignal() {
+        var state = AgentRunLoopState()
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.gov/series"])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "Official figure: 333.952"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        XCTAssertFalse(state.hasSubstantialStructuredDirectResearchEvidence)
+    }
+
     func testDelegatedResearchContributesToPreDraftCheckpoint() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

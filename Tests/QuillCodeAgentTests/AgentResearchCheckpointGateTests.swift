@@ -52,6 +52,15 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             hasDelegatedResearch: true,
             correctionCounts: [:]
         ))
+        XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.webFetch.name,
+            canDelegate: true,
+            canWriteFiles: true,
+            hasDelegatedResearch: false,
+            hasSubstantialStructuredDirectEvidence: true,
+            correctionCounts: [:]
+        ))
     }
 
     func testVisibleBrowserExtractionCountsAsDirectResearch() {

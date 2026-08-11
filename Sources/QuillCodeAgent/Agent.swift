@@ -1786,6 +1786,8 @@ public struct AgentRunner: Sendable {
                             $0.name == ToolDefinition.fileWrite.name
                         }),
                         hasDelegatedResearch: runLoop.successfulDelegatedResearchBatchCount > 0,
+                        hasSubstantialStructuredDirectEvidence:
+                            runLoop.hasSubstantialStructuredDirectResearchEvidence,
                         correctionCounts: earlyDelegationCorrectionCounts
                     ) {
                         earlyDelegationCorrectionCounts[correction.path, default: 0] += 1

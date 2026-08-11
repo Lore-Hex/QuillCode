@@ -25,6 +25,7 @@ struct AgentRunLoopState: Sendable {
         var toolName: String
         var text: String
         var qualityScore: Int
+        var structuredLineCount: Int
     }
     private var researchEvidenceReceipts: [ResearchEvidenceReceipt] = []
     private(set) var writtenWorkspacePaths: Set<String> = []
@@ -154,6 +155,16 @@ struct AgentRunLoopState: Sendable {
         return receipts.isEmpty ? nil : receipts.joined(
             separator: "\n\n--- next authoritative evidence class ---\n\n"
         )
+    }
+
+    /// A dense table from an already-successful direct fetch is usually better reconciled by the
+    /// parent than fetched again by several workers. This suppresses only forced delegation; the
+    /// model can still collect more sources directly and the normal checkpoint remains bounded.
+    var hasSubstantialStructuredDirectResearchEvidence: Bool {
+        researchEvidenceReceipts.contains { receipt in
+            receipt.toolName != ToolDefinition.subagentsRun.name
+                && receipt.structuredLineCount >= 5
+        }
     }
 
     var requiredStructuredInputWorkspacePaths: Set<String> {
@@ -958,7 +969,8 @@ struct AgentRunLoopState: Sendable {
             sourceKey: sourceKey,
             toolName: toolName,
             text: "Successful \(toolName) observation:\n\(bounded)",
-            qualityScore: trimmed.count + min(structuredLineCount, 100) * 250
+            qualityScore: trimmed.count + min(structuredLineCount, 100) * 250,
+            structuredLineCount: structuredLineCount
         )
     }
 

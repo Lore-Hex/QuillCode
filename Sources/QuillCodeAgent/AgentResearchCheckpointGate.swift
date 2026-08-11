@@ -25,6 +25,7 @@ enum AgentResearchCheckpointGate {
         canDelegate: Bool,
         canWriteFiles: Bool,
         hasDelegatedResearch: Bool,
+        hasSubstantialStructuredDirectEvidence: Bool = false,
         correctionCounts: [String: Int]
     ) -> Correction? {
         guard proposedCall.map(isParallelizableResearchCollectionCall)
@@ -32,6 +33,7 @@ enum AgentResearchCheckpointGate {
               canDelegate,
               canWriteFiles,
               !hasDelegatedResearch,
+              !hasSubstantialStructuredDirectEvidence,
               let path,
               correctionCounts[path, default: 0] < correctionLimitPerPath
         else { return nil }
