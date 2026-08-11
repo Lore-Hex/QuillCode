@@ -355,6 +355,7 @@ enum AgentArtifactContractAuditGate {
             for row in table.rows where row.count == table.headers.count {
                 let year = row[yearColumn].trimmingCharacters(in: .whitespacesAndNewlines)
                 guard year.range(of: #"^(?:19|20)\d{2}$"#, options: .regularExpression) != nil,
+                      latestPeriodClaim(for: year, in: artifact) == nil,
                       let claim = aggregateClaim(for: year, in: artifactLines)
                 else { continue }
 
@@ -600,7 +601,11 @@ enum AgentArtifactContractAuditGate {
                       let real = singleNumericCell(row[realIndex])
                 else { continue }
                 let expected = nominal.value * target.value / basis.value
-                guard abs(expected - real.value) > displayedRoundingTolerance(for: real.raw) else {
+                let basisRounding = displayedRoundingTolerance(for: basis.raw)
+                let propagatedBasisRounding = abs(expected) * basisRounding / abs(basis.value)
+                let tolerance = displayedRoundingTolerance(for: real.raw)
+                    + propagatedBasisRounding
+                guard abs(expected - real.value) > tolerance else {
                     continue
                 }
                 let label = row.first.map(normalizedTableLabel) ?? "row"
@@ -735,6 +740,7 @@ enum AgentArtifactContractAuditGate {
             for row in table.rows where row.count == table.headers.count {
                 let year = row[yearColumn].trimmingCharacters(in: .whitespacesAndNewlines)
                 guard year.range(of: #"^(?:19|20)\d{2}$"#, options: .regularExpression) != nil,
+                      latestPeriodClaim(for: year, in: artifact) == nil,
                       aggregateClaim(for: year, in: artifactLines) != nil,
                       seenYears.insert(year).inserted
                 else { continue }

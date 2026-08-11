@@ -483,6 +483,45 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("missing/non-numeric Oct"), issue)
     }
 
+    func testAcceptsTask126RoundedDisplayBasisAndLatestMonthlyBenchmark() {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2023 | 299.170 | 300.840 | 301.836 | 303.363 | 304.127 | 305.109 | 305.691 | 307.026 | 307.789 | 307.671 | 307.051 | 306.746 | 302.408 | 306.996 |
+        | 2024 | 308.417 | 310.326 | 312.332 | 313.548 | 314.069 | 314.175 | 314.540 | 314.796 | 315.301 | 315.664 | 315.493 | 315.605 | 312.145 | 315.233 |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 | 320.229 | 324.000 |
+        | 2026 | 325.252 | 326.785 | 330.213 | 333.020 | 335.123 | 333.952 | | | | | | | 330.724 | |
+        """
+        let artifact = """
+        | Year | Basis selected | CPI index | Observation count |
+        |---|---|---|---|
+        | 2023 | Calendar-year annual average | 304.702 | 12 months |
+        | 2024 | Calendar-year annual average | 313.689 | 12 months |
+        | 2025 | Observed-month proxy | 321.943 | 11 months (Oct missing) |
+        | 2026 | Latest monthly benchmark (June 2026) | 333.952 | 1 month |
+
+        The 2026 benchmark CPI is June 2026 = 333.952, a monthly benchmark, not a
+        completed annual average.
+
+        `real revenue = nominal revenue x (333.952 / selected CPI basis)`
+
+        | Fiscal year | Nominal revenue | CPI basis | Real revenue (June-2026 $) |
+        |---|---|---|---|
+        | 2023 | $4,200,000 | 304.702 | $4,603,187 |
+        | 2024 | $5,100,000 | 313.689 | $5,429,442 |
+        | 2025 | $6,000,000 | 321.943 | $6,223,810 |
+
+        - 2023: $4,200,000 x (333.952 / 304.701583) = $4,603,187
+        - 2024: $5,100,000 x (333.952 / 313.688833) = $5,429,442
+        - 2025: $6,000,000 x (333.952 / 321.943) = $6,223,810
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
     func testRejectsTask126DerivedRowsAndHalfPeriodRelabeling() throws {
         let evidence = """
         | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
