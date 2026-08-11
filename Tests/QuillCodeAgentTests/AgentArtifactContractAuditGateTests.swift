@@ -137,6 +137,27 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testAllowsCorrectChainedProductDivisionRoundedToDollar() {
+        let artifact = "2023 real = $4,200,000 × (333.952 / 304.702) "
+            + "= $4,200,000 × 1.0959954 = $4,603,181"
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+    }
+
+    func testRejectsIncorrectChainedProductDivisionFinalValue() throws {
+        let artifact = "2023 real = $4,200,000 × (333.952 / 304.702) "
+            + "= $4,200,000 × 1.0959954 = $4,603,818"
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("4603180.812729"), issue)
+        XCTAssertTrue(issue.contains("$4,603,818"), issue)
+    }
+
     func testRejectsIncorrectExplicitGrowthRate() throws {
         let artifact = "(5,429,439 − 4,603,181) / 4,603,181 = 18.50%"
         let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(

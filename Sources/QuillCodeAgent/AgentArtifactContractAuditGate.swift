@@ -276,10 +276,14 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func explicitProductDivisionContradiction(in artifact: String) -> String? {
+        if let issue = explicitChainedProductDivisionContradiction(in: artifact) {
+            return issue
+        }
+
         let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
         let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:×|\\*)\\s*\\(?\\s*(\(number))"
             + "\\s*\\)?\\s*(?:/|÷)\\s*(\(number))\\s*\\)?\\s*=\\s*(\(number))"
-            + "(?![\\d,.])"
+            + "(?![\\d,.]|\\s*(?:×|\\*))"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(artifact.startIndex..., in: artifact)
         for match in regex.matches(in: artifact, range: range) {
@@ -296,6 +300,59 @@ enum AgentArtifactContractAuditGate {
             }
             return String(
                 format: "The artifact's explicit multiplication/division equation evaluates to "
+                    + "%.6f, not %@. Recompute the value and every repeated downstream field.",
+                expected,
+                claimed.raw
+            )
+        }
+        return nil
+    }
+
+    private static func explicitChainedProductDivisionContradiction(
+        in artifact: String
+    ) -> String? {
+        let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
+        let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:×|\\*)\\s*\\(?\\s*(\(number))"
+            + "\\s*(?:/|÷)\\s*(\(number))\\s*\\)?\\s*=\\s*(\(number))"
+            + "\\s*(?:×|\\*)\\s*(\(number))\\s*=\\s*(\(number))(?![\\d,.])"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(artifact.startIndex..., in: artifact)
+        for match in regex.matches(in: artifact, range: range) {
+            guard let left = numericCapture(1, in: match, text: artifact),
+                  let multiplier = numericCapture(2, in: match, text: artifact),
+                  let divisor = numericCapture(3, in: match, text: artifact),
+                  divisor.value != 0,
+                  let repeatedLeft = numericCapture(4, in: match, text: artifact),
+                  let factor = numericCapture(5, in: match, text: artifact),
+                  let claimed = numericCapture(6, in: match, text: artifact)
+            else { continue }
+
+            guard abs(left.value - repeatedLeft.value) <= max(
+                displayedRoundingTolerance(for: left.raw),
+                displayedRoundingTolerance(for: repeatedLeft.raw)
+            ) else {
+                return "The artifact's chained multiplication/division equation changes its "
+                    + "left operand from \(left.raw) to \(repeatedLeft.raw). Keep the source "
+                    + "amount unchanged through the calculation."
+            }
+
+            let expectedFactor = multiplier.value / divisor.value
+            guard abs(expectedFactor - factor.value)
+                    <= displayedRoundingTolerance(for: factor.raw) else {
+                return String(
+                    format: "The artifact's chained multiplication/division factor evaluates to "
+                        + "%.9f, not %@. Recompute the factor and final value.",
+                    expectedFactor,
+                    factor.raw
+                )
+            }
+
+            let expected = left.value * expectedFactor
+            guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
+                continue
+            }
+            return String(
+                format: "The artifact's chained multiplication/division equation evaluates to "
                     + "%.6f, not %@. Recompute the value and every repeated downstream field.",
                 expected,
                 claimed.raw
