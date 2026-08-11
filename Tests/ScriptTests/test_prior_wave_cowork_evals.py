@@ -1480,6 +1480,68 @@ Recommend Lenovo Creator 14, 32GB/1TB for the strongest GPU value under budget.
             self.assertFalse(valid)
             self.assertIn("price is absent, ambiguous, or not under $2,000", detail)
 
+    def test_task_128_semantic_grade_requires_complete_top_ten_brief(self):
+        serp_rows = "\n".join(
+            f"| {rank} | Result {rank} expense guide | https://example{rank}.com/nonprofit-expenses "
+            f"| Commercial investigation guide | Covers nonprofit workflow angle {rank} "
+            f"| Differentiate with restricted-fund implementation detail {rank} |"
+            for rank in range(1, 11)
+        )
+        valid_brief = f"""# SEO brief: expense management for nonprofits
+
+## Search intent
+Primary intent: commercial investigation. Secondary intent: informational workflow education.
+
+## Top ten organic results
+| Rank | Result title | Direct URL | Intent / page type | Content angle | Differentiation opportunity |
+|---|---|---|---|---|---|
+{serp_rows}
+
+## H2 outline
+- H2: What nonprofit expense management needs to solve
+- H2: Build an accountable expense policy
+- H2: Track grants and restricted funds
+- H2: Automate receipts, approvals, and reimbursements
+- H2: Integrate expenses with accounting
+- H2: Compare nonprofit expense platforms
+- H2: Implementation checklist
+
+## Internal links
+| Destination path | Anchor text | Placement / rationale |
+|---|---|---|
+| /product/expense-management | expense management platform | Automation section for product detail |
+| /solutions/nonprofits | nonprofit expense workflows | Introduction for audience relevance |
+| /integrations/quickbooks-online | QuickBooks Online integration | Accounting section for implementation |
+| /guides/nonprofit-expense-policy | nonprofit expense policy template | Policy section for a practical next step |
+
+## Target length
+2,200-2,600 words.
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            artifact = Path(temporary) / "task-128-deliverable.md"
+            artifact.write_text(valid_brief, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_128_seo_brief(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                valid_brief.replace(
+                    "| 10 | Result 10 expense guide |",
+                    "| 9 | Result 10 expense guide |",
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_128_seo_brief(artifact)
+            self.assertFalse(valid)
+            self.assertIn("SERP rows", detail)
+
+            artifact.write_text(
+                valid_brief + "\nFull top-10 ranking order was not captured.\n",
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_128_seo_brief(artifact)
+            self.assertFalse(valid)
+            self.assertIn("disclaimer=", detail)
+
     def test_task_117_semantic_grade_requires_complete_sourced_chart(self):
         row = self.rows[116]
         with tempfile.TemporaryDirectory() as temporary:

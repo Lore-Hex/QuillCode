@@ -451,6 +451,28 @@ the cited configuration identifies precisely. Portability matters: report measur
 manufacturer-rated weight and battery life. Recommend only a currently purchasable
 configuration whose price and every central requested specification are verified.
 """
+    if row["id"] == 128:
+        return """# SEO brief profile and internal-link inventory
+
+Evidence date: 2026-08-08. Analyze the first ten organic U.S. English results returned
+for the exact query `expense management for nonprofits`. Exclude ads, AI summaries,
+People Also Ask, video carousels, and other non-organic modules from the rank count.
+
+The target publisher is LedgerLift, an expense-management platform for U.S. nonprofit
+finance teams. The article should help finance directors compare workflows and select
+software while naturally supporting LedgerLift's product. Approved internal pages are:
+
+- `/product/expense-management` - receipt capture, approvals, and reimbursements
+- `/solutions/nonprofits` - restricted-fund and grant-aware nonprofit workflows
+- `/integrations/quickbooks-online` - accounting synchronization
+- `/guides/nonprofit-expense-policy` - policy template and approval guidance
+- `/resources/form-990-functional-expenses` - Form 990 functional-expense explainer
+- `/pricing` - current product plans
+
+Use only these paths for internal-link recommendations. The local invoice CSV is a
+materialized source-file smoke fixture, not evidence for the SEO topic; do not cite or
+summarize its invoice rows in the brief.
+"""
     terms = ", ".join(task_terms(row)) or row["category"]
     return f"""# Controlled source packet for catalog task {row['id']}
 
@@ -1472,6 +1494,21 @@ automation is visible in Quill Cowork's persisted automation state.
             "comparison field. Recommend one of the fully qualifying table rows and explain the "
             "tradeoff against the other qualifying options. "
         )
+    elif row["id"] == 128:
+        task_specific_instruction = (
+            "Use the publisher profile and approved site inventory in "
+            "`inputs/evaluation-context.md`. Report the first ten organic results for the exact "
+            "query as one rank-ordered table with exactly ranks 1 through 10, a distinct direct "
+            "result URL, result title, page type/search-intent fit, content angle, and a concrete "
+            "differentiation opportunity in every row. Fetch and inspect each result; if a page "
+            "blocks fetching, retain only facts visible in the search result and mark that row's "
+            "page inspection blocked instead of inventing content. Then provide a primary and "
+            "secondary search-intent judgment, a complete H2 outline with at least six substantive "
+            "H2s, at least four internal-link recommendations using only approved inventory paths "
+            "with anchor text and placement/rationale, and a numeric target word-count range. Do "
+            "not replace the top-ten analysis with a smaller competitor sample or call it complete "
+            "when rank order was not observed. "
+        )
     elif row["id"] == 117:
         task_specific_instruction = (
             "Use exactly Asana, Inc., monday.com Ltd., and GitLab Inc. from the named "
@@ -2401,6 +2438,152 @@ def validate_task_123_laptops(path):
     return valid, detail
 
 
+def validate_task_128_seo_brief(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read SEO brief: {error}"
+
+    suitable_table = False
+    valid_rows = []
+    rejected = []
+    urls = set()
+    expected_ranks = set(range(1, 11))
+    missing_markers = re.compile(
+        r"\b(?:not captured|not retrieved|not analyzed|not available|unknown|tbd|todo|"
+        r"full top-10 .{0,24}not|rank(?:ing| order)? .{0,20}not (?:captured|verified|observed))\b",
+        re.I,
+    )
+
+    for table in markdown_tables(text):
+        headers = table["headers"]
+        columns = {
+            "rank": table_column(headers, r"\brank\b", r"\bposition\b"),
+            "title": table_column(headers, r"\btitle\b", r"\bresult\b", r"\bpage\b"),
+            "url": table_column(headers, r"\burl\b", r"\bsource\b"),
+            "intent": table_column(headers, r"\bintent\b", r"\bpage type\b", r"\barchetype\b"),
+            "angle": table_column(headers, r"\bangle\b", r"\bfocus\b", r"\bcoverage\b"),
+            "opportunity": table_column(
+                headers,
+                r"\bopportunit",
+                r"\bdifferentiat",
+                r"\bgap\b",
+                r"\btakeaway\b",
+            ),
+        }
+        if any(columns[key] is None for key in columns):
+            continue
+        suitable_table = True
+        for row in table["rows"]:
+            rank_match = re.fullmatch(r"\s*#?\s*(\d{1,2})\s*", row[columns["rank"]])
+            rank = int(rank_match.group(1)) if rank_match else None
+            row_url_matches = re.findall(r"https?://[^\s)>\]]+", row[columns["url"]])
+            row_url = row_url_matches[0].rstrip(".,;:") if len(row_url_matches) == 1 else None
+            substantive = {
+                key: len(re.sub(r"\[[^\]]+\]\([^)]*\)", "", row[index]).strip()) >= 8
+                for key, index in columns.items()
+                if key not in {"rank", "url"}
+            }
+            reasons = []
+            if rank not in expected_ranks:
+                reasons.append("rank is not 1-10")
+            if row_url is None:
+                reasons.append("one distinct direct URL is required")
+            elif row_url in urls:
+                reasons.append("duplicate result URL")
+            if not all(substantive.values()):
+                reasons.append("title, intent, angle, or opportunity is incomplete")
+            if missing_markers.search(" ".join(row)):
+                reasons.append("row disclaims required SERP evidence")
+            if reasons:
+                rejected.append(f"rank={rank}: {', '.join(reasons)}")
+                continue
+            valid_rows.append(rank)
+            urls.add(row_url)
+
+    headings = [
+        match.group(2).strip()
+        for match in re.finditer(r"^(#{1,6})\s+(.+?)\s*$", text, re.M)
+    ]
+    outline_heading = next(
+        (heading for heading in headings if re.search(r"\b(?:H2|outline|content structure)\b", heading, re.I)),
+        None,
+    )
+    outline_section = ""
+    if outline_heading:
+        start = text.find(outline_heading) + len(outline_heading)
+        remainder = text[start:]
+        next_heading = re.search(r"^#{1,2}\s+", remainder, re.M)
+        outline_section = remainder[:next_heading.start()] if next_heading else remainder
+    h2_outline_items = re.findall(
+        r"^(?:[-*+]\s+|\d+\.\s+)(?:\*\*)?(?:H2\s*[:\-]\s*)?(.{12,})$",
+        outline_section,
+        re.M | re.I,
+    )
+
+    approved_paths = {
+        "/product/expense-management",
+        "/solutions/nonprofits",
+        "/integrations/quickbooks-online",
+        "/guides/nonprofit-expense-policy",
+        "/resources/form-990-functional-expenses",
+        "/pricing",
+    }
+    used_internal_paths = {path_value for path_value in approved_paths if path_value in text}
+    internal_link_rows = 0
+    for table in markdown_tables(text):
+        headers = table["headers"]
+        path_column = table_column(headers, r"\b(?:path|destination|internal (?:url|link))\b")
+        anchor_column = table_column(headers, r"\banchor\b")
+        placement_column = table_column(headers, r"\bplacement\b", r"\brationale\b", r"\bwhere\b")
+        if path_column is None or anchor_column is None or placement_column is None:
+            continue
+        internal_link_rows += sum(
+            1
+            for row in table["rows"]
+            if any(path_value in row[path_column] for path_value in approved_paths)
+            and len(row[anchor_column].strip()) >= 4
+            and len(row[placement_column].strip()) >= 8
+        )
+
+    intent_complete = bool(
+        re.search(r"\bprimary (?:search )?intent\b", text, re.I)
+        and re.search(r"\bsecondary (?:search )?intent\b", text, re.I)
+    )
+    word_ranges = [
+        (int(low.replace(",", "")), int(high.replace(",", "")))
+        for low, high in re.findall(
+            r"\b(\d[\d,]{2,5})\s*(?:-|to|\u2013|\u2014)\s*(\d[\d,]{2,5})\s*words?\b",
+            text,
+            re.I,
+        )
+    ]
+    target_length_complete = any(800 <= low < high <= 6000 for low, high in word_ranges)
+    disclaimer = missing_markers.search(text)
+    valid = all(
+        (
+            suitable_table,
+            set(valid_rows) == expected_ranks,
+            len(valid_rows) == 10,
+            len(urls) == 10,
+            intent_complete,
+            len(h2_outline_items) >= 6,
+            len(used_internal_paths) >= 4,
+            internal_link_rows >= 4,
+            target_length_complete,
+            disclaimer is None,
+        )
+    )
+    detail = (
+        f"SERP rows={sorted(valid_rows)}; unique URLs={len(urls)}; table={suitable_table}; "
+        f"intent={intent_complete}; H2 items={len(h2_outline_items)}; approved links="
+        f"{sorted(used_internal_paths)}; complete link rows={internal_link_rows}; "
+        f"word ranges={word_ranges}; disclaimer={disclaimer.group(0) if disclaimer else None}; "
+        f"rejected={rejected[:8]}"
+    )
+    return valid, detail
+
+
 class _Task117TableParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -3179,6 +3362,9 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 123:
         laptops_valid, laptops_detail = validate_task_123_laptops(artifact)
         add("complete qualifying laptop comparison", laptops_valid, laptops_detail)
+    if row["id"] == 128:
+        seo_valid, seo_detail = validate_task_128_seo_brief(artifact)
+        add("complete top-ten SEO brief", seo_valid, seo_detail)
     if row["id"] == 126:
         revenue_valid, revenue_detail = validate_task_126_real_revenue(artifact)
         add("real revenue trend semantics", revenue_valid, revenue_detail)
