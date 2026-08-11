@@ -227,6 +227,9 @@ enum QuillCodeDesktopCoworkEvalRunner {
 
 @MainActor
 enum QuillCodeDesktopCoworkEvalWindow {
+    static let preferredContentSize = NSSize(width: 1_280, height: 900)
+    static let minimumContentSize = NSSize(width: 900, height: 620)
+
     enum Source: String, Equatable {
         case swiftUIScene = "swiftui-scene"
         case evalFallback = "eval-native-fallback"
@@ -261,7 +264,12 @@ enum QuillCodeDesktopCoworkEvalWindow {
         }
 
         let rootView = QuillCodeDesktopRootView(controller: controller)
-            .frame(minWidth: 1280, minHeight: 900)
+            .frame(
+                minWidth: minimumContentSize.width,
+                idealWidth: preferredContentSize.width,
+                minHeight: minimumContentSize.height,
+                idealHeight: preferredContentSize.height
+            )
         return retainFallbackWindow(contentView: NSHostingView(rootView: rootView))
     }
 
@@ -276,11 +284,12 @@ enum QuillCodeDesktopCoworkEvalWindow {
 
     private static func retainFallbackWindow(contentView: NSView) -> PhysicalWindow {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 900),
+            contentRect: NSRect(origin: .zero, size: preferredContentSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        window.contentMinSize = minimumContentSize
         window.title = QuillCodeProduct.displayName
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -298,7 +307,8 @@ enum QuillCodeDesktopCoworkEvalWindow {
             return false
         }
         guard let contentView = window.contentView else { return false }
-        return contentView.bounds.width >= 900 && contentView.bounds.height >= 620
+        return contentView.bounds.width >= minimumContentSize.width
+            && contentView.bounds.height >= minimumContentSize.height
     }
 }
 

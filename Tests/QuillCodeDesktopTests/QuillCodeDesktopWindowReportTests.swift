@@ -240,8 +240,15 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(second.source, .evalFallback)
         XCTAssertTrue(first.window === second.window)
         XCTAssertTrue(first.window.isVisible)
-        XCTAssertEqual(first.window.contentView?.bounds.width, 1_280)
-        XCTAssertEqual(first.window.contentView?.bounds.height, 900)
+        let contentBounds = try XCTUnwrap(first.window.contentView?.bounds)
+        XCTAssertGreaterThanOrEqual(
+            contentBounds.width,
+            QuillCodeDesktopCoworkEvalWindow.minimumContentSize.width
+        )
+        XCTAssertGreaterThanOrEqual(
+            contentBounds.height,
+            QuillCodeDesktopCoworkEvalWindow.minimumContentSize.height
+        )
         XCTAssertEqual(QuillCodeDesktopCoworkEvalWindow.visibleWindowCount, 1)
     }
 
