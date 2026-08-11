@@ -168,7 +168,12 @@ enum AgentArtifactContractAuditGate {
         var issues = explicitArithmeticContradictions(in: artifact)
         issues.append(contentsOf: duplicateTableFieldContradictions(in: artifact))
         issues.append(contentsOf: monthlyTableMeanContradictions(in: artifact))
+        issues.append(contentsOf: derivedAmountTableContradictions(in: artifact))
         issues.append(contentsOf: sourceMonthlyMeanContradictions(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        ))
+        issues.append(contentsOf: sourceHalfPeriodLabelContradictions(
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
         ))
@@ -218,6 +223,23 @@ enum AgentArtifactContractAuditGate {
             result += references.map { "- \($0)" }.joined(separator: "\n")
         }
         return result
+    }
+
+    /// A validator that ran and reported content mismatches is evidence that the deliverable needs
+    /// a material repair. Validator helpers remain editable for failures that prevented the audit
+    /// itself from running, such as syntax, import, path, or interpreter errors.
+    static func failedAuditRequiresDeliverableRepair(_ receipt: String) -> Bool {
+        let normalized = receipt.casefolded
+        let validatorExecutionFailures = [
+            "syntaxerror", "indentationerror", "taberror", "nameerror",
+            "modulenotfounderror", "importerror", "filenotfounderror",
+            "no such file or directory", "can't open file", "cannot open file",
+            "command not found", "permission denied", "unknown option",
+        ]
+        if validatorExecutionFailures.contains(where: normalized.contains) {
+            return false
+        }
+        return !normalized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private static func explicitArithmeticContradictions(in artifact: String) -> [String] {
@@ -364,6 +386,74 @@ enum AgentArtifactContractAuditGate {
         return issues
     }
 
+    private static func sourceHalfPeriodLabelContradictions(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> [String] {
+        let artifactLines = artifact.components(separatedBy: .newlines)
+        var issues: [String] = []
+        for table in markdownTables(in: evidenceReceipt) {
+            guard let yearColumn = table.headers.firstIndex(where: {
+                normalizedTableLabel($0) == "year"
+            }) else { continue }
+            let halfColumns = table.headers.indices.filter { index in
+                let label = normalizedTableLabel(table.headers[index])
+                return label == "half1" || label == "half2" || label == "h1" || label == "h2"
+            }
+            guard !halfColumns.isEmpty else { continue }
+
+            for row in table.rows where row.count == table.headers.count {
+                let year = row[yearColumn].trimmingCharacters(in: .whitespacesAndNewlines)
+                guard year.range(of: #"^(?:19|20)\d{2}$"#, options: .regularExpression) != nil
+                else { continue }
+                for column in halfColumns {
+                    guard let sourceValue = singleNumericCell(row[column]) else { continue }
+                    let mislabeledLine = artifactLines.first { line in
+                        let normalized = normalizedTableLabel(line)
+                        let namesHalfPeriod = normalized.contains("half1")
+                            || normalized.contains("half2")
+                            || normalized.range(
+                                of: #"\bh1\b|\bh2\b"#,
+                                options: .regularExpression
+                            ) != nil
+                        guard normalized.contains(year),
+                              normalized.contains("annual"),
+                              !namesHalfPeriod,
+                              lineContainsNumericValue(line, value: sourceValue.value)
+                        else { return false }
+                        return normalized.range(
+                            of: #"annual[- ]average\s+column\s+(?:shows|reports|lists)"#,
+                            options: .regularExpression
+                        ) != nil
+                            || normalized.range(
+                                of: #"\|[^|]*annual(?:[- ]average)?[^|]*\|"#,
+                                options: .regularExpression
+                            ) != nil
+                    }
+                    guard let mislabeledLine else { continue }
+                    issues.append(
+                        "The retained source header labels \(sourceValue.raw) for \(year) as "
+                            + "\(table.headers[column]), but the artifact relabels it as annual "
+                            + "data in: \(mislabeledLine.trimmingCharacters(in: .whitespacesAndNewlines))."
+                    )
+                }
+            }
+        }
+        return issues
+    }
+
+    private static func lineContainsNumericValue(_ line: String, value: Double) -> Bool {
+        let pattern = #"(?:[$\u20ac\u00a3]\s*)?-?\d[\d,]*(?:\.\d+)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(line.startIndex..., in: line)
+        return regex.matches(in: line, range: range).contains { match in
+            guard let valueRange = Range(match.range, in: line),
+                  let candidate = decimalValue(String(line[valueRange]))
+            else { return false }
+            return abs(candidate - value) < 0.000_000_5
+        }
+    }
+
     private static func explicitProductDivisionContradictions(in artifact: String) -> [String] {
         var issues = explicitChainedProductDivisionContradictions(in: artifact)
         let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
@@ -473,6 +563,58 @@ enum AgentArtifactContractAuditGate {
                 expected,
                 claimed.raw
             ))
+        }
+        return issues
+    }
+
+    private static func derivedAmountTableContradictions(in artifact: String) -> [String] {
+        let targetPatterns = [
+            #"(?i)real\s+revenue[^\n]{0,80}?(?:\s[x*]\s|×)\s*\(?\s*(\d[\d,]*(?:\.\d+)?)\s*(?:/|÷)"#,
+            #"(?i)(?:target|benchmark)[^\n]{0,50}?(?:cpi|index)[^\n]{0,30}?(\d[\d,]*\.\d+)"#,
+        ]
+        let artifactRange = NSRange(artifact.startIndex..., in: artifact)
+        let target = targetPatterns.lazy.compactMap { pattern -> NumericCapture? in
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: artifact, range: artifactRange)
+            else { return nil }
+            return numericCapture(1, in: match, text: artifact)
+        }.first
+        guard let target else { return [] }
+
+        var issues: [String] = []
+        for table in markdownTables(in: artifact) {
+            let normalizedHeaders = table.headers.map(normalizedTableLabel)
+            guard let nominalIndex = normalizedHeaders.firstIndex(where: {
+                $0.contains("nominal") && ($0.contains("revenue") || $0.contains("amount"))
+            }), let basisIndex = normalizedHeaders.firstIndex(where: {
+                ($0.contains("cpi") || $0.contains("index") || $0 == "basis")
+                    && !$0.contains("type")
+            }), let realIndex = normalizedHeaders.firstIndex(where: {
+                $0.contains("real") && ($0.contains("revenue") || $0.contains("amount"))
+            }) else { continue }
+
+            for row in table.rows where row.count == table.headers.count {
+                guard let nominal = singleNumericCell(row[nominalIndex]),
+                      let basis = aggregateNumericCell(row[basisIndex]),
+                      basis.value != 0,
+                      let real = singleNumericCell(row[realIndex])
+                else { continue }
+                let expected = nominal.value * target.value / basis.value
+                guard abs(expected - real.value) > displayedRoundingTolerance(for: real.raw) else {
+                    continue
+                }
+                let label = row.first.map(normalizedTableLabel) ?? "row"
+                issues.append(String(
+                    format: "The artifact's %@ derived amount evaluates to %.6f from %@ x %@ / "
+                        + "%@, not %@. Recompute the row and every dependent rate.",
+                    label,
+                    expected,
+                    nominal.raw,
+                    target.raw,
+                    basis.raw,
+                    real.raw
+                ))
+            }
         }
         return issues
     }

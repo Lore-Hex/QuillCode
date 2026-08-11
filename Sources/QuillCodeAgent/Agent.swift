@@ -830,6 +830,40 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                 }
                 if let path = boundedRunFinalizationPath,
+                   runLoop.boundedRunFinalizationPhase(at: path) == .audit,
+                   runLoop.requiresContractAuditDeliverableRepair(at: path),
+                   !isControlledBoundedRunFinalizationAction {
+                    let isRequiredRepair: Bool
+                    if case .tool(let call) = resolvedAction {
+                        isRequiredRepair = AgentBoundedRunFinalizationGate
+                            .isCompleteDeliverableWrite(call, deliverablePath: path)
+                            || (runLoop.needsContractAuditRepairReadback(at: path)
+                                && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
+                                    resolvedAction,
+                                    deliverablePath: path
+                                ))
+                    } else {
+                        isRequiredRepair = false
+                    }
+                    if !isRequiredRepair {
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .failedAuditDeliverableRepairCorrectionPrompt(
+                                path: path,
+                                userMessage: userMessage,
+                                failedAuditReceipt: runLoop.failedContractAuditReceipt(at: path),
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                            )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: rejected validator work after a semantic "
+                                + "audit failure and required a complete rewrite of ./\(path)."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                }
+                if let path = boundedRunFinalizationPath,
                    !AgentBoundedRunFinalizationGate.allows(
                     resolvedAction,
                     deliverablePath: path,

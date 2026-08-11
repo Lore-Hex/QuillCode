@@ -1107,7 +1107,7 @@ final class AgentToolLoopTests: XCTestCase {
                 guard call.name == ToolDefinition.shellRun.name else { return nil }
                 await validatorCapture.record(call)
                 return await validatorCapture.count == 1
-                    ? ToolResult(ok: false, stderr: "validator expected four rows")
+                    ? ToolResult(ok: false, stderr: "SyntaxError: expected ':'")
                     : ToolResult(ok: true, stdout: "PASS")
             },
             maxToolSteps: 12,
@@ -1131,6 +1131,86 @@ final class AgentToolLoopTests: XCTestCase {
             result.thread.messages.last?.content,
             "Completed and verified `outputs/report.md`."
         )
+    }
+
+    func testBoundedRunFinalizationRequiresArtifactRewriteAfterSemanticAuditFailure() async throws {
+        let root = try makeTempDirectory()
+        let validatorCapture = ToolCallCapture()
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\n",
+            ])
+        )
+        let initialValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 3",
+            ])
+        )
+        let rejectedValidatorRewrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert len(open('outputs/report.md').read().splitlines()) == 2",
+            ])
+        )
+        let repairedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let repairedValidatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": """
+                assert len(open('outputs/report.md').read().splitlines()) == 3
+                print('PASS')
+                """,
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(initialWrite), .tool(initialValidatorWrite),
+                .tool(rejectedValidatorRewrite), .tool(repairedWrite),
+                .tool(repairedValidatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return await validatorCapture.count == 1
+                    ? ToolResult(
+                        ok: false,
+                        stdout: "FAIL\nrow count: expected 2 data rows, actual 1"
+                    )
+                    : ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 12,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows. After writing, read the saved "
+                + "output back and verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(validatorCallCount, 2)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("required a complete rewrite of ./outputs/report.md")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "name,value\nalpha,1\nbeta,2\n"
+        )
+        XCTAssertEqual(result.stopReason, .finished)
     }
 
     func testAgentRedirectsFourthSerialResearchCallIntoEarlyDelegation() async throws {

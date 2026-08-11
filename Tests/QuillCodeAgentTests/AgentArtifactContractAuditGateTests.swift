@@ -483,6 +483,57 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(issue.contains("missing/non-numeric Oct"), issue)
     }
 
+    func testRejectsTask126DerivedRowsAndHalfPeriodRelabeling() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | HALF1 | HALF2 |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2023 | 299.170 | 300.840 | 301.836 | 303.363 | 304.127 | 305.109 | 305.691 | 307.026 | 307.789 | 307.671 | 307.051 | 306.746 | 302.408 | 306.996 |
+        | 2024 | 308.417 | 310.326 | 312.332 | 313.548 | 314.069 | 314.175 | 314.540 | 314.796 | 315.301 | 315.664 | 315.493 | 315.605 | 312.145 | 315.233 |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 | 320.229 | 324.000 |
+        """
+        let artifact = """
+        | Year | Basis index | Notes |
+        |---|---|---|
+        | 2023 | 304.701583 | BLS annual-average column shows 306.996. |
+        | 2024 | 313.688833 | BLS annual-average column shows 315.233. |
+        | 2025 | 321.943000 | observed-month proxy |
+
+        `real revenue = nominal revenue x (333.952 / selected CPI basis)`
+
+        | Fiscal year | Nominal revenue ($) | CPI basis | Real revenue ($, rounded) |
+        |---|---|---|---|
+        | 2023 | $4,200,000 | 304.701583 | $4,603,276 |
+        | 2024 | $5,100,000 | 313.688833 | $5,429,444 |
+        | 2025 | $6,000,000 | 321.943000 | $6,223,805 |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+
+        XCTAssertTrue(issue.contains("derived amount"), issue)
+        XCTAssertTrue(issue.contains("4603187.112421"), issue)
+        XCTAssertTrue(issue.contains("HALF2"), issue)
+        XCTAssertTrue(issue.contains("306.996"), issue)
+        XCTAssertTrue(issue.contains("315.233"), issue)
+    }
+
+    func testSemanticAuditFailureRequiresDeliverableRepair() {
+        XCTAssertTrue(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "FAIL\n2025 real revenue: expected 6223810, actual 6223805"
+        ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "AssertionError: row count mismatch"
+        ))
+        XCTAssertFalse(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "SyntaxError: unterminated string literal"
+        ))
+        XCTAssertFalse(AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(
+            "ModuleNotFoundError: No module named 'pandas'"
+        ))
+    }
+
     func testRetainsSourceTableRowsAcrossFocusedReceiptOmissionMarker() throws {
         let evidence = """
         Successful host.web.fetch observation:

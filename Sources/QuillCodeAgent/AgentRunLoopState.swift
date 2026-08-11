@@ -292,6 +292,16 @@ struct AgentRunLoopState: Sendable {
         })?.value
     }
 
+    func requiresContractAuditDeliverableRepair(at path: String) -> Bool {
+        let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
+        guard failedContractAuditWorkspacePaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, normalizedPath)
+        }), let receipt = failedContractAuditReceipt(at: normalizedPath) else {
+            return false
+        }
+        return AgentArtifactContractAuditGate.failedAuditRequiresDeliverableRepair(receipt)
+    }
+
     func pendingArtifactReadbackPath() -> String? {
         pendingArtifactReadbackWorkspacePaths.sorted().first
     }
