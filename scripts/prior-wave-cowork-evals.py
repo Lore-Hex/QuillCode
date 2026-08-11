@@ -1405,7 +1405,9 @@ automation is visible in Quill Cowork's persisted automation state.
             "use neutral conditional language to ask for context or offer an appropriate next "
             "step. Address each prospect using exactly the `first_name` field. Do not infer or "
             "add surnames, personal details, or a sender identity that is absent from the "
-            "prospect row. Omit unrelated company finance and operating context. "
+            "prospect row. End each email with a complete sender-neutral closing such as `Best "
+            "regards,`; do not add signature placeholders or commentary about a blank or future "
+            "signature. Omit unrelated company finance and operating context. "
         )
     elif row["id"] == 121:
         task_specific_instruction = (
@@ -2090,19 +2092,26 @@ def validate_task_33_sequence(path):
         visible_prose(text),
         flags=re.IGNORECASE,
     )
+    deferred_signatures = re.findall(
+        r"\b(?:signature(?:\s+block)?|sender\s+(?:name|identity))\b[^\n.]{0,100}"
+        r"\b(?:blank|future[- ]entry|send[- ]time|complete\s+at\s+send)\b",
+        visible_prose(text),
+        flags=re.IGNORECASE,
+    )
     valid = not any((
         missing_sections,
         missing_email_numbers,
         missing_booth_anchors,
         invented_contact_names,
         placeholders,
+        deferred_signatures,
         len(prospects) != 6,
     ))
     detail = (
         f"prospects={len(prospects)}; missing sections={missing_sections}; "
         f"incomplete sequences={missing_email_numbers}; missing booth anchors={missing_booth_anchors}; "
         f"invented contact names={invented_contact_names}; "
-        f"placeholders={placeholders[:12]}"
+        f"placeholders={placeholders[:12]}; deferred signatures={deferred_signatures[:6]}"
     )
     return valid, detail
 
