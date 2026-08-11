@@ -346,6 +346,7 @@ extension AgentPromisedWorkGuardTests {
             "The page does not yet verify the exact SKU. Let me continue researching.",
             "The listed model is not eligible. Continuing research.",
             "Starting research on MacBook Pro 14-inch M4 (32GB/1TB).",
+            "The product page is truncated. Let me try the browser to access the full page directly.",
         ]
         for text in stalls {
             XCTAssertEqual(
