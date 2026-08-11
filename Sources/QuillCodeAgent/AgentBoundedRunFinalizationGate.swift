@@ -5,6 +5,8 @@ import QuillCodeTools
 /// Converts the final portion of a host-bounded run from open-ended research into guaranteed
 /// artifact synthesis. Interactive runs do not configure this gate and remain unbounded.
 enum AgentBoundedRunFinalizationGate {
+    static let evidenceRecoveryResearchLimitPerPath = 12
+
     enum Phase: Equatable {
         case synthesize
         case audit
@@ -354,6 +356,15 @@ enum AgentBoundedRunFinalizationGate {
         attempt: Int,
         limit: Int
     ) -> String {
+        let structuralInstruction = issue.localizedCaseInsensitiveContains("row-oriented")
+            ? """
+
+            The comparison table must use this orientation: the header row starts with an exact \
+            configuration/model column followed by the requested fields, and every body row is one \
+            complete candidate. Never put `Spec` or `Field` in the first column with product names \
+            across the remaining headers; that transposed layout cannot satisfy a per-row contract.
+            """
+            : ""
         let base = """
         The proposed validator cannot audit ./\(path) yet because the saved artifact already \
         contradicts authoritative source evidence:
@@ -374,6 +385,8 @@ enum AgentBoundedRunFinalizationGate {
         model-authored validator):
         \(originalRequestExcerpt(userMessage))
 
+        \(structuralInstruction)
+
         \(authoritativeEvidenceSection(evidenceReceipt))
         """
         return AgentCorrectionEscalation.escalated(
@@ -384,6 +397,63 @@ enum AgentBoundedRunFinalizationGate {
                 "rewrite ./\(path) completely with host.file.write, using canonical source inputs "
                     + "and recomputing every dependent value from those corrected inputs",
             ]
+        )
+    }
+
+    static func evidenceRecoveryNeeded(for issue: String) -> Bool {
+        let normalized = issue.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: .current
+        )
+        return normalized.contains("obtain direct price evidence")
+            || normalized.contains("no exact retained price observation")
+            || normalized.contains("unresolved pricing evidence")
+    }
+
+    static func evidenceRecoveryPrompt(
+        path: String,
+        issue: String,
+        userMessage: String,
+        evidenceReceipt: String?,
+        completedResearchActions: Int = 0
+    ) -> String {
+        let remaining = max(0, evidenceRecoveryResearchLimitPerPath - completedResearchActions)
+        return """
+        The saved ./\(path) cannot be repaired honestly from the retained evidence alone:
+
+        \(issue)
+
+        Reopen only a bounded, targeted evidence-recovery step. Make exactly one direct research \
+        tool call now with host.web.search, host.web.fetch, or an available host.browser.* read \
+        tool. Target one exact configuration and one missing central field named above. Search \
+        snippets are discovery only: use host.web.fetch on a direct product or measurement URL \
+        before treating a price or specification as verified. Do not delegate, write the artifact, \
+        run a validator, or answer with prose on this turn. After enough direct observations exist \
+        for every required candidate and field, rewrite ./\(path) with one candidate per table row. \
+        The host will preflight that complete rewrite before saving it. \(remaining) targeted \
+        research action(s) remain in this recovery window.
+
+        Original request requirements:
+        \(originalRequestExcerpt(userMessage))
+
+        \(authoritativeEvidenceSection(evidenceReceipt))
+        """
+    }
+
+    static func proposedDeliverableContradiction(
+        in call: ToolCall,
+        deliverablePath: String,
+        evidenceReceipt: String,
+        userMessage: String
+    ) -> String? {
+        guard isCompleteDeliverableWrite(call, deliverablePath: deliverablePath),
+              let arguments = try? ToolArguments(call.argumentsJSON),
+              let content = arguments.string("content")
+        else { return nil }
+        return AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: content,
+            evidenceReceipt: evidenceReceipt,
+            userMessage: userMessage
         )
     }
 

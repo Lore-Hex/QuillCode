@@ -25,6 +25,74 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertTrue(prompt.contains("rewrite ./outputs/report.md completely"), prompt)
     }
 
+    func testSourceContradictionCorrectionMakesComparisonRowsExplicit() {
+        let prompt = AgentBoundedRunFinalizationGate.evidenceContradictionCorrectionPrompt(
+            path: "outputs/report.md",
+            issue: "The request requires 3 configurations as table rows, but no table has a "
+                + "row-oriented configuration or model column.",
+            userMessage: "Compare at least three configurations in outputs/report.md.",
+            evidenceReceipt: nil,
+            attempt: 0,
+            limit: 8
+        )
+
+        XCTAssertTrue(prompt.contains("every body row is one complete candidate"), prompt)
+        XCTAssertTrue(prompt.contains("Never put `Spec` or `Field` in the first column"), prompt)
+    }
+
+    func testMissingPriceEvidenceReopensBoundedDirectResearch() {
+        let issue = "These current-price claims have no exact retained price observation: "
+            + "$1,699. Obtain direct price evidence or mark the candidate unverified."
+
+        XCTAssertTrue(AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(for: issue))
+        let prompt = AgentBoundedRunFinalizationGate.evidenceRecoveryPrompt(
+            path: "outputs/report.md",
+            issue: issue,
+            userMessage: "Compare at least three currently purchasable configurations.",
+            evidenceReceipt: "retained product evidence",
+            completedResearchActions: 2
+        )
+
+        XCTAssertTrue(prompt.contains("exactly one direct research tool call"), prompt)
+        XCTAssertTrue(prompt.contains("Search snippets are discovery only"), prompt)
+        XCTAssertTrue(prompt.contains("Do not delegate, write the artifact"), prompt)
+        XCTAssertTrue(prompt.contains("10 targeted research action(s) remain"), prompt)
+    }
+
+    func testProposedDeliverablePreflightRejectsTransposedComparisonTable() {
+        let request = """
+        Compare at least three currently purchasable exact configurations. In one table, give each \
+        configuration's exact model, current price, CPU, GPU, RAM, and storage.
+        """
+        let transposed = """
+        | Spec | Alpha | Beta | Gamma |
+        |---|---|---|---|
+        | Exact model | Alpha 14 | Beta 15 | Gamma 16 |
+        | Current price | $1,500 | $1,600 | $1,700 |
+        | CPU | A | B | C |
+        | GPU | D | E | F |
+        | RAM | 32 GB | 32 GB | 32 GB |
+        | Storage | 1 TB | 1 TB | 1 TB |
+        """
+        let call = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": transposed,
+            ])
+        )
+
+        let issue = AgentBoundedRunFinalizationGate.proposedDeliverableContradiction(
+            in: call,
+            deliverablePath: "outputs/report.md",
+            evidenceReceipt: "$1,500 $1,600 $1,700",
+            userMessage: request
+        )
+
+        XCTAssertNotNil(issue)
+        XCTAssertTrue(issue?.contains("row-oriented") == true, issue ?? "")
+    }
+
     func testBoundedAuditAllowsPatchTargetingOnlyDeliverable() {
         let targeted = ToolCall(
             name: ToolDefinition.applyPatch.name,
@@ -984,14 +1052,135 @@ final class AgentToolLoopTests: XCTestCase {
         }
         let validatorCallCount = await validatorCapture.count
         XCTAssertEqual(validatorCallCount, 0, diagnostics)
+        let rejectedSavedArtifacts = diagnostics.components(
+            separatedBy: "rejected source-contradictory artifact"
+        ).count - 1
+        let rejectedProposedRewrites = diagnostics.components(
+            separatedBy: "rejected a source-contradictory rewrite"
+        ).count - 1
         XCTAssertEqual(
-            diagnostics.components(separatedBy: "rejected source-contradictory artifact").count - 1,
+            rejectedSavedArtifacts + rejectedProposedRewrites,
             AgentArtifactContractAuditGate.sourceContradictionCorrectionLimitPerPath,
             diagnostics
         )
         XCTAssertTrue(reason.contains("authoritative source evidence"), reason)
         XCTAssertTrue(reason.contains("Jun 2026"), reason)
         XCTAssertTrue(reason.contains("333.952"), reason)
+    }
+
+    func testBoundedFinalizationRecoversMissingPriceEvidenceBeforeSavingCorrectedRows()
+        async throws {
+        let root = try makeTempDirectory()
+        let fetchCapture = ToolCallCapture()
+        let validatorCapture = ToolCallCapture()
+        let unresolvedFetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/research-summary"])
+        )
+        let recoveryFetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/current-prices"])
+        )
+        let rowTable = """
+        Only fully verified, currently purchasable configurations are shown.
+
+        | Exact model | Current price | Direct URL |
+        | --- | --- | --- |
+        | Alpha A1 | $1,299 | https://example.test/alpha |
+        | Beta B2 | $1,599 | https://example.test/beta |
+        | Gamma C3 | $1,899 | https://example.test/gamma |
+        """
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": rowTable,
+            ])
+        )
+        let rejectedTransposedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": """
+                | Field | Alpha | Beta | Gamma |
+                | --- | --- | --- | --- |
+                | Exact model | Alpha A1 | Beta B2 | Gamma C3 |
+                | Current price | $1,299 | $1,599 | $1,899 |
+                | Direct URL | https://example.test/alpha | https://example.test/beta | https://example.test/gamma |
+                """,
+            ])
+        )
+        let correctedWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": rowTable + "\nPrice sources were fetched directly.\n",
+            ])
+        )
+        let validator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c \"import pathlib,sys; p=pathlib.Path(sys.argv[1]).read_text(); "
+                    + "assert all(name in p for name in ('Alpha A1','Beta B2','Gamma C3')); "
+                    + "assert p.count('| $1,') == 3; print('PASS')\" "
+                    + "outputs/report.md",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(unresolvedFetch), .tool(initialWrite), .tool(recoveryFetch),
+                .tool(rejectedTransposedWrite), .tool(correctedWrite), .tool(validator),
+            ]),
+            safety: AlwaysApprovingSafetyReviewer(),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    await fetchCapture.record(call)
+                    if call.argumentsJSON.contains("research-summary") {
+                        try? await Task.sleep(nanoseconds: 100_000_000)
+                        return ToolResult(
+                            ok: true,
+                            stdout: "Exact current pricing was not verified before the deadline."
+                        )
+                    }
+                    return ToolResult(
+                        ok: true,
+                        stdout: "Alpha A1 $1,299; Beta B2 $1,599; Gamma C3 $1,899."
+                    )
+                }
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                await validatorCapture.record(call)
+                return ToolResult(ok: true, stdout: "PASS: 3 grounded rows")
+            },
+            maxToolSteps: 16,
+            boundedRunFinalizationAfterSeconds: 0.05
+        )
+
+        let result = try await runner.send(
+            """
+            Research and compare at least three currently purchasable exact configurations under \
+            $2,000. In one table give every configuration's exact model, current price, and direct \
+            URL. Do not use unknown or unverified gaps. Save outputs/report.md, run a deterministic \
+            validator against every row, then read the saved output back and verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let diagnostics = result.thread.events.map(\.summary).joined(separator: "\n")
+        let fetchCount = await fetchCapture.count
+        let validatorCount = await validatorCapture.count
+        XCTAssertEqual(fetchCount, 2, diagnostics)
+        XCTAssertEqual(validatorCount, 1, diagnostics)
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertTrue(diagnostics.contains("completed targeted source recovery 1 of 12"), diagnostics)
+        XCTAssertTrue(
+            diagnostics.contains("rejected a source-contradictory rewrite")
+                && diagnostics.contains("before saving it"),
+            diagnostics
+        )
+        let saved = try String(contentsOf: root.appendingPathComponent("outputs/report.md"))
+        XCTAssertEqual(saved, rowTable + "\nPrice sources were fetched directly.\n", diagnostics)
+        XCTAssertFalse(saved.contains("| Field | Alpha | Beta | Gamma |"), saved)
     }
 
     func testBoundedRunFinalizationRejectsValidatorThatOnlyCommentsRequiredCSV() async throws {

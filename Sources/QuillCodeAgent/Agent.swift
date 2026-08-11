@@ -306,9 +306,11 @@ public struct AgentRunner: Sendable {
             /// A model that repeatedly declines the required deterministic artifact validator is
             /// stopped honestly instead of spending the full run budget on identical corrections.
             var artifactContractAuditCorrectionCounts: [String: Int] = [:]
-            /// Source contradictions get two immediate rewrite opportunities. The deterministic
-            /// validator owns the terminal result after that bounded correction budget is spent.
+            /// Source contradictions get bounded repair opportunities. Claims that cannot be
+            /// repaired from retained evidence temporarily reopen direct source collection.
             var sourceContradictionCorrectionCounts: [String: Int] = [:]
+            var sourceContradictionResearchIssues: [String: String] = [:]
+            var sourceContradictionResearchCounts: [String: Int] = [:]
             /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
             /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
@@ -916,11 +918,88 @@ public struct AgentRunner: Sendable {
                     }
                 }
                 if let path = boundedRunFinalizationPath,
+                   (runLoop.boundedRunFinalizationPhase(at: path) == .audit
+                       || runLoop.writtenWorkspacePaths.contains(where: {
+                           AgentArtifactVerificationGate.pathsMatch($0, path)
+                       })),
+                   !isControlledAction,
+                   case .tool(let proposedCall) = resolvedAction,
+                   AgentBoundedRunFinalizationGate.isCompleteDeliverableWrite(
+                    proposedCall,
+                    deliverablePath: path
+                   ), let issue = AgentBoundedRunFinalizationGate
+                    .proposedDeliverableContradiction(
+                        in: proposedCall,
+                        deliverablePath: path,
+                        evidenceReceipt: runLoop.latestResearchEvidenceReceipt ?? "",
+                        userMessage: userMessage
+                    ) {
+                    if sourceContradictionCorrectionCounts[path, default: 0]
+                        >= AgentArtifactContractAuditGate
+                            .sourceContradictionCorrectionLimitPerPath {
+                        let reason = AgentArtifactContractAuditGate
+                            .sourceContradictionExhaustionReason(path: path, issue: issue)
+                        appendAssistantMessage(reason, to: &next)
+                        next.events.append(.init(kind: .notice, summary: "Self-healing: \(reason)"))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        return AgentRunResult(
+                            thread: next,
+                            toolResults: runLoop.toolResults,
+                            stopReason: .flailDetected(reason: reason)
+                        )
+                    }
+                    let correctionAttempt = sourceContradictionCorrectionCounts[path, default: 0]
+                    sourceContradictionCorrectionCounts[path, default: 0] += 1
+                    if AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(for: issue) {
+                        sourceContradictionResearchIssues[path] = issue
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .evidenceRecoveryPrompt(
+                                path: path,
+                                issue: issue,
+                                userMessage: userMessage,
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                completedResearchActions:
+                                    sourceContradictionResearchCounts[path, default: 0]
+                            )
+                    } else {
+                        sourceContradictionResearchIssues.removeValue(forKey: path)
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                            .evidenceContradictionCorrectionPrompt(
+                                path: path,
+                                issue: issue,
+                                userMessage: userMessage,
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                attempt: correctionAttempt,
+                                limit: AgentArtifactContractAuditGate
+                                    .sourceContradictionCorrectionLimitPerPath
+                            )
+                    }
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: rejected a source-contradictory rewrite of "
+                            + "./\(path) before saving it: \(issue)"
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
+                let isSourceContradictionResearchRecoveryAction: Bool
+                if let path = boundedRunFinalizationPath,
+                   sourceContradictionResearchIssues[path] != nil,
+                   case .tool(let proposedCall) = resolvedAction {
+                    isSourceContradictionResearchRecoveryAction = AgentResearchCheckpointGate
+                        .isDirectResearchCollectionCall(proposedCall)
+                } else {
+                    isSourceContradictionResearchRecoveryAction = false
+                }
+                if let path = boundedRunFinalizationPath,
                    !AgentBoundedRunFinalizationGate.allows(
                     resolvedAction,
                     deliverablePath: path,
                     phase: runLoop.boundedRunFinalizationPhase(at: path)
                    ), !isControlledAction,
+                   !isSourceContradictionResearchRecoveryAction,
                    !(isSemanticArtifactCorrection
                         && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
                             resolvedAction,
@@ -1009,16 +1088,30 @@ public struct AgentRunner: Sendable {
                             default: 0
                         ]
                         sourceContradictionCorrectionCounts[path, default: 0] += 1
-                        pendingRepeatNudge = AgentBoundedRunFinalizationGate
-                            .evidenceContradictionCorrectionPrompt(
-                                path: path,
-                                issue: issue,
-                                userMessage: userMessage,
-                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
-                                attempt: correctionAttempt,
-                                limit: AgentArtifactContractAuditGate
-                                    .sourceContradictionCorrectionLimitPerPath
-                            )
+                        if AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(for: issue) {
+                            sourceContradictionResearchIssues[path] = issue
+                            pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                .evidenceRecoveryPrompt(
+                                    path: path,
+                                    issue: issue,
+                                    userMessage: userMessage,
+                                    evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                    completedResearchActions:
+                                        sourceContradictionResearchCounts[path, default: 0]
+                                )
+                        } else {
+                            sourceContradictionResearchIssues.removeValue(forKey: path)
+                            pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                .evidenceContradictionCorrectionPrompt(
+                                    path: path,
+                                    issue: issue,
+                                    userMessage: userMessage,
+                                    evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
+                                    attempt: correctionAttempt,
+                                    limit: AgentArtifactContractAuditGate
+                                        .sourceContradictionCorrectionLimitPerPath
+                                )
+                        }
                         next.events.append(.init(
                             kind: .notice,
                             summary: "Self-healing: rejected validation of source-contradictory "
@@ -1083,7 +1176,8 @@ public struct AgentRunner: Sendable {
                 if case .tool(let proposedCall) = resolvedAction,
                    let path = runLoop.exhaustedResearchBudgetPath(
                     maximumResearchWeight: AgentResearchCheckpointGate.maximumPostDraftResearchWeight
-                   ), AgentResearchCheckpointGate.isResearchCollectionCall(proposedCall) {
+                   ), sourceContradictionResearchIssues[path] == nil,
+                   AgentResearchCheckpointGate.isResearchCollectionCall(proposedCall) {
                     runLoop.requireResearchRefresh(at: path)
                     if let correction = AgentResearchCheckpointGate.exhaustionCorrection(
                         path: path,
@@ -2186,6 +2280,97 @@ public struct AgentRunner: Sendable {
                             workspaceRoot: workspaceRoot,
                             stateSignature: stateSignature
                         )
+                        if let recoveryPath = boundedRunFinalizationPath,
+                           sourceContradictionResearchIssues[recoveryPath] != nil,
+                           AgentResearchCheckpointGate.isDirectResearchCollectionCall(
+                            completion.call
+                           ) {
+                            sourceContradictionResearchCounts[recoveryPath, default: 0] += 1
+                            let completedResearchActions = sourceContradictionResearchCounts[
+                                recoveryPath,
+                                default: 0
+                            ]
+                            let refreshedIssue = runLoop.authoritativeEvidenceContradiction(
+                                at: recoveryPath
+                            )
+                            if completedResearchActions
+                                >= AgentBoundedRunFinalizationGate
+                                    .evidenceRecoveryResearchLimitPerPath,
+                               let refreshedIssue,
+                               AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(
+                                for: refreshedIssue
+                               ) {
+                                let reason = "Stopped because ./\(recoveryPath) still lacked "
+                                    + "direct source evidence after \(completedResearchActions) "
+                                    + "targeted recovery actions: \(refreshedIssue)"
+                                appendAssistantMessage(reason, to: &next)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: \(reason)"
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                return AgentRunResult(
+                                    thread: next,
+                                    toolResults: runLoop.toolResults,
+                                    stopReason: .flailDetected(reason: reason)
+                                )
+                            }
+                            if let refreshedIssue,
+                               AgentBoundedRunFinalizationGate.evidenceRecoveryNeeded(
+                                for: refreshedIssue
+                               ) {
+                                sourceContradictionResearchIssues[recoveryPath] = refreshedIssue
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                    .evidenceRecoveryPrompt(
+                                        path: recoveryPath,
+                                        issue: refreshedIssue,
+                                        userMessage: userMessage,
+                                        evidenceReceipt:
+                                            runLoop.latestAuthoritativeEvidenceReceipt,
+                                        completedResearchActions: completedResearchActions
+                                    )
+                            } else if let refreshedIssue {
+                                sourceContradictionResearchIssues.removeValue(
+                                    forKey: recoveryPath
+                                )
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                    .evidenceContradictionCorrectionPrompt(
+                                        path: recoveryPath,
+                                        issue: refreshedIssue,
+                                        userMessage: userMessage,
+                                        evidenceReceipt:
+                                            runLoop.latestAuthoritativeEvidenceReceipt,
+                                        attempt: sourceContradictionCorrectionCounts[
+                                            recoveryPath,
+                                            default: 0
+                                        ],
+                                        limit: AgentArtifactContractAuditGate
+                                            .sourceContradictionCorrectionLimitPerPath
+                                    )
+                            } else {
+                                sourceContradictionResearchIssues.removeValue(
+                                    forKey: recoveryPath
+                                )
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                    .correctionPrompt(
+                                        path: recoveryPath,
+                                        userMessage: userMessage,
+                                        phase: .audit,
+                                        evidenceReceipt:
+                                            runLoop.latestAuthoritativeEvidenceReceipt
+                                    )
+                            }
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: completed targeted source recovery "
+                                    + "\(completedResearchActions) of "
+                                    + "\(AgentBoundedRunFinalizationGate.evidenceRecoveryResearchLimitPerPath) for "
+                                    + "./\(recoveryPath)."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                         if boundedRunFinalizationAfterSeconds.map({
                             $0.isFinite && $0 >= 0
                            }) == true,
@@ -2233,16 +2418,38 @@ public struct AgentRunner: Sendable {
                                     default: 0
                                 ]
                                 sourceContradictionCorrectionCounts[auditPath, default: 0] += 1
-                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
-                                    .evidenceContradictionCorrectionPrompt(
-                                        path: auditPath,
-                                        issue: issue,
-                                        userMessage: userMessage,
-                                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt,
-                                        attempt: correctionAttempt,
-                                        limit: AgentArtifactContractAuditGate
-                                            .sourceContradictionCorrectionLimitPerPath
+                                if AgentBoundedRunFinalizationGate
+                                    .evidenceRecoveryNeeded(for: issue) {
+                                    sourceContradictionResearchIssues[auditPath] = issue
+                                    pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                        .evidenceRecoveryPrompt(
+                                            path: auditPath,
+                                            issue: issue,
+                                            userMessage: userMessage,
+                                            evidenceReceipt:
+                                                runLoop.latestAuthoritativeEvidenceReceipt,
+                                            completedResearchActions:
+                                                sourceContradictionResearchCounts[
+                                                    auditPath,
+                                                    default: 0
+                                                ]
+                                        )
+                                } else {
+                                    sourceContradictionResearchIssues.removeValue(
+                                        forKey: auditPath
                                     )
+                                    pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                        .evidenceContradictionCorrectionPrompt(
+                                            path: auditPath,
+                                            issue: issue,
+                                            userMessage: userMessage,
+                                            evidenceReceipt:
+                                                runLoop.latestAuthoritativeEvidenceReceipt,
+                                            attempt: correctionAttempt,
+                                            limit: AgentArtifactContractAuditGate
+                                                .sourceContradictionCorrectionLimitPerPath
+                                        )
+                                }
                                 next.events.append(.init(
                                     kind: .notice,
                                     summary: "Self-healing: rejected source-contradictory artifact "
