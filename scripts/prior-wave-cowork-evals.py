@@ -422,6 +422,35 @@ def output_path(row):
 
 
 def fixture_context(row):
+    if row["id"] == 122:
+        return """# Ohio nonprofit grant-research profile
+
+Evidence date: 2026-08-08. The current quarter is 2026-Q3.
+
+Lakeview Workforce Collaborative is an Ohio 501(c)(3) public charity with 30 employees
+and a $4.8 million annual operating budget. It is headquartered in Cleveland and serves
+low-income adults and displaced workers across Cuyahoga, Lorain, and Summit counties.
+Its programs provide workforce training, digital-skills instruction, job placement,
+supportive services, and employer partnerships. It is registered and in good standing
+in Ohio and has an active SAM.gov registration and UEI. It is not a government entity,
+school, hospital, institution of higher education, or faith-based organization.
+
+Research only opportunities that are open as of the evidence date and for which this
+specific organization satisfies the published applicant-type and geographic rules.
+"""
+    if row["id"] == 123:
+        return """# Design-team laptop refresh profile
+
+Evidence date: 2026-08-08. Atlas Labs is buying laptops for eight product designers.
+The maximum current purchase price is $2,000 per configured laptop before tax.
+
+Primary work includes Figma, Photoshop, Illustrator, InDesign, and occasional After
+Effects exports. Compare Windows or macOS systems with at least 32 GB RAM and 1 TB SSD,
+a 14-to-16-inch color-accurate display, and a discrete GPU or integrated graphics that
+the cited configuration identifies precisely. Portability matters: report measured or
+manufacturer-rated weight and battery life. Recommend only a currently purchasable
+configuration whose price and every central requested specification are verified.
+"""
     terms = ", ".join(task_terms(row)) or row["category"]
     return f"""# Controlled source packet for catalog task {row['id']}
 
@@ -1416,6 +1445,33 @@ automation is visible in Quill Cowork's persisted automation state.
             "observation date, currency, source URL, rate, local amount, conversion formula, and "
             "converted USD amount. Apply the rate at row level before calculating any totals. "
         )
+    elif row["id"] == 122:
+        task_specific_instruction = (
+            "Use the nonprofit profile in `inputs/evaluation-context.md` as the applicant. "
+            "Find at least three specific grant opportunities that are accepting applications "
+            "as of 2026-08-08 and whose deadline falls in 2026-Q3 or is explicitly rolling/open "
+            "during that quarter. Include at least one Ohio state opportunity and one federal "
+            "opportunity. For every opportunity, put the exact program name, government level, "
+            "open status checked date, exact deadline or documented rolling basis, applicant and "
+            "geographic eligibility, fit to the supplied nonprofit profile, and direct official "
+            ".gov opportunity URL in one comparison-table row. Search portals, calendars, and "
+            "agency landing pages are research aids, not grant opportunities; do not count them "
+            "as results. Exclude opportunities whose current notice, deadline, or this applicant's "
+            "eligibility could not be verified from an official source. "
+        )
+    elif row["id"] == 123:
+        task_specific_instruction = (
+            "Use the refresh requirements in `inputs/evaluation-context.md`. Compare at least "
+            "three currently purchasable exact configurations under $2,000. In one spec-by-spec "
+            "table, give each configuration's exact model/configuration, current price, CPU, GPU, "
+            "RAM, storage, display size and resolution plus a numeric color-gamut or color-accuracy "
+            "measurement, weight, advertised or tested battery life, and direct supporting product "
+            "URLs. Keep facts for one exact priced configuration together; do not combine a sale "
+            "price from one configuration with specifications from a more expensive configuration. "
+            "Do not use `not verified`, `not specified`, `unknown`, or similar gaps for any central "
+            "comparison field. Recommend one of the fully qualifying table rows and explain the "
+            "tradeoff against the other qualifying options. "
+        )
     elif row["id"] == 117:
         task_specific_instruction = (
             "Use exactly Asana, Inc., monday.com Ltd., and GitLab Inc. from the named "
@@ -2112,6 +2168,235 @@ def validate_task_33_sequence(path):
         f"incomplete sequences={missing_email_numbers}; missing booth anchors={missing_booth_anchors}; "
         f"invented contact names={invented_contact_names}; "
         f"placeholders={placeholders[:12]}; deferred signatures={deferred_signatures[:6]}"
+    )
+    return valid, detail
+
+
+def markdown_tables(text):
+    tables = []
+    lines = text.splitlines()
+    index = 0
+    while index + 1 < len(lines):
+        header_line = lines[index]
+        delimiter_line = lines[index + 1]
+        if not header_line.lstrip().startswith("|") or not delimiter_line.lstrip().startswith("|"):
+            index += 1
+            continue
+        headers = [cell.strip() for cell in header_line.strip().strip("|").split("|")]
+        delimiters = [cell.strip() for cell in delimiter_line.strip().strip("|").split("|")]
+        if len(headers) < 2 or len(headers) != len(delimiters) or not all(
+            re.fullmatch(r":?-{3,}:?", cell) for cell in delimiters
+        ):
+            index += 1
+            continue
+        rows = []
+        index += 2
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            cells = [cell.strip() for cell in lines[index].strip().strip("|").split("|")]
+            if len(cells) != len(headers):
+                break
+            rows.append(cells)
+            index += 1
+        tables.append({"headers": headers, "rows": rows})
+    return tables
+
+
+def normalized_table_header(value):
+    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+
+
+def table_column(headers, *patterns):
+    normalized = [normalized_table_header(header) for header in headers]
+    return next(
+        (
+            index for index, header in enumerate(normalized)
+            if any(re.search(pattern, header) for pattern in patterns)
+        ),
+        None,
+    )
+
+
+def validate_task_122_grants(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read grant research: {error}"
+
+    qualifying = []
+    rejected = []
+    levels = set()
+    suitable_table = False
+    missing_markers = re.compile(
+        r"\b(?:not verified|not specified|unknown|unavailable|unclear|varies|tbd|todo|"
+        r"see (?:portal|website|notice)|check (?:portal|website|notice))\b",
+        re.I,
+    )
+    generic_portal = re.compile(
+        r"^(?:grants\.gov|sam\.gov|ohio grants partnership|ohio grants portal|"
+        r"grant opportunities|funding opportunities|agency grants?)$",
+        re.I,
+    )
+
+    for table in markdown_tables(text):
+        headers = table["headers"]
+        columns = {
+            "name": table_column(headers, r"\b(?:grant|program|opportunity|notice)\b"),
+            "level": table_column(headers, r"\b(?:government )?level\b", r"\bjurisdiction\b"),
+            "status": table_column(headers, r"\bstatus\b", r"\bopen as of\b"),
+            "deadline": table_column(headers, r"\bdeadline\b", r"\bclose date\b"),
+            "eligibility": table_column(headers, r"\beligib", r"\bapplicant"),
+            "fit": table_column(headers, r"\bfit\b", r"\bprofile match\b"),
+            "source": table_column(headers, r"\bsource\b", r"\bofficial (?:url|link)\b"),
+        }
+        if any(columns[key] is None for key in ("name", "level", "status", "deadline", "eligibility", "source")):
+            continue
+        suitable_table = True
+        for row in table["rows"]:
+            name = row[columns["name"]]
+            level_text = row[columns["level"]]
+            status = row[columns["status"]]
+            deadline = row[columns["deadline"]]
+            eligibility = row[columns["eligibility"]]
+            fit = row[columns["fit"]] if columns["fit"] is not None else eligibility
+            source = row[columns["source"]]
+            row_text = " ".join(row)
+            urls = re.findall(r"https?://[^\s)>\]]+", source)
+            official_urls = [url for url in urls if re.search(r"(?:^|\.)gov(?:/|$)", url, re.I)]
+            level = None
+            if re.search(r"\bfederal\b", level_text, re.I):
+                level = "federal"
+            elif re.search(r"\b(?:ohio|state)\b", level_text, re.I):
+                level = "ohio"
+            dated_deadline = any(
+                (year, month, day) >= (2026, 8, 8) and (year, month, day) <= (2026, 9, 30)
+                for year, month, day in (
+                    tuple(map(int, match))
+                    for match in re.findall(r"\b(2026)[-/](0?[789])[-/](\d{1,2})\b", deadline)
+                )
+            )
+            month_deadline = bool(re.search(
+                r"\b(?:August|September)\s+\d{1,2}(?:st|nd|rd|th)?(?:,)?\s+2026\b",
+                deadline,
+                re.I,
+            ))
+            rolling_deadline = bool(
+                re.search(r"\b(?:rolling|continuously open|open until funds are exhausted)\b", deadline, re.I)
+                and re.search(r"\b(?:open|2026|Q3|quarter)\b", row_text, re.I)
+            )
+            eligibility_specific = (
+                len(re.sub(r"\[[^\]]+\]\([^)]*\)", "", eligibility).strip()) >= 20
+                and re.search(r"\b(?:nonprofit|501\s*\(c\)\s*\(3\)|public charit)", eligibility, re.I)
+                and re.search(r"(?:\bOhio\b|\bnationwide\b|\bUnited States\b|\bU\.S\.)", row_text, re.I)
+            )
+            reasons = []
+            if not name.strip() or generic_portal.fullmatch(re.sub(r"[*_`]", "", name).strip()):
+                reasons.append("generic portal instead of a program")
+            if level is None:
+                reasons.append("missing government level")
+            if not re.search(r"\b(?:open|accepting|active)\b", status, re.I):
+                reasons.append("not explicitly open")
+            if not (dated_deadline or month_deadline or rolling_deadline):
+                reasons.append("no qualifying Q3 deadline")
+            if not eligibility_specific or missing_markers.search(eligibility + " " + fit):
+                reasons.append("eligibility/profile fit is incomplete")
+            if not official_urls:
+                reasons.append("no direct official .gov URL")
+            if reasons:
+                rejected.append(f"{name[:80]}: {', '.join(reasons)}")
+                continue
+            qualifying.append(name)
+            levels.add(level)
+
+    valid = suitable_table and len(qualifying) >= 3 and levels == {"federal", "ohio"}
+    detail = (
+        f"qualifying={len(qualifying)} {qualifying[:6]}; levels={sorted(levels)}; "
+        f"suitable table={suitable_table}; rejected={rejected[:8]}"
+    )
+    return valid, detail
+
+
+def validate_task_123_laptops(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read laptop comparison: {error}"
+
+    qualifying = []
+    rejected = []
+    suitable_table = False
+    missing_markers = re.compile(
+        r"\b(?:not verified|not specified|unknown|unavailable|unclear|varies|tbd|todo|n/?a)\b",
+        re.I,
+    )
+
+    for table in markdown_tables(text):
+        headers = table["headers"]
+        columns = {
+            "model": table_column(headers, r"\b(?:model|laptop|configuration|option)\b"),
+            "price": table_column(headers, r"\b(?:current |sale |street )?price\b"),
+            "cpu": table_column(headers, r"\bcpu\b", r"\bprocessor\b"),
+            "gpu": table_column(headers, r"\bgpu\b", r"\bgraphics\b"),
+            "ram": table_column(headers, r"\bram\b", r"\bmemory\b"),
+            "storage": table_column(headers, r"\bstorage\b", r"\bssd\b"),
+            "display": table_column(headers, r"\bdisplay\b", r"\bscreen\b"),
+            "color": table_column(headers, r"\bcolor\b", r"\bgamut\b"),
+            "weight": table_column(headers, r"\bweight\b"),
+            "battery": table_column(headers, r"\bbattery\b"),
+            "source": table_column(headers, r"\bsource", r"\bproduct (?:url|link)\b"),
+        }
+        required = ("model", "price", "cpu", "gpu", "ram", "storage", "display", "weight", "battery", "source")
+        if any(columns[key] is None for key in required):
+            continue
+        suitable_table = True
+        for row in table["rows"]:
+            values = {key: row[index] for key, index in columns.items() if index is not None}
+            model = values["model"]
+            row_text = " ".join(row)
+            prices = [
+                Decimal(value.replace(",", ""))
+                for value in re.findall(r"\$\s*(\d[\d,]*(?:\.\d{1,2})?)", values["price"])
+            ]
+            urls = re.findall(r"https?://[^\s)>\]]+", values["source"])
+            central_values = " ".join(
+                value for key, value in values.items() if key not in {"model", "source"}
+            )
+            color_text = values.get("color", "") + " " + values["display"]
+            reasons = []
+            if not prices or any(price >= Decimal("2000") or price < Decimal("300") for price in prices):
+                reasons.append("price is absent, ambiguous, or not under $2,000")
+            if missing_markers.search(central_values):
+                reasons.append("central specification is unverified")
+            if not re.search(r"\b32\s*(?:GB|G)\b", values["ram"], re.I):
+                reasons.append("RAM is not a verified 32 GB configuration")
+            if not re.search(r"\b(?:1\s*TB|1000\s*GB|1024\s*GB)\b", values["storage"], re.I):
+                reasons.append("storage is not a verified 1 TB configuration")
+            if not re.search(r"\b(?:1[4-6](?:\.\d+)?)\s*(?:in(?:ch(?:es)?)?|[\"\u201d])\b", values["display"], re.I):
+                reasons.append("display size is missing or outside 14-16 inches")
+            if not re.search(r"\b\d{3,4}\s*[x\u00d7]\s*\d{3,4}\b", values["display"], re.I):
+                reasons.append("display resolution is missing")
+            if not re.search(r"(?:\b\d{2,3}(?:\.\d+)?\s*%|Delta\s*E|\u0394E)", color_text, re.I):
+                reasons.append("numeric color coverage/accuracy is missing")
+            if not re.search(r"\b\d+(?:\.\d+)?\s*(?:lb|lbs|pounds?|kg)\b", values["weight"], re.I):
+                reasons.append("weight is missing")
+            if not re.search(r"\b\d+(?:\.\d+)?\s*(?:hours?|hrs?)\b", values["battery"], re.I):
+                reasons.append("battery life is missing")
+            if not urls:
+                reasons.append("direct product source URL is missing")
+            if len(re.sub(r"[*_`]", "", values["cpu"]).strip()) < 4 or len(re.sub(r"[*_`]", "", values["gpu"]).strip()) < 4:
+                reasons.append("CPU or GPU is not identified precisely")
+            if reasons:
+                rejected.append(f"{model[:80]}: {', '.join(reasons)}")
+                continue
+            clean_model = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", model)
+            clean_model = re.sub(r"[*_`]", "", clean_model).strip()
+            qualifying.append(clean_model)
+
+    recommendation_text = text[text.casefold().find("recommend"):] if "recommend" in text.casefold() else ""
+    recommendation_matches = [model for model in qualifying if model.casefold() in recommendation_text.casefold()]
+    valid = suitable_table and len(qualifying) >= 3 and bool(recommendation_matches)
+    detail = (
+        f"qualifying={len(qualifying)} {qualifying[:6]}; suitable table={suitable_table}; "
+        f"recommended qualifying row={recommendation_matches[:3]}; rejected={rejected[:8]}"
     )
     return valid, detail
 
@@ -2888,6 +3173,12 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 117:
         chart_valid, chart_detail = validate_task_117_revenue_chart(artifact)
         add("quarterly revenue chart semantics", chart_valid, chart_detail)
+    if row["id"] == 122:
+        grants_valid, grants_detail = validate_task_122_grants(artifact)
+        add("concrete open grant opportunities", grants_valid, grants_detail)
+    if row["id"] == 123:
+        laptops_valid, laptops_detail = validate_task_123_laptops(artifact)
+        add("complete qualifying laptop comparison", laptops_valid, laptops_detail)
     if row["id"] == 126:
         revenue_valid, revenue_detail = validate_task_126_real_revenue(artifact)
         add("real revenue trend semantics", revenue_valid, revenue_detail)

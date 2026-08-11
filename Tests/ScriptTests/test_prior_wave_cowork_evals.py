@@ -1406,6 +1406,80 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
             self.assertFalse(valid)
             self.assertIn("missing sections", detail)
 
+    def test_task_122_semantic_grade_requires_concrete_open_grants(self):
+        valid_research = """# Open grant shortlist
+
+| Grant opportunity | Government level | Open status | Deadline | Eligibility | Profile fit | Official source |
+|---|---|---|---|---|---|---|
+| Ohio Workforce Partnership Award | Ohio state | Open as of 2026-08-08 | 2026-09-15 | Ohio 501(c)(3) nonprofits delivering workforce training | Lakeview is an Ohio nonprofit with the required workforce program | https://workforce.ohio.gov/grants/partnership-award |
+| Adult Skills Innovation Notice | Federal | Accepting as of 2026-08-08 | August 31, 2026 | U.S. nonprofit public charities providing adult digital-skills programs | Lakeview is a U.S. 501(c)(3) with the named program | https://www.dol.gov/grants/adult-skills-2026 |
+| Employment Access Demonstration | Federal | Open as of 2026-08-08 | Rolling throughout Q3 2026 | U.S. nonprofit organizations serving displaced workers | Lakeview is a nationwide-eligible nonprofit serving displaced workers | https://www.dol.gov/grants/employment-access |
+
+## Recommendation
+Prepare the Ohio award first.
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            artifact = Path(temporary) / "task-122-deliverable.md"
+            artifact.write_text(valid_research, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_122_grants(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                valid_research.replace(
+                    "Ohio Workforce Partnership Award",
+                    "Ohio Grants Portal",
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_122_grants(artifact)
+            self.assertFalse(valid)
+            self.assertIn("generic portal instead of a program", detail)
+
+            artifact.write_text(
+                valid_research.replace(
+                    "U.S. nonprofit organizations serving displaced workers",
+                    "See portal; eligibility not verified",
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_122_grants(artifact)
+            self.assertFalse(valid)
+            self.assertIn("eligibility/profile fit is incomplete", detail)
+
+    def test_task_123_semantic_grade_requires_complete_exact_configurations(self):
+        valid_comparison = """# Laptop comparison
+
+| Exact model/configuration | Current price | CPU | GPU | RAM | Storage | Display | Color gamut | Weight | Battery life | Product sources |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Lenovo Creator 14, 32GB/1TB | $1,799.00 | Intel Core Ultra 9 285H | NVIDIA RTX 5060 8GB | 32 GB | 1 TB SSD | 14.5 inch 2880 x 1800 OLED | 100% DCI-P3 | 3.6 lb | 12 hours | https://www.lenovo.com/us/en/creator-14-32-1tb |
+| ASUS Studio 16, 32GB/1TB | $1,899.99 | AMD Ryzen AI 9 HX 370 | NVIDIA RTX 5060 8GB | 32 GB | 1 TB SSD | 16 inch 3200 x 2000 OLED | 100% DCI-P3 | 4.1 lb | 10 hours | https://www.asus.com/us/laptops/studio-16-32-1tb |
+| Apple MacBook Pro 14, 32GB/1TB | $1,949.00 | Apple M5 Pro 12-core | Apple M5 Pro 18-core integrated GPU | 32 GB | 1 TB SSD | 14.2 inch 3024 x 1964 mini-LED | 100% Display P3 | 3.5 lb | 18 hours | https://www.apple.com/shop/buy-mac/macbook-pro/32gb-1tb |
+
+## Recommendation
+Recommend Lenovo Creator 14, 32GB/1TB for the strongest GPU value under budget.
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            artifact = Path(temporary) / "task-123-deliverable.md"
+            artifact.write_text(valid_comparison, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_123_laptops(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                valid_comparison.replace("100% Display P3", "not verified"),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_123_laptops(artifact)
+            self.assertFalse(valid)
+            self.assertIn("central specification is unverified", detail)
+
+            artifact.write_text(
+                valid_comparison.replace("$1,949.00", "$1,949.00 / $3,299.00 spec source"),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_123_laptops(artifact)
+            self.assertFalse(valid)
+            self.assertIn("price is absent, ambiguous, or not under $2,000", detail)
+
     def test_task_117_semantic_grade_requires_complete_sourced_chart(self):
         row = self.rows[116]
         with tempfile.TemporaryDirectory() as temporary:
