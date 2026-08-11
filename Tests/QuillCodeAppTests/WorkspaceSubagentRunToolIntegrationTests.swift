@@ -11,7 +11,7 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
     func testDefaultDelegationBudgetSupportsBoundedLongResearch() {
         XCTAssertEqual(
             WorkspaceSubagentRunToolExecutor.defaultDelegationBudget,
-            .seconds(600)
+            .seconds(900)
         )
     }
 

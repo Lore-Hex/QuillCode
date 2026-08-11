@@ -8,7 +8,7 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     static let defaultModelID = "deepseek/deepseek-v4-flash-0731"
     static let maximumTimeoutSeconds = 21_600
     static let maximumToolSteps = 4_096
-    static let maximumDelegationBudgetSeconds = 600
+    static let maximumDelegationBudgetSeconds = 900
     static let minimumDelegationBudgetSeconds = 60
 
     var homePath: String

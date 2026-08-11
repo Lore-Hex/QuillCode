@@ -140,6 +140,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         )
 
         XCTAssertEqual(parentSession.runner.maxToolSteps, 512)
+        XCTAssertEqual(WorkspaceAgentSendSessionFactory.maximumSubagentToolSteps, 32)
         XCTAssertEqual(
             childSession.runner.maxToolSteps,
             WorkspaceAgentSendSessionFactory.maximumSubagentToolSteps

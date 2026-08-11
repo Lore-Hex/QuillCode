@@ -129,7 +129,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
         XCTAssertFalse(request.isConfidential)
         XCTAssertEqual(request.timeoutSeconds, 3_600)
-        XCTAssertEqual(request.subagentDelegationBudget, .seconds(600))
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(900))
         XCTAssertEqual(request.maxToolSteps, 512)
         XCTAssertNil(request.runSpendFuseUSD)
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))

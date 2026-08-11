@@ -8,9 +8,9 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 struct WorkspaceAgentSendSessionFactory: Sendable {
-    /// Delegated roles are intentionally narrow. They must return evidence to the coordinator
-    /// instead of inheriting a high parent budget and re-proving an already established result.
-    static let maximumSubagentToolSteps = 16
+    /// Delegated roles remain bounded, but research workers need enough turns to search, fetch,
+    /// recover from blocked pages, and verify a complete evidence track before reporting back.
+    static let maximumSubagentToolSteps = 32
 
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?
