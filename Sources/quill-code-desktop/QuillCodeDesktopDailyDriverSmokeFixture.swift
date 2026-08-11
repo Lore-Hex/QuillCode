@@ -52,6 +52,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
     static let shortThreadTurnCount = 3
     static let selectedThreadTurnCount = 100
     static let markerFileName = "performance-workload.json"
+    static let mockCredential = "quillcode-daily-driver-smoke-credential"
 
     private static let projectID = deterministicUUID(namespace: 0x1000_0000, value: 1)
     private static let baseDate = Date(timeIntervalSince1970: 1_735_689_600)
@@ -109,6 +110,10 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         let destinationWorkspace = destination.appendingPathComponent("workspace", isDirectory: true)
         let paths = QuillCodePaths(home: appState)
         try paths.ensure()
+        try FileSecretStore(directory: paths.secretsDirectory).write(
+            mockCredential,
+            for: QuillSecretKeys.trustedRouterAPIKey
+        )
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
 
         let newestDate = baseDate.addingTimeInterval(TimeInterval(chatCount * 3_600))
@@ -171,6 +176,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         }
 
         let root = controller.model.root
+        try require(root.trustedRouterAPIKeyConfigured, "returning-user credential state")
         try require(root.projects.count == marker.projectCount, "loaded project count")
         try require(root.threads.count == marker.chatCount, "loaded chat count")
         try require(root.selectedProjectID == projectID, "selected project identity")

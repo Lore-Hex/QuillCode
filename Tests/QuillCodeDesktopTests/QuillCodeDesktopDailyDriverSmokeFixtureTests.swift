@@ -16,8 +16,14 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         let projects = try JSONProjectStore(fileURL: paths.projectsFile).load()
         let threads = try JSONThreadStore(directory: paths.threadsDirectory).list()
         let selectedThread = try XCTUnwrap(threads.first)
+        let trustedRouterCredential = try FileSecretStore(directory: paths.secretsDirectory)
+            .read(QuillSecretKeys.trustedRouterAPIKey)
 
         XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(
+            trustedRouterCredential,
+            QuillCodeDesktopDailyDriverSmokeFixture.mockCredential
+        )
         XCTAssertEqual(projects.first?.path, stateRoot.appendingPathComponent("workspace").path)
         XCTAssertEqual(threads.count, QuillCodeDesktopDailyDriverSmokeFixture.chatCount)
         XCTAssertEqual(Set(threads.map(\.id)).count, threads.count)
@@ -53,6 +59,7 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         ]))
         let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)
         let controller = workspaceRoot.makeController()
+        XCTAssertTrue(controller.model.root.trustedRouterAPIKeyConfigured)
         XCTAssertEqual(
             try QuillCodeDesktopDailyDriverSmokeFixture.validate(
                 workloadID: request.performanceWorkloadID,

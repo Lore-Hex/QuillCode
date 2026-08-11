@@ -196,7 +196,6 @@ public struct QuillCodeRuntimeFactory: Sendable {
     }
 
     public func hasTrustedRouterAPIKey() -> Bool {
-        guard !forcedMock else { return false }
         if configuredAPIKey() != nil { return true }
         return sessionStore().hasAPIKey
     }
