@@ -121,14 +121,31 @@ struct WorkspaceThreadPersistence {
     }
 
     @discardableResult
+    func hydrate(_ id: UUID, threads: inout [ChatThread]) -> Int? {
+        guard let index = threads.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
+        guard !threads[index].payloadResidency.isLoaded else { return index }
+        guard let store else {
+            issueTracker.recordFailure(for: id)
+            return nil
+        }
+        do {
+            threads[index] = try store.materialize(threads[index])
+            return index
+        } catch {
+            issueTracker.recordFailure(for: id)
+            return nil
+        }
+    }
+
+    @discardableResult
     func mutate(
         _ id: UUID,
         threads: inout [ChatThread],
         update: (inout ChatThread) -> Void
     ) -> Int? {
-        guard let index = threads.firstIndex(where: { $0.id == id }) else {
-            return nil
-        }
+        guard let index = hydrate(id, threads: &threads) else { return nil }
         update(&threads[index])
         threads[index].updatedAt = now()
         save(threads[index])

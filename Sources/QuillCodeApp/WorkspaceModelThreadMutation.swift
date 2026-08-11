@@ -45,6 +45,19 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    func hydrateThreadPayload(_ id: UUID) -> Bool {
+        threadPersistence.hydrate(id, threads: &root.threads) != nil
+    }
+
+    @discardableResult
+    func hydrateThreadPayloads<S: Sequence>(_ ids: S) -> Bool where S.Element == UUID {
+        for id in ids where !hydrateThreadPayload(id) {
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
     func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
         guard let index = threadPersistence.mutate(id, threads: &root.threads, update: update) else {
             return nil

@@ -79,6 +79,7 @@ extension QuillCodeWorkspaceModel {
         now: Date
     ) -> AutomationRunReport? {
         guard let threadID = automation.threadID,
+              hydrateThreadPayload(threadID),
               let source = root.threads.first(where: { $0.id == threadID })
         else {
             return reportMissingAutomationDependency(

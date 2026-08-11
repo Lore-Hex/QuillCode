@@ -227,6 +227,6 @@ public struct AgentImportThreadProvenance: Codable, Sendable, Hashable {
             else { continue }
             return provenance
         }
-        return nil
+        return thread.payloadResidency.deferredSummary?.agentImportProvenance
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// One row in the Attention section: a thread that needs morning triage.
-public struct AttentionItem: Sendable, Hashable, Identifiable {
+public struct AttentionItem: Codable, Sendable, Hashable, Identifiable {
     public var threadID: UUID
     public var title: String
     public var verdict: TriageVerdict
@@ -94,6 +94,11 @@ public struct AttentionModel: Sendable, Hashable {
         selectedThreadID: UUID? = nil
     ) -> AttentionModel {
         let items: [AttentionItem] = threads.compactMap { thread in
+            if var item = thread.payloadResidency.deferredSummary?.attentionItem {
+                item.title = thread.title
+                item.updatedAt = thread.updatedAt
+                return item
+            }
             guard let stamp = TriageStamp.derive(from: thread), stamp.verdict.needsAttention else {
                 return nil
             }

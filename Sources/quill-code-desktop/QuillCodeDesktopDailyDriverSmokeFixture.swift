@@ -49,6 +49,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixtureError: LocalizedError, Equatable {
 
 enum QuillCodeDesktopDailyDriverSmokeFixture {
     static let chatCount = 100
+    static let archivedChatCount = 80
     static let shortThreadTurnCount = 3
     static let selectedThreadTurnCount = 100
     static let markerFileName = "performance-workload.json"
@@ -129,12 +130,16 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         for ordinal in 1...chatCount {
             try threadStore.save(makeThread(ordinal: ordinal))
         }
+        // Performance smoke represents an established daily-driver workspace. Prime the disposable
+        // archive index outside the measured launch so the packaged app exercises its warm-start path.
+        _ = threadStore.bootstrapListing(deferArchivedBefore: .distantFuture)
 
         let marker = Marker(
-            schemaVersion: 1,
+            schemaVersion: 2,
             workload: QuillCodeDesktopPerformanceWorkload.dailyDriver100Chats.rawValue,
             projectCount: 1,
             chatCount: chatCount,
+            archivedChatCount: archivedChatCount,
             shortThreadTurnCount: shortThreadTurnCount,
             selectedThreadTurnCount: selectedThreadTurnCount
         )
@@ -165,10 +170,11 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         let markerURL = workspaceRoot.root.appendingPathComponent(markerFileName)
         let marker = try JSONDecoder().decode(Marker.self, from: Data(contentsOf: markerURL))
         guard marker == Marker(
-            schemaVersion: 1,
+            schemaVersion: 2,
             workload: workload.rawValue,
             projectCount: 1,
             chatCount: chatCount,
+            archivedChatCount: archivedChatCount,
             shortThreadTurnCount: shortThreadTurnCount,
             selectedThreadTurnCount: selectedThreadTurnCount
         ) else {
@@ -203,10 +209,20 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
             "selected chat message count"
         )
         try require(
+            root.threads.filter(\.isArchived).count == marker.archivedChatCount,
+            "archived chat count"
+        )
+        try require(
             root.threads
-                .filter({ $0.id != selectedThread.id })
+                .filter(\.isArchived)
+                .allSatisfy({ !$0.payloadResidency.isLoaded && $0.messages.isEmpty }),
+            "archived chat payload residency"
+        )
+        try require(
+            root.threads
+                .filter({ !$0.isArchived && $0.id != selectedThread.id })
                 .allSatisfy({ $0.messages.count == marker.shortThreadTurnCount * 2 }),
-            "background chat message count"
+            "active background chat message count"
         )
         return workload
     }
@@ -232,6 +248,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
                 createdAt: createdAt
             ),
             isPinned: ordinal == chatCount,
+            isArchived: ordinal <= archivedChatCount,
             createdAt: createdAt,
             updatedAt: createdAt.addingTimeInterval(TimeInterval(turnCount * 120))
         )
@@ -282,6 +299,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         var workload: String
         var projectCount: Int
         var chatCount: Int
+        var archivedChatCount: Int
         var shortThreadTurnCount: Int
         var selectedThreadTurnCount: Int
     }

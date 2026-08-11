@@ -108,7 +108,10 @@ extension QuillCodeWorkspaceModel {
 
     func removeManagedImagesIfUnreferenced(_ candidates: [ChatAttachment]) {
         guard let imageAttachmentStore, !candidates.isEmpty else { return }
-        let referencedIDs = Set(root.threads.flatMap(Self.allImageAttachments).map(\.id))
+        let referencedIDs = Set(root.threads.flatMap { thread in
+            Self.allImageAttachments(in: thread).map(\.id)
+                + Array(thread.payloadResidency.deferredSummary?.attachmentIDs ?? [])
+        })
         for attachment in candidates where !referencedIDs.contains(attachment.id) {
             try? imageAttachmentStore.remove(attachment)
         }

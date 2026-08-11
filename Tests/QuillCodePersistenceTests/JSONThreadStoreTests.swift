@@ -270,6 +270,247 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertTrue(listing.directoryReadFailed)
     }
 
+    func testBootstrapListingDefersOldArchivedPayloadAndUsesValidatedWarmIndex() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let cutoff = Date(timeIntervalSince1970: 1_700_000_000)
+        var archived = ChatThread(
+            title: "Archived release investigation",
+            messages: [
+                ChatMessage(role: .user, content: "find the launch regression"),
+                ChatMessage(role: .assistant, content: "the cache was rebuilding synchronously")
+            ],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate
+        )
+        archived.events = [ThreadEvent(kind: .notice, summary: "Preserved event")]
+        let active = ChatThread(
+            title: "Current work",
+            messages: [ChatMessage(role: .user, content: "ship it")],
+            updatedAt: cutoff.addingTimeInterval(100)
+        )
+        try store.save(archived)
+        try store.save(active)
+
+        let cold = store.bootstrapListing(deferArchivedBefore: cutoff)
+
+        XCTAssertEqual(cold.deferredThreadCount, 1)
+        XCTAssertEqual(cold.summaryCacheHitCount, 0)
+        let coldArchive = try XCTUnwrap(cold.threads.first { $0.id == archived.id })
+        XCTAssertFalse(coldArchive.payloadResidency.isLoaded)
+        XCTAssertTrue(coldArchive.messages.isEmpty)
+        XCTAssertTrue(coldArchive.events.isEmpty)
+        XCTAssertEqual(
+            coldArchive.payloadResidency.deferredSearchText,
+            "find the launch regression\nthe cache was rebuilding synchronously"
+        )
+        XCTAssertTrue(try XCTUnwrap(cold.threads.first { $0.id == active.id }).payloadResidency.isLoaded)
+
+        let warm = store.bootstrapListing(deferArchivedBefore: cutoff)
+
+        XCTAssertEqual(warm.deferredThreadCount, 1)
+        XCTAssertEqual(warm.summaryCacheHitCount, 1)
+        let fullyListed = try XCTUnwrap(try store.list().first { $0.id == archived.id })
+        XCTAssertEqual(fullyListed.messages.map(\.id), archived.messages.map(\.id))
+        XCTAssertEqual(fullyListed.messages.map(\.role), archived.messages.map(\.role))
+        XCTAssertEqual(fullyListed.messages.map(\.content), archived.messages.map(\.content))
+        XCTAssertEqual(try store.load(archived.id).events.map(\.summary), archived.events.map(\.summary))
+    }
+
+    func testBootstrapListingInvalidatesChangedArchivedSummary() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let cutoff = Date(timeIntervalSince1970: 1_700_000_000)
+        var archived = ChatThread(
+            title: "Before",
+            messages: [ChatMessage(role: .user, content: "original search")],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate
+        )
+        try store.save(archived)
+        _ = store.bootstrapListing(deferArchivedBefore: cutoff)
+        XCTAssertEqual(
+            store.bootstrapListing(deferArchivedBefore: cutoff).summaryCacheHitCount,
+            1
+        )
+
+        archived.title = "After"
+        archived.messages.append(ChatMessage(role: .assistant, content: "updated search"))
+        try store.save(archived)
+        let refreshed = store.bootstrapListing(deferArchivedBefore: cutoff)
+
+        XCTAssertEqual(refreshed.summaryCacheHitCount, 0)
+        let summary = try XCTUnwrap(refreshed.threads.first)
+        XCTAssertEqual(summary.title, "After")
+        XCTAssertEqual(summary.payloadResidency.deferredSearchText, "original search\nupdated search")
+    }
+
+    func testBootstrapListingIgnoresCorruptIndexAndRebuildsItPrivately() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let cutoff = Date(timeIntervalSince1970: 1_700_000_000)
+        let archived = ChatThread(
+            title: "Recoverable archive",
+            messages: [ChatMessage(role: .user, content: "recover exact search")],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate
+        )
+        try store.save(archived)
+        _ = store.bootstrapListing(deferArchivedBefore: cutoff)
+        let indexURL = directory.appendingPathComponent(".archived-thread-summary-index-v1")
+        try Data("not an index".utf8).write(to: indexURL, options: .atomic)
+
+        let recovered = store.bootstrapListing(deferArchivedBefore: cutoff)
+
+        XCTAssertEqual(recovered.deferredThreadCount, 1)
+        XCTAssertEqual(recovered.summaryCacheHitCount, 0)
+        XCTAssertEqual(
+            recovered.threads.first?.payloadResidency.deferredSearchText,
+            "recover exact search"
+        )
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: indexURL.path)[.posixPermissions] as? Int,
+            0o600
+        )
+        XCTAssertEqual(
+            store.bootstrapListing(deferArchivedBefore: cutoff).summaryCacheHitCount,
+            1
+        )
+    }
+
+    func testArchivedRewritePurgesDerivedTranscriptExcerpts() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let cutoff = Date(timeIntervalSince1970: 1_700_000_000)
+        var archived = ChatThread(
+            title: "Sensitive archive",
+            messages: [ChatMessage(role: .user, content: "remove this excerpt")],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate
+        )
+        try store.save(archived)
+        _ = store.bootstrapListing(deferArchivedBefore: cutoff)
+        let indexURL = directory.appendingPathComponent(".archived-thread-summary-index-v1")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: indexURL.path))
+
+        archived.messages = []
+        archived.updatedAt = oldDate.addingTimeInterval(1)
+        try store.save(archived)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: indexURL.path))
+        XCTAssertTrue(try store.load(archived.id).messages.isEmpty)
+    }
+
+    func testWarmBootstrapKeepsLargeArchiveSetAsBoundedSummaries() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let cutoff = Date(timeIntervalSince1970: 1_700_000_000)
+        let threadCount = 200
+        for index in 0..<threadCount {
+            try store.save(ChatThread(
+                title: "Archive \(index)",
+                messages: [
+                    ChatMessage(role: .user, content: "request \(index) " + String(repeating: "x", count: 4_096)),
+                    ChatMessage(role: .assistant, content: "answer \(index) " + String(repeating: "y", count: 4_096))
+                ],
+                isArchived: true,
+                createdAt: oldDate,
+                updatedAt: oldDate.addingTimeInterval(TimeInterval(index))
+            ))
+        }
+
+        let cold = store.bootstrapListing(deferArchivedBefore: cutoff)
+        let warm = store.bootstrapListing(deferArchivedBefore: cutoff)
+
+        XCTAssertEqual(cold.deferredThreadCount, threadCount)
+        XCTAssertEqual(cold.summaryCacheHitCount, 0)
+        XCTAssertEqual(warm.deferredThreadCount, threadCount)
+        XCTAssertEqual(warm.summaryCacheHitCount, threadCount)
+        XCTAssertTrue(warm.threads.allSatisfy {
+            !$0.payloadResidency.isLoaded && $0.messages.isEmpty && $0.events.isEmpty
+        })
+        XCTAssertEqual(try store.list().count, threadCount)
+    }
+
+    func testSavingDeferredMetadataPreservesAuthoritativePayload() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        var archived = ChatThread(
+            title: "Before",
+            messages: [ChatMessage(role: .user, content: "retain me")],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate,
+            instructions: [ProjectInstruction(
+                path: "/workspace/AGENTS.md",
+                title: "AGENTS.md",
+                content: "Be exact",
+                byteCount: 8
+            )]
+        )
+        archived.events = [ThreadEvent(kind: .notice, summary: "Keep this too")]
+        archived.followUpQueue = [FollowUpItem(text: "and this", createdAt: oldDate)]
+        try store.save(archived)
+        var summary = try XCTUnwrap(
+            store.bootstrapListing(
+                deferArchivedBefore: Date(timeIntervalSince1970: 1_700_000_000)
+            ).threads.first
+        )
+        XCTAssertFalse(summary.payloadResidency.isLoaded)
+
+        summary.title = "After"
+        summary.isPinned = true
+        summary.updatedAt = oldDate.addingTimeInterval(60)
+        try store.save(summary)
+
+        let persisted = try store.load(archived.id)
+        XCTAssertEqual(persisted.title, "After")
+        XCTAssertTrue(persisted.isPinned)
+        XCTAssertEqual(persisted.messages.map(\.id), archived.messages.map(\.id))
+        XCTAssertEqual(persisted.messages.map(\.content), archived.messages.map(\.content))
+        XCTAssertEqual(persisted.events.map(\.id), archived.events.map(\.id))
+        XCTAssertEqual(persisted.events.map(\.summary), archived.events.map(\.summary))
+        XCTAssertEqual(persisted.instructions, archived.instructions)
+        XCTAssertEqual(persisted.followUpQueue, archived.followUpQueue)
+        XCTAssertTrue(persisted.payloadResidency.isLoaded)
+    }
+
+    func testSavingDeferredTranscriptMutationFailsWithoutChangingFile() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
+        let archived = ChatThread(
+            messages: [ChatMessage(role: .user, content: "authoritative")],
+            isArchived: true,
+            createdAt: oldDate,
+            updatedAt: oldDate
+        )
+        try store.save(archived)
+        var summary = try XCTUnwrap(
+            store.bootstrapListing(
+                deferArchivedBefore: Date(timeIntervalSince1970: 1_700_000_000)
+            ).threads.first
+        )
+        summary.messages.append(ChatMessage(role: .assistant, content: "unsafe partial edit"))
+
+        XCTAssertThrowsError(try store.save(summary)) { error in
+            XCTAssertEqual(error as? JSONThreadStoreError, .deferredPayloadMutation)
+        }
+        let persisted = try store.load(archived.id)
+        XCTAssertEqual(persisted.messages.map(\.id), archived.messages.map(\.id))
+        XCTAssertEqual(persisted.messages.map(\.content), archived.messages.map(\.content))
+    }
+
     func testListToleratesSchemaIncompatibleFile() throws {
         // A .json that is valid JSON but missing required ChatThread keys is skipped, not fatal.
         let directory = try makeTempDirectory()
