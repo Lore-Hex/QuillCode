@@ -2308,6 +2308,7 @@ def validate_task_126_real_revenue(path):
 
     normalized = re.sub(r"[$,\s]", "", text).casefold()
     compact_text = re.sub(r"\s+", " ", text)
+    semantic_text = re.sub(r"[*_`]", "", compact_text)
     missing_years = [year for year in ("2023", "2024", "2025", "2026") if year not in text]
     missing_nominal_revenue = [
         value for value in ("4200000", "5100000", "6000000")
@@ -2569,12 +2570,17 @@ def validate_task_126_real_revenue(path):
             re.search(
                 r"2025.{0,100}annual[- ]average.{0,100}"
                 r"(?:unavailable|not (?:available|published)|cannot be calculated)",
-                compact_text,
+                semantic_text,
                 re.I,
             )
             or re.search(
-                r"2025.{0,160}not an annual[- ]average",
-                compact_text,
+                r"2025.{0,160}(?:does not|doesn't) publish.{0,80}annual[- ]average",
+                semantic_text,
+                re.I,
+            )
+            or re.search(
+                r"2025.{0,160}not (?:an?|the) (?:full )?annual[- ]average",
+                semantic_text,
                 re.I,
             )
         ),

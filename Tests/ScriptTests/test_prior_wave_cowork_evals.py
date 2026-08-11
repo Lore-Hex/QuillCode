@@ -467,6 +467,17 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
 
+            does_not_publish_language = structured_basis_with_monthly_equations.replace(
+                "The 2025 basis is an 11-observation observed-month\n"
+                "mean, not an annual average, because October is unavailable.",
+                "**2025:** BLS does **not** publish a calendar-year annual average because "
+                "October is unavailable. The 11-observation mean is **not a full annual "
+                "average**.",
+            )
+            path.write_text(does_not_publish_language, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
             wrong_latest_period = structured_basis_with_monthly_equations.replace(
                 "June benchmark", "July benchmark"
             ).replace(
