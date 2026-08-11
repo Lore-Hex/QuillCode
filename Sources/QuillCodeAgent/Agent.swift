@@ -297,6 +297,9 @@ public struct AgentRunner: Sendable {
             /// A model that repeatedly declines the required deterministic artifact validator is
             /// stopped honestly instead of spending the full run budget on identical corrections.
             var artifactContractAuditCorrectionCounts: [String: Int] = [:]
+            /// Source contradictions get two immediate rewrite opportunities. The deterministic
+            /// validator owns the terminal result after that bounded correction budget is spent.
+            var sourceContradictionCorrectionCounts: [String: Int] = [:]
             /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
             /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
@@ -856,7 +859,10 @@ public struct AgentRunner: Sendable {
                             among: [AgentArtifactVerificationGate.normalizedPath(path)]
                         ).isEmpty
                     if isValidatorProposal,
+                       sourceContradictionCorrectionCounts[path, default: 0]
+                        < AgentArtifactContractAuditGate.correctionLimitPerPath,
                        let issue = runLoop.authoritativeEvidenceContradiction(at: path) {
+                        sourceContradictionCorrectionCounts[path, default: 0] += 1
                         pendingRepeatNudge = AgentBoundedRunFinalizationGate
                             .evidenceContradictionCorrectionPrompt(
                                 path: path,
@@ -2001,8 +2007,7 @@ public struct AgentRunner: Sendable {
                             workspaceRoot: workspaceRoot,
                             stateSignature: stateSignature
                         )
-                        if !hasEnteredBoundedRunFinalization,
-                           boundedRunFinalizationAfterSeconds.map({
+                        if boundedRunFinalizationAfterSeconds.map({
                             $0.isFinite && $0 >= 0
                            }) == true,
                            completion.result.ok,
@@ -2011,26 +2016,48 @@ public struct AgentRunner: Sendable {
                             from: completion.call
                            ), let auditPath = runLoop.pendingArtifactContractAuditPath(),
                            AgentArtifactVerificationGate.pathsMatch(writtenPath, auditPath) {
-                            hasEnteredBoundedRunFinalization = true
-                            boundedRunFinalizationPath = auditPath
-                            actionRunner.turnDeadlineSeconds = min(
-                                actionRunner.turnDeadlineSeconds
-                                    ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
-                                Self.boundedRunFinalizationTurnDeadlineSeconds
-                            )
-                            pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
-                                path: auditPath,
-                                userMessage: userMessage,
-                                phase: .audit,
-                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
-                            )
-                            next.events.append(.init(
-                                kind: .notice,
-                                summary: "Self-healing: entered deterministic contract audit "
-                                    + "immediately after writing ./\(auditPath)."
-                            ))
-                            next.updatedAt = Date()
-                            await onProgress?(next)
+                            let justEnteredFinalization = !hasEnteredBoundedRunFinalization
+                            if justEnteredFinalization {
+                                hasEnteredBoundedRunFinalization = true
+                                boundedRunFinalizationPath = auditPath
+                                actionRunner.turnDeadlineSeconds = min(
+                                    actionRunner.turnDeadlineSeconds
+                                        ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
+                                    Self.boundedRunFinalizationTurnDeadlineSeconds
+                                )
+                            }
+                            if sourceContradictionCorrectionCounts[auditPath, default: 0]
+                                < AgentArtifactContractAuditGate.correctionLimitPerPath,
+                               let issue = runLoop.authoritativeEvidenceContradiction(at: auditPath) {
+                                sourceContradictionCorrectionCounts[auditPath, default: 0] += 1
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate
+                                    .evidenceContradictionCorrectionPrompt(
+                                        path: auditPath,
+                                        issue: issue,
+                                        evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                    )
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: rejected source-contradictory artifact "
+                                        + "immediately after writing ./\(auditPath): \(issue)"
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            } else if justEnteredFinalization {
+                                pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
+                                    path: auditPath,
+                                    userMessage: userMessage,
+                                    phase: .audit,
+                                    evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                                )
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: entered deterministic contract audit "
+                                        + "immediately after writing ./\(auditPath)."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
                         }
                         if !completion.result.ok,
                            let path = runLoop.pendingArtifactContractAuditPath(),

@@ -586,6 +586,9 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains {
             $0.summary.contains("rejected validation of source-contradictory artifact")
         }, diagnostics)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected source-contradictory artifact immediately after writing")
+        }, diagnostics)
         XCTAssertEqual(result.stopReason, .finished, diagnostics)
     }
 
