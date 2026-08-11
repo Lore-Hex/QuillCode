@@ -406,6 +406,102 @@ final class AgentToolLoopTests: XCTestCase {
         })
     }
 
+    func testBoundedRunFinalizationMaterializesSubstantiveSynthesisSay() async throws {
+        let root = try makeTempDirectory()
+        let report = """
+        # Competitive landscape
+
+        ## Executive summary
+
+        The evaluated market has a clear set of buyer requirements and operational constraints. \
+        The evidence supports a focused entry strategy built around reliability, transparent \
+        implementation, and measurable time savings for the initial customer segment.
+
+        ## Evidence and findings
+
+        - Buyer interviews consistently prioritized dependable workflows over a broad feature list.
+        - Published product documentation confirmed the core integration and reporting constraints.
+        - Available pricing evidence supports a staged rollout with explicit validation milestones.
+
+        | Segment | Primary requirement |
+        |---|---|
+        | Initial pilot | Reliable core workflow |
+        | Expansion cohort | Measured retention |
+
+        The recommended first phase is a narrow pilot with instrumented outcomes, weekly customer \
+        review, and a written decision gate before expansion. The second phase should add only the \
+        workflows that the pilot demonstrates are repeated, costly, and poorly served today.
+
+        ## Recommended plan
+
+        1. Recruit a representative pilot cohort and record baseline completion time and error rate.
+        2. Run the core workflow for four weeks and review failures with each participating customer.
+        3. Compare the measured outcome with the baseline and publish the decision criteria.
+        4. Expand only after the reliability and retention thresholds are both met.
+
+        ## Risks and mitigations
+
+        The principal risk is treating stated interest as durable demand. Paid pilots, retained use, \
+        and observed workflow frequency provide stronger evidence. A second risk is implementation \
+        drag, which should be constrained with a fixed integration checklist and a time-boxed pilot.
+
+        ## Conclusion
+
+        Proceed with the narrow pilot, preserve the evidence trail, and require measured customer \
+        outcomes before broadening the product surface or increasing acquisition spend.
+        """
+        let validatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate_report.py",
+                "content": """
+                import pathlib, sys
+                target = pathlib.Path(sys.argv[1])
+                assert target.name == "report.md"
+                text = target.read_text()
+                assert text.startswith("# Competitive landscape")
+                assert "## Recommended plan" in text
+                assert len(text) >= 800
+                print("PASS: substantive report saved")
+                """,
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [.say(report), .tool(validatorWrite)]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "PASS: substantive report saved")
+            },
+            maxToolSteps: 8,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md with exactly two comparison rows in its only Markdown table, "
+                + "validate it, and read it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let saved = try String(contentsOf: root.appendingPathComponent("outputs/report.md"))
+        let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
+        XCTAssertEqual(saved, report + "\n")
+        XCTAssertEqual(result.stopReason, .finished, eventSummary)
+        XCTAssertTrue(eventSummary.contains("materialized the model's substantive synthesis"))
+        XCTAssertTrue(eventSummary.contains("audit passed"))
+        XCTAssertTrue(eventSummary.contains("artifact readback succeeded"))
+    }
+
+    func testBoundedRunFinalizationDoesNotMaterializePassivePromise() throws {
+        let promise = "# Planned report\n\n## Next steps\n\n"
+            + String(repeating: "I will now research the evidence before writing the report. ", count: 20)
+
+        XCTAssertNil(AgentBoundedRunFinalizationGate.materializedDeliverableWrite(
+            from: .say(promise),
+            deliverablePath: "outputs/report.md"
+        ))
+    }
+
     func testBoundedRunFinalizationStopsResearchAfterDeliverableWrite() async throws {
         let root = try makeTempDirectory()
         let capture = ToolCallCapture()

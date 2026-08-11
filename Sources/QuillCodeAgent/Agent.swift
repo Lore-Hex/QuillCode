@@ -853,6 +853,31 @@ public struct AgentRunner: Sendable {
                     next.updatedAt = Date()
                     await onProgress?(next)
                 }
+                let pendingSynthesisPath: String?
+                if let path = boundedRunFinalizationPath,
+                   runLoop.boundedRunFinalizationPhase(at: path) == .synthesize {
+                    pendingSynthesisPath = path
+                } else {
+                    pendingSynthesisPath = runLoop.pendingResearchFinalizationPath(
+                        minimumResearchSteps: AgentResearchCheckpointGate
+                            .minimumPostCheckpointResearchSteps
+                    )
+                }
+                if !isControlledAction,
+                   let path = pendingSynthesisPath,
+                   let write = AgentBoundedRunFinalizationGate.materializedDeliverableWrite(
+                    from: resolvedAction,
+                    deliverablePath: path
+                   ) {
+                    resolvedAction = .tool(write)
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: materialized the model's substantive synthesis "
+                            + "response into ./\(path) through the normal artifact write path."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 if let path = boundedRunFinalizationPath,
                    runLoop.boundedRunFinalizationPhase(at: path) == .audit,
                    runLoop.requiresContractAuditDeliverableRepair(at: path),

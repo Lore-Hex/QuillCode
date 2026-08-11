@@ -72,6 +72,56 @@ enum AgentBoundedRunFinalizationGate {
         }
     }
 
+    /// Some routes occasionally return a complete report in a terminal text envelope even after
+    /// being told to write the named artifact. Recover only report-sized, structured text while
+    /// synthesis is pending; the resulting call still traverses normal write, audit, and readback.
+    static func materializedDeliverableWrite(
+        from action: AgentAction,
+        deliverablePath: String
+    ) -> ToolCall? {
+        guard case .say(let rawText) = action,
+              ["md", "markdown", "txt"].contains(
+                URL(fileURLWithPath: deliverablePath).pathExtension.lowercased()
+              )
+        else { return nil }
+
+        let content = strippingOuterMarkdownFence(from: rawText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let nonemptyLines = content.split(whereSeparator: \.isNewline).filter {
+            !$0.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        let headingCount = nonemptyLines.filter {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("#")
+        }.count
+        let hasTable = nonemptyLines.contains { line in
+            line.filter { $0 == "|" }.count >= 2
+        }
+        let hasList = nonemptyLines.contains { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ")
+                || trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) != nil
+        }
+        let opening = content.prefix(240).lowercased()
+        let isPassivePromise = [
+            "i will now", "i'll now", "let me ", "i can now", "next i will",
+            "i need to ", "i'm going to ",
+        ].contains(where: opening.contains)
+
+        guard content.count >= 800,
+              nonemptyLines.count >= 8,
+              headingCount >= 2 || (headingCount >= 1 && (hasTable || hasList)),
+              !isPassivePromise
+        else { return nil }
+
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": AgentArtifactVerificationGate.normalizedPath(deliverablePath),
+                "content": content + "\n",
+            ])
+        )
+    }
+
     static func allowsSemanticAuditReadback(
         _ action: AgentAction,
         deliverablePath: String
@@ -563,6 +613,18 @@ enum AgentBoundedRunFinalizationGate {
 
     private static func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+    }
+
+    private static func strippingOuterMarkdownFence(from text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("```") else { return trimmed }
+        let lines = trimmed.components(separatedBy: .newlines)
+        guard lines.count >= 3,
+              lines[0].trimmingCharacters(in: .whitespaces).lowercased()
+                .range(of: #"^```(?:markdown|md|text)?\s*$"#, options: .regularExpression) != nil,
+              lines.last?.trimmingCharacters(in: .whitespaces) == "```"
+        else { return trimmed }
+        return lines.dropFirst().dropLast().joined(separator: "\n")
     }
 
     static func originalRequestExcerpt(_ userMessage: String) -> String {
