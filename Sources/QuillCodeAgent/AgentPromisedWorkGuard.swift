@@ -216,6 +216,9 @@ enum AgentPromisedWorkGuard {
             .split(whereSeparator: \.isNewline)
             .last?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if declaresShortTerminalProgress(terminalClause) {
+            return true
+        }
         let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
         guard words.last.map(String.init) == "now" else { return false }
         return immediateWorkGerunds.contains { gerund in
@@ -223,6 +226,17 @@ enum AgentPromisedWorkGuard {
                 || terminalClause.hasPrefix("i'm \(gerund) ")
                 || terminalClause.hasPrefix("i am \(gerund) ")
         }
+    }
+
+    /// Delegated workers sometimes end on a short status such as "Starting research on X" or
+    /// "Continuing research". These are unambiguously progress reports, not completed findings.
+    private static func declaresShortTerminalProgress(_ terminalClause: String) -> Bool {
+        let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
+        guard words.count <= 12 else { return false }
+        guard terminalProgressGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) else {
+            return false
+        }
+        return containsWorkVerb(in: Substring(terminalClause))
     }
 
     private static let bareInProgressStatuses = [
@@ -237,6 +251,8 @@ enum AgentPromisedWorkGuard {
         "running", "fetching", "searching", "updating", "editing", "building", "testing",
         "starting", "continuing",
     ]
+
+    private static let terminalProgressGerunds = ["starting", "continuing"]
 
     /// A terminal answer can describe unfinished work without future tense. Delegated research
     /// workers produced both of these live shapes and were incorrectly reported as complete:
@@ -440,6 +456,7 @@ enum AgentPromisedWorkGuard {
     private static let workVerbs: Set<String> = [
         "add", "analyze", "apply", "archive", "build", "chart", "check", "clean",
         "commit", "complete", "condense", "conduct", "convert", "create", "dedupe",
+        "continue",
         "delete", "document", "download", "draft", "edit", "execute", "extract", "fetch",
         "finish", "fix", "flag", "highlight", "inspect", "install", "inventory",
         "investigate", "list", "maintain", "mark", "merge", "normalize", "open", "pull",

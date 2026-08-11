@@ -343,6 +343,9 @@ extension AgentPromisedWorkGuardTests {
             "Three rows are verified; I still need to search for the fourth filing.",
             "COMPLETE: I need Q4 FY2026 revenue to finish the four-quarter set. Fetching Q4 report now.",
             "The IR page uses JavaScript. Fetching the Q2 2025 press release next for concrete revenue figures.",
+            "The page does not yet verify the exact SKU. Let me continue researching.",
+            "The listed model is not eligible. Continuing research.",
+            "Starting research on MacBook Pro 14-inch M4 (32GB/1TB).",
         ]
         for text in stalls {
             XCTAssertEqual(
