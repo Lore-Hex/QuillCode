@@ -550,6 +550,43 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func aggregateClaim(for year: String, in lines: [String]) -> NumericCapture? {
+        let aggregateTypeSignals = ["mean", "average", "proxy"]
+        let tableHeaderSignals = ["cpi", "index", "basis"] + aggregateTypeSignals
+        let excludedTableHeaders = [
+            "revenue", "nominal", "real", "growth", "amount", "dollar", "usd", "year",
+        ]
+        let artifact = lines.joined(separator: "\n")
+        for table in markdownTables(in: artifact) {
+            guard let row = table.rows.first(where: { row in
+                row.contains(where: { normalizedTableLabel($0) == year })
+            }), let yearIndex = row.firstIndex(where: {
+                normalizedTableLabel($0) == year
+            }), row.contains(where: { cell in
+                let label = normalizedTableLabel(cell)
+                return aggregateTypeSignals.contains(where: label.contains)
+            }) || table.headers.contains(where: { header in
+                let label = normalizedTableLabel(header)
+                return aggregateTypeSignals.contains(where: label.contains)
+            }) else { continue }
+
+            let candidates = table.headers.indices.compactMap { index -> (Int, NumericCapture)? in
+                guard index != yearIndex, index < row.count,
+                      let claim = singleNumericCell(row[index])
+                else { return nil }
+                let header = normalizedTableLabel(table.headers[index])
+                guard tableHeaderSignals.contains(where: header.contains),
+                      !excludedTableHeaders.contains(where: header.contains)
+                else { return nil }
+                let score = tableHeaderSignals.reduce(0) { partial, signal in
+                    partial + (header.contains(signal) ? 1 : 0)
+                }
+                return (score, claim)
+            }
+            if let claim = candidates.max(by: { $0.0 < $1.0 })?.1 {
+                return claim
+            }
+        }
+
         for line in lines {
             let cells = pipeCells(line)
             guard let yearIndex = cells.firstIndex(where: {

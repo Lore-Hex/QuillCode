@@ -348,6 +348,44 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testAllowsProxyInCanonicalRevenueTableAfterNominalAmount() {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 |
+        """
+        let artifact = """
+        | Fiscal year | Nominal revenue | CPI basis type | Selected CPI basis index | Real revenue (June 2026 dollars) | Nominal YoY growth | Real YoY growth |
+        |---|---|---|---|---|---|---|
+        | 2025 | $6,000,000 | Observed-month proxy (11/12 months, Oct missing) | 321.943 | $6,223,810 | 17.65% | 14.63% |
+        """
+
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+    }
+
+    func testRejectsWrongProxyColumnWithoutTreatingNominalRevenueAsClaim() throws {
+        let evidence = """
+        | Year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        | 2025 | 317.671 | 319.082 | 319.799 | 320.795 | 321.465 | 322.561 | 323.048 | 323.976 | 324.800 | -(X) | 324.122 | 324.054 |
+        """
+        let artifact = """
+        | Fiscal year | Nominal revenue | CPI basis type | Selected CPI basis index | Real revenue (June 2026 dollars) | Nominal YoY growth | Real YoY growth |
+        |---|---|---|---|---|---|---|
+        | 2025 | $6,000,000 | Observed-month proxy (11/12 months, Oct missing) | 322.875 | $6,206,553 | 17.65% | 14.30% |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("322.875"), issue)
+        XCTAssertFalse(issue.contains("not $6,000,000"), issue)
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)
