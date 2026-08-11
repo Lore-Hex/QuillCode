@@ -52,6 +52,9 @@ struct AgentRunLoopState: Sendable {
     /// Task-named artifacts with explicit machine-checkable structure. A successful validator is
     /// invalidated by every later write, unlike ordinary readback which proves only persistence.
     private var requiredContractAuditWorkspacePaths: Set<String> = []
+    /// The host independently projects narrow count, schema, and threshold assertions from the
+    /// original request instead of trusting only assertions authored by the model's validator.
+    private var artifactContractUserMessage = ""
     private(set) var contractAuditedWorkspacePaths: Set<String> = []
     /// A failed deterministic audit permits one targeted read of the audited deliverable before
     /// its repair. This keeps bounded closure finite while letting the model inspect the exact
@@ -189,12 +192,11 @@ struct AgentRunLoopState: Sendable {
         let normalizedPath = AgentArtifactVerificationGate.normalizedPath(path)
         guard let artifact = latestWrittenTextContents.first(where: { storedPath, _ in
             AgentArtifactVerificationGate.pathsMatch(storedPath, normalizedPath)
-        })?.value,
-        let evidenceReceipt = latestResearchEvidenceReceipt
-        else { return nil }
+        })?.value else { return nil }
         return AgentArtifactContractAuditGate.evidenceContradiction(
             artifact: artifact,
-            evidenceReceipt: evidenceReceipt
+            evidenceReceipt: latestResearchEvidenceReceipt ?? "",
+            userMessage: artifactContractUserMessage
         )
     }
 
@@ -246,6 +248,7 @@ struct AgentRunLoopState: Sendable {
     }
 
     mutating func seedArtifactVerification(userMessage: String) {
+        artifactContractUserMessage = userMessage
         let deliverables = AgentDeliverableGate.requiredDeliverables(in: userMessage).map(
             AgentArtifactVerificationGate.normalizedPath
         )
@@ -481,12 +484,13 @@ struct AgentRunLoopState: Sendable {
                     guard let content = currentArtifactText(
                         at: path,
                         workspaceRoot: workspaceRoot
-                    ), let evidenceReceipt = latestResearchEvidenceReceipt else {
+                    ) else {
                         return false
                     }
                     return AgentArtifactContractAuditGate.evidenceContradiction(
                         artifact: content,
-                        evidenceReceipt: evidenceReceipt
+                        evidenceReceipt: latestResearchEvidenceReceipt ?? "",
+                        userMessage: artifactContractUserMessage
                     ) != nil
                 })
                 let accepted = auditedPaths.subtracting(contradicted)
@@ -509,7 +513,8 @@ struct AgentRunLoopState: Sendable {
                         let content = currentArtifactText(at: path, workspaceRoot: workspaceRoot) ?? ""
                         let issue = AgentArtifactContractAuditGate.evidenceContradiction(
                             artifact: content,
-                            evidenceReceipt: latestResearchEvidenceReceipt ?? ""
+                            evidenceReceipt: latestResearchEvidenceReceipt ?? "",
+                            userMessage: artifactContractUserMessage
                         ) ?? "artifact conflicts with retained research evidence"
                         failedContractAuditReceiptsByWorkspacePath[path] =
                             "VALIDATION REJECTED: \(issue)"
@@ -526,10 +531,10 @@ struct AgentRunLoopState: Sendable {
                     failedContractAuditCallSignaturesByWorkspacePath[path] = signature
                     let validatorReceipt = Self.failedContractAuditReceipt(from: completion.result)
                     if let content = currentArtifactText(at: path, workspaceRoot: workspaceRoot),
-                       let evidenceReceipt = latestResearchEvidenceReceipt,
                        let issue = AgentArtifactContractAuditGate.evidenceContradiction(
                            artifact: content,
-                           evidenceReceipt: evidenceReceipt
+                           evidenceReceipt: latestResearchEvidenceReceipt ?? "",
+                           userMessage: artifactContractUserMessage
                        ) {
                         failedContractAuditReceiptsByWorkspacePath[path] = """
                         VALIDATION REJECTED: \(issue)

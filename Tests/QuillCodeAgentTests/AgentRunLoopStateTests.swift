@@ -903,6 +903,50 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testPassingValidatorDoesNotOverrideOriginalMinimumComparisonContract() throws {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: """
+        Compare at least three currently purchasable exact configurations under $2,000. In one
+        table, give each configuration's exact model, current price, CPU, GPU, RAM, storage,
+        display size and resolution, numeric color-gamut measurement, weight, battery life, and
+        direct supporting product URLs. Do not use not verified, unknown, or similar gaps.
+        Run a deterministic validator and save outputs/report.md.
+        """)
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": """
+                | Specification | Laptop A | Laptop B | Laptop C |
+                | --- | --- | --- | --- |
+                | Exact model/configuration | A1 | B1 | C1 |
+                | Current price | $1,299 | $1,199 | $2,199 |
+                | CPU | A CPU | B CPU | C CPU |
+                | GPU | A GPU | B GPU | C GPU |
+                """,
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let audit = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 validate.py outputs/report.md # validator assertions",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: audit, stdout: "PASS: 20 checks"),
+            workspaceRoot: root
+        ) { _ in "audit" }
+
+        XCTAssertEqual(state.pendingArtifactContractAuditPath(), "outputs/report.md")
+        let receipt = try XCTUnwrap(state.failedContractAuditReceipt(at: "outputs/report.md"))
+        XCTAssertTrue(receipt.contains("transposed field-by-product table"), receipt)
+    }
+
     func testCrashingValidatorRetainsAuthoritativeSourceContradiction() throws {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(userMessage: """

@@ -102,6 +102,75 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testRejectsUnresolvedPriceWithCompletedDelegationAndOneVerificationClaim() throws {
+        let evidence = """
+        Subagents finished with 1 completed and 1 failed worker.
+        The exact current price was not verified before the deadline.
+        """
+        let artifact = """
+        Verified current price comparison.
+
+        | Model | Current price |
+        | --- | --- |
+        | Laptop A | $1,999 |
+        """
+
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidence
+        ))
+        XCTAssertTrue(issue.contains("retains unresolved pricing evidence"), issue)
+        XCTAssertTrue(issue.contains("$1,999"), issue)
+    }
+
+    func testRejectsTransposedMinimumComparisonTableFromOriginalRequest() throws {
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: """
+            | Specification | Laptop A | Laptop B | Laptop C |
+            | --- | --- | --- | --- |
+            | Exact model/configuration | A1 | B1 | C1 |
+            | Current price | $1,299 | $1,199 | $2,199 |
+            | CPU | A CPU | B CPU | C CPU |
+            | GPU | A GPU | B GPU | C GPU |
+            """,
+            evidenceReceipt: "No unresolved source contradictions.",
+            userMessage: laptopComparisonRequest
+        ))
+
+        XCTAssertTrue(issue.contains("transposed field-by-product table"), issue)
+        XCTAssertTrue(issue.contains("at least 3 configuration"), issue)
+    }
+
+    func testRejectsMinimumComparisonTableWithOnlyTwoRowsUnderCeiling() throws {
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: laptopComparisonTable(prices: [1_299, 1_999, 2_199]),
+            evidenceReceipt: "No unresolved source contradictions.",
+            userMessage: laptopComparisonRequest
+        ))
+
+        XCTAssertTrue(issue.contains("best row-oriented table has 2"), issue)
+        XCTAssertTrue(issue.contains("strict 2000.00 price ceiling"), issue)
+    }
+
+    func testAllowsCompleteMinimumComparisonTableUnderCeiling() {
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: laptopComparisonTable(prices: [1_299, 1_799, 1_999]),
+            evidenceReceipt: "No unresolved source contradictions.",
+            userMessage: laptopComparisonRequest
+        ))
+    }
+
+    func testOriginalRequestPreservesVerifiedPriceRequirementWhenArtifactOmitsClaim() throws {
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: laptopComparisonTable(prices: [1_299, 1_799, 1_999]),
+            evidenceReceipt: "The exact current price was not verified before the deadline.",
+            userMessage: laptopComparisonRequest
+        ))
+
+        XCTAssertTrue(issue.contains("verified-current-price requirement"), issue)
+        XCTAssertTrue(issue.contains("$1999"), issue)
+    }
+
     func testRejectsUnavailableArtifactWhenStructuredEvidenceContainsValues() throws {
         let evidence = """
         Year | Jan | Feb | Mar
@@ -760,6 +829,28 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         return root
+    }
+
+    private var laptopComparisonRequest: String {
+        """
+        Compare at least three currently purchasable exact configurations under $2,000. In one
+        table, give each configuration's exact model, current price, CPU, GPU, RAM, storage,
+        display size and resolution, numeric color-gamut measurement, weight, battery life, and
+        direct supporting product URLs. Do not use not verified, unknown, or similar gaps.
+        """
+    }
+
+    private func laptopComparisonTable(prices: [Int]) -> String {
+        let rows = prices.enumerated().map { index, price in
+            "| Laptop \(index + 1) | $\(price) | CPU \(index + 1) | GPU \(index + 1) | 32 GB | "
+                + "1 TB | 14 inch, 2560x1600 | 100% sRGB | 3.4 lb | 12 hours | "
+                + "https://example.com/\(index + 1) |"
+        }
+        return """
+        | Exact model/configuration | Current price | CPU | GPU | RAM | Storage | Display size and resolution | Numeric color gamut | Weight | Battery life | Direct product URL |
+        | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+        \(rows.joined(separator: "\n"))
+        """
     }
 
     func testRecognizesExplicitMachineCheckableArtifactContract() {

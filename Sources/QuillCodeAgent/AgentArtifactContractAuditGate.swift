@@ -167,9 +167,14 @@ enum AgentArtifactContractAuditGate {
 
     static func evidenceContradiction(
         artifact: String,
-        evidenceReceipt: String
+        evidenceReceipt: String,
+        userMessage: String = ""
     ) -> String? {
-        var issues = explicitArithmeticContradictions(in: artifact)
+        var issues = minimumComparisonTableContradictions(
+            artifact: artifact,
+            userMessage: userMessage
+        )
+        issues.append(contentsOf: explicitArithmeticContradictions(in: artifact))
         issues.append(contentsOf: duplicateTableFieldContradictions(in: artifact))
         issues.append(contentsOf: monthlyTableMeanContradictions(in: artifact))
         issues.append(contentsOf: derivedAmountTableContradictions(in: artifact))
@@ -187,7 +192,8 @@ enum AgentArtifactContractAuditGate {
         ))
         issues.append(contentsOf: delegatedPriceVerificationContradictions(
             artifact: artifact,
-            evidenceReceipt: evidenceReceipt
+            evidenceReceipt: evidenceReceipt,
+            userMessage: userMessage
         ))
 
         let evidenceValues = decimalObservations(in: evidenceReceipt)
@@ -815,9 +821,241 @@ enum AgentArtifactContractAuditGate {
         return tables
     }
 
+    private struct MinimumComparisonTableContract {
+        var minimumRows: Int
+        var entityName: String
+        var entityAliases: [String]
+        var requiredFields: [ComparisonTableField]
+        var strictPriceCeiling: Double?
+        var rejectsGaps: Bool
+    }
+
+    private struct ComparisonTableField {
+        var name: String
+        var headerAliases: [String]
+    }
+
+    private static func minimumComparisonTableContradictions(
+        artifact: String,
+        userMessage: String
+    ) -> [String] {
+        guard let contract = minimumComparisonTableContract(in: userMessage) else { return [] }
+        let tables = markdownTables(in: artifact)
+        guard !tables.isEmpty else {
+            return [
+                "The original request requires a comparison table with at least "
+                    + "\(contract.minimumRows) \(contract.entityName) rows, but the artifact has "
+                    + "no machine-readable Markdown table.",
+            ]
+        }
+
+        var foundEntityColumn = false
+        var closestMissingFields = contract.requiredFields.map(\.name)
+        var maximumQualifyingRows = 0
+        for table in tables {
+            guard let entityColumn = table.headers.firstIndex(where: { header in
+                headerMatchesAnyAlias(header, aliases: contract.entityAliases)
+            }) else { continue }
+            foundEntityColumn = true
+
+            let locatedFields = contract.requiredFields.map { field in
+                (
+                    field: field,
+                    column: table.headers.firstIndex(where: { header in
+                        headerMatchesAnyAlias(header, aliases: field.headerAliases)
+                    })
+                )
+            }
+            let missingFields = locatedFields.compactMap { item in
+                item.column == nil ? item.field.name : nil
+            }
+            if missingFields.count < closestMissingFields.count {
+                closestMissingFields = missingFields
+            }
+            guard missingFields.isEmpty else { continue }
+
+            let fieldColumns = locatedFields.compactMap { $0.column }
+            let priceColumn = locatedFields.first(where: { $0.field.name == "price" })?.column
+            let sourceURLColumn = locatedFields.first(where: {
+                $0.field.name == "source URL"
+            })?.column
+            let qualifyingRows = table.rows.filter { row in
+                guard row.count == table.headers.count,
+                      isCompleteComparisonCell(
+                          row[entityColumn],
+                          rejectsGaps: contract.rejectsGaps
+                      ),
+                      fieldColumns.allSatisfy({ column in
+                          isCompleteComparisonCell(
+                              row[column],
+                              rejectsGaps: contract.rejectsGaps
+                          )
+                      })
+                else { return false }
+                if let sourceURLColumn,
+                   row[sourceURLColumn].range(
+                       of: #"https?://[^\s)>|]+"#,
+                       options: [.regularExpression, .caseInsensitive]
+                   ) == nil {
+                    return false
+                }
+
+                guard let ceiling = contract.strictPriceCeiling else { return true }
+                guard let priceColumn,
+                      let currentPrice = currencyAmounts(in: row[priceColumn]).first
+                else { return false }
+                return currentPrice.value < ceiling
+            }.count
+            maximumQualifyingRows = max(maximumQualifyingRows, qualifyingRows)
+            if qualifyingRows >= contract.minimumRows {
+                return []
+            }
+        }
+
+        if !foundEntityColumn {
+            return [
+                "The original request requires at least \(contract.minimumRows) "
+                    + "\(contract.entityName) as table rows, but no table has a row-oriented "
+                    + "\(contract.entityName) or model column. A transposed field-by-product table "
+                    + "does not establish the required qualifying row count.",
+            ]
+        }
+        if !closestMissingFields.isEmpty {
+            return [
+                "The comparison table is missing required field columns from the original "
+                    + "request: \(closestMissingFields.joined(separator: ", ")). Add those columns "
+                    + "before accepting the model-authored validator.",
+            ]
+        }
+
+        let ceilingClause = contract.strictPriceCeiling.map {
+            String(format: " below the strict %.2f price ceiling", $0)
+        } ?? ""
+        let gapClause = contract.rejectsGaps ? " and contain no unresolved central-field gaps" : ""
+        return [
+            "The original request requires at least \(contract.minimumRows) complete qualifying "
+                + "\(contract.entityName) rows, but the best row-oriented table has "
+                + "\(maximumQualifyingRows)\(ceilingClause)\(gapClause).",
+        ]
+    }
+
+    private static func minimumComparisonTableContract(
+        in userMessage: String
+    ) -> MinimumComparisonTableContract? {
+        let request = userMessage.casefolded
+        guard request.range(of: #"\btable\b"#, options: .regularExpression) != nil else {
+            return nil
+        }
+
+        let countPattern = #"\b(?:at\s+least|no\s+fewer\s+than)\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:[a-z-]+\s+){0,5}(configurations?|options?|candidates?|products?|vendors?|alternatives?)\b"#
+        guard let regex = try? NSRegularExpression(pattern: countPattern),
+              let match = regex.firstMatch(
+                  in: request,
+                  range: NSRange(request.startIndex..., in: request)
+              ),
+              let countRange = Range(match.range(at: 1), in: request),
+              let nounRange = Range(match.range(at: 2), in: request),
+              let minimumRows = comparisonCount(String(request[countRange])),
+              minimumRows > 0
+        else { return nil }
+
+        let noun = String(request[nounRange])
+        let entityName: String
+        let entityAliases: [String]
+        if noun.hasPrefix("configuration") {
+            entityName = "configuration"
+            entityAliases = ["configuration", "model"]
+        } else if noun.hasPrefix("option") {
+            entityName = "option"
+            entityAliases = ["option", "product", "model"]
+        } else if noun.hasPrefix("candidate") {
+            entityName = "candidate"
+            entityAliases = ["candidate", "product", "model", "company", "vendor"]
+        } else if noun.hasPrefix("product") {
+            entityName = "product"
+            entityAliases = ["product", "model", "configuration"]
+        } else if noun.hasPrefix("vendor") {
+            entityName = "vendor"
+            entityAliases = ["vendor", "company", "provider"]
+        } else {
+            entityName = "alternative"
+            entityAliases = ["alternative", "option", "product", "vendor"]
+        }
+
+        let fieldDefinitions: [(String, [String], String)] = [
+            ("price", ["price", "current price", "exact price", "retail price", "sale price"], #"\b(?:current\s+|exact\s+)?price\b"#),
+            ("CPU", ["cpu", "processor"], #"\b(?:cpu|processor)\b"#),
+            ("GPU", ["gpu", "graphics"], #"\b(?:gpu|graphics)\b"#),
+            ("RAM", ["ram", "memory"], #"\b(?:ram|memory)\b"#),
+            ("storage", ["storage", "ssd"], #"\b(?:storage|ssd)\b"#),
+            ("display", ["display", "screen"], #"\b(?:display|screen)\b"#),
+            ("resolution", ["resolution", "display"], #"\bresolution\b"#),
+            ("color gamut/accuracy", ["color gamut", "colour gamut", "color accuracy", "colour accuracy", "gamut", "display"], #"\b(?:colou?r\s+(?:gamut|accuracy)|gamut)\b"#),
+            ("weight", ["weight"], #"\bweight\b"#),
+            ("battery", ["battery", "runtime"], #"\b(?:battery|runtime)\b"#),
+            ("source URL", ["source", "url", "link", "product page"], #"\b(?:sources?|urls?|links?)\b"#),
+        ]
+        let requiredFields = fieldDefinitions.compactMap { definition -> ComparisonTableField? in
+            guard request.range(of: definition.2, options: .regularExpression) != nil else {
+                return nil
+            }
+            return ComparisonTableField(name: definition.0, headerAliases: definition.1)
+        }
+
+        let pricePattern = #"\b(?:under|below|less\s+than)\s*[$\u20ac\u00a3]\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)"#
+        var strictPriceCeiling: Double?
+        if let priceRegex = try? NSRegularExpression(pattern: pricePattern),
+           let priceMatch = priceRegex.firstMatch(
+               in: request,
+               range: NSRange(request.startIndex..., in: request)
+           ),
+           let valueRange = Range(priceMatch.range(at: 1), in: request) {
+            strictPriceCeiling = Double(
+                request[valueRange].replacingOccurrences(of: ",", with: "")
+            )
+        }
+
+        let rejectsGaps = request.range(
+            of: #"\b(?:do\s+not\s+use|without)[^.\n]{0,180}\b(?:not\s+verified|not\s+specified|unknown|gaps?)\b"#,
+            options: .regularExpression
+        ) != nil
+        return MinimumComparisonTableContract(
+            minimumRows: minimumRows,
+            entityName: entityName,
+            entityAliases: entityAliases,
+            requiredFields: requiredFields,
+            strictPriceCeiling: strictPriceCeiling,
+            rejectsGaps: rejectsGaps
+        )
+    }
+
+    private static func comparisonCount(_ raw: String) -> Int? {
+        if let value = Int(raw) { return value }
+        return [
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        ][raw]
+    }
+
+    private static func headerMatchesAnyAlias(_ header: String, aliases: [String]) -> Bool {
+        let normalized = normalizedTableLabel(header)
+        return aliases.contains { normalized.contains($0) }
+    }
+
+    private static func isCompleteComparisonCell(_ cell: String, rejectsGaps: Bool) -> Bool {
+        let normalized = normalizedTableLabel(cell)
+        guard !normalized.isEmpty else { return false }
+        guard rejectsGaps else { return true }
+        let gapPattern = #"\b(?:not\s+(?:verified|specified|available)|unverified|unknown|unavailable|unclear|varies|tbd|todo|n/?a|confirm\s+exact|estimated|approx(?:imately)?|about)\b"#
+        let approximationPattern = #"(?:^|\s)~\s*\d"#
+        return normalized.range(of: gapPattern, options: .regularExpression) == nil
+            && normalized.range(of: approximationPattern, options: .regularExpression) == nil
+    }
+
     private static func delegatedPriceVerificationContradictions(
         artifact: String,
-        evidenceReceipt: String
+        evidenceReceipt: String,
+        userMessage: String
     ) -> [String] {
         let normalizedEvidence = evidenceReceipt.casefolded
         let hasFailedDelegation = normalizedEvidence.range(
@@ -831,14 +1069,23 @@ enum AgentArtifactContractAuditGate {
             of: #"\b(?:need(?:s|ed)?\s+to\s+verify|not\s+(?:successfully\s+)?(?:verified|confirmed)|unverified|unresolved|ambiguous|blocked)\b[^\n.!?]{0,120}\b(?:price|pricing)\b"#,
             options: .regularExpression
         ) != nil
-        guard hasFailedDelegation, hasUnresolvedPrice else { return [] }
+        guard hasUnresolvedPrice else { return [] }
 
         let normalizedArtifact = artifact.casefolded
         let verificationSignals = [
             "only fully verified", "every price is verified", "all urls were fetched successfully",
             "fully verified qualifier", "all three rows fully qualify", "currently purchasable",
+            "verified current price", "verified retail", "price verification notes",
         ]
-        guard verificationSignals.filter(normalizedArtifact.contains).count >= 2 else { return [] }
+        let normalizedRequest = userMessage.casefolded
+        let requestRequiresVerifiedCurrentPrice = normalizedRequest.contains("currently purchasable")
+            && normalizedRequest.range(
+                of: #"\b(?:current|exact)\s+price\b"#,
+                options: .regularExpression
+            ) != nil
+        guard verificationSignals.contains(where: normalizedArtifact.contains)
+                || requestRequiresVerifiedCurrentPrice
+        else { return [] }
 
         let claims = sourcePriceClaims(in: artifact)
         guard !claims.isEmpty else { return [] }
@@ -847,9 +1094,13 @@ enum AgentArtifactContractAuditGate {
         guard !unsupported.isEmpty else { return [] }
 
         let values = Array(Set(unsupported.map(\.raw))).sorted().joined(separator: ", ")
+        let delegationClause = hasFailedDelegation
+            ? "reports zero completed workers and unresolved pricing"
+            : "retains unresolved pricing evidence"
         return [
-            "The artifact presents source-priced rows as fully verified even though retained "
-                + "delegated evidence reports zero completed workers and unresolved pricing. "
+            "The artifact presents source-priced rows as satisfying the verified-current-price "
+                + "requirement even though retained "
+                + "delegated evidence \(delegationClause). "
                 + "These current-price claims have no exact retained price observation: \(values). "
                 + "Obtain direct price evidence or mark the affected candidates unverified.",
         ]
@@ -858,6 +1109,7 @@ enum AgentArtifactContractAuditGate {
     private struct CurrencyAmount {
         var raw: String
         var canonical: String
+        var value: Double
     }
 
     private static func sourcePriceClaims(in artifact: String) -> [CurrencyAmount] {
@@ -891,7 +1143,7 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func currencyAmounts(in text: String) -> [CurrencyAmount] {
-        let pattern = #"([$€£])\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"#
+        let pattern = #"([$€£])\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
@@ -902,7 +1154,8 @@ enum AgentArtifactContractAuditGate {
             else { return nil }
             return CurrencyAmount(
                 raw: String(text[rawRange]),
-                canonical: String(text[symbolRange]) + String(format: "%.2f", value)
+                canonical: String(text[symbolRange]) + String(format: "%.2f", value),
+                value: value
             )
         }
     }
