@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-10: process-owned application services begin after the first window
+
+- **Decision:** Normal desktop launch no longer registers notification categories, inspects the
+  installed app location, recovers an interrupted update, or schedules automatic update checks from
+  `App.init`. The yielded first-window startup gate starts that same idempotent service bundle once,
+  before optional workspace automation begins.
+- **Availability boundary:** Draft lifecycle flushes, approval notifications, installation recovery,
+  and updates still start in both normal and recovery launches. Recovery mode pauses only automatic
+  workspace services; it does not withhold distribution or durability services after the saved
+  workspace is visible.
+- **Evidence:** Application-service tests prove controller construction performs none of this work,
+  the first-window boundary starts it once, and repeated boundary completion cannot duplicate updater
+  recovery. Desktop parity rejects an application-services call from `App.init` and pins ownership to
+  the post-window gate.
+
 ## 2026-08-10: Computer Use permission probes begin after the first window
 
 - **Decision:** Installing the native Computer Use backend no longer reads its status. The desktop

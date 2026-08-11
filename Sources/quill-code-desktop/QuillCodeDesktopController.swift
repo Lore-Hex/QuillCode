@@ -179,9 +179,9 @@ final class QuillCodeDesktopController: ObservableObject {
         installVisibleBrowserToolOverride(on: model)
     }
 
-    /// Starts services that belong to the application process rather than any SwiftUI scene. The
-    /// ordinary app entry point calls this once; the owned controllers keep repeat calls idempotent.
-    func startApplicationServices() {
+    /// Starts process-owned services after SwiftUI has yielded through the first-window boundary.
+    /// The owned controllers keep repeat calls idempotent for recovery and repeated scene tasks.
+    func startApplicationServicesAfterFirstWindow() {
         composerDraftCheckpointCoordinator.startLifecycleFlushes(model: model)
         installApprovalNotificationHandling()
         installationLocationController.startIfNeeded()
