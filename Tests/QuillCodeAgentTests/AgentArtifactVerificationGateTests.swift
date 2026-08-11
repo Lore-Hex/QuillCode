@@ -15,6 +15,12 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         XCTAssertTrue(AgentArtifactVerificationGate.requiresReadback(
             in: "Save the result to outputs/report.md. After writing, read the saved file back to verify it."
         ))
+        XCTAssertTrue(AgentArtifactVerificationGate.requiresReadback(
+            in: "Run a deterministic validator against it, read it back, and report completion."
+        ))
+        XCTAssertTrue(AgentArtifactVerificationGate.requiresReadback(
+            in: "Write outputs/report.md and verify it by reading it back."
+        ))
         XCTAssertFalse(AgentArtifactVerificationGate.requiresReadback(
             in: "Read inputs/report.md and summarize it."
         ))
@@ -88,13 +94,13 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
 
         XCTAssertEqual(result.toolResults.count, 2, "the premature read must not create a failed tool result")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
-        XCTAssertEqual(result.thread.messages.last?.content, "The report is complete and verified.")
+        XCTAssertEqual(result.thread.messages.last?.content, "The report is complete.")
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("before creating it")
         })
     }
 
-    func testRunnerDoesNotVerifyRequiredOutputByReadingRootLevelDuplicate() async throws {
+    func testRunnerClosesAfterRequiredOutputReadbackWithoutUnrelatedWrites() async throws {
         let root = try makeWorkspace()
         let outputWrite = ToolCall(
             name: "host.file.write",
@@ -131,8 +137,64 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 4, "the required output needs its own forced readback")
+        XCTAssertEqual(result.toolResults.count, 2, "only the required write and readback should run")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
-        XCTAssertEqual(result.thread.messages.last?.content, "The required output is complete and verified.")
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified the requested artifact."
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("report.md").path))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("rejected an unrelated file write")
+        })
+    }
+
+    func testRunnerForcesReadbackOfShellGeneratedNamedDeliverable() async throws {
+        let root = try makeWorkspace()
+        let shell = ToolCall(
+            name: "host.shell.run",
+            argumentsJSON: ToolArguments.json(["cmd": "generate outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(shell),
+                .say("The shell-generated report is complete."),
+                .say("The shell-generated report is complete and verified."),
+            ]),
+            safety: AlwaysApprovingSafetyReviewer(),
+            toolExecutionOverride: { call, workspaceRoot in
+                guard call.name == "host.shell.run" else { return nil }
+                let output = workspaceRoot.appendingPathComponent("outputs/report.md")
+                do {
+                    try FileManager.default.createDirectory(
+                        at: output.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try "# Generated report\n\nVerified shell output.\n".write(
+                        to: output,
+                        atomically: true,
+                        encoding: .utf8
+                    )
+                    return ToolResult(ok: true, stdout: "generated report\n")
+                } catch {
+                    return ToolResult(ok: false, error: error.localizedDescription)
+                }
+            },
+            maxToolSteps: 6
+        )
+
+        let result = try await runner.send(
+            "Generate outputs/report.md with the shell. After writing, read the saved file back to verify it.",
+            in: ChatThread(title: "shell verification"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 2, "the generated file needs a forced file read")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.toolResults.last?.stdout.contains("Verified shell output") == true)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "The shell-generated report is complete."
+        )
     }
 }

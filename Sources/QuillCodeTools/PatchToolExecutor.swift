@@ -5,6 +5,7 @@ public enum PatchToolError: Error, CustomStringConvertible {
     case unsafePath(String)
     case emptyPatch
     case temporaryFileFailed(String)
+    case noChanges([String])
 
     public var description: String {
         switch self {
@@ -14,6 +15,10 @@ public enum PatchToolError: Error, CustomStringConvertible {
             return "Patch is empty."
         case .temporaryFileFailed(let message):
             return "Failed to prepare temporary patch file: \(message)"
+        case .noChanges(let paths):
+            let targets = paths.isEmpty ? "the requested targets" : paths.joined(separator: ", ")
+            return "Patch command reported success but changed no workspace bytes in \(targets). "
+                + "Re-read the target file and use host.file.write if an exact patch cannot be applied."
         }
     }
 }
@@ -50,11 +55,11 @@ public struct PatchToolExecutor: Sendable {
             normalizedPatch.append("\n")
         }
 
-        guard let editGuard else {
-            return performApply(normalizedPatch)
-        }
         let targets = Self.targetPaths(in: patch)
             .map { (path: $0, url: workspaceRoot.appendingPathComponent($0).standardizedFileURL) }
+        guard let editGuard else {
+            return performApply(normalizedPatch, targets: targets)
+        }
         // The read-set check, git apply, and read-set update happen under the per-file locks so
         // a concurrent edit to any of the patched files cannot interleave with them.
         return editGuard.withExclusiveAccess(to: targets.map(\.url)) {
@@ -65,7 +70,7 @@ public struct PatchToolExecutor: Sendable {
                     error: String(describing: FileEditGuardError.patchWithoutRead(target.path))
                 )
             }
-            let result = performApply(normalizedPatch)
+            let result = performApply(normalizedPatch, targets: targets)
             if result.ok {
                 // The session knows each surviving file's content now: old content it read (or
                 // /dev/null for a created file) plus the delta it just applied.
@@ -101,7 +106,10 @@ public struct PatchToolExecutor: Sendable {
         ApplyMode(disclosure: "recounted hunk headers", flags: "--recount")
     ]
 
-    private func performApply(_ normalizedPatch: String) -> ToolResult {
+    private func performApply(
+        _ normalizedPatch: String,
+        targets: [(path: String, url: URL)]
+    ) -> ToolResult {
         let patchURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-\(UUID().uuidString).patch")
         do {
@@ -116,13 +124,23 @@ public struct PatchToolExecutor: Sendable {
         // The STRICT rung's diagnostics are the most precise ("patch failed: file:line"), so they
         // are what the model sees if every rung fails.
         var strictFailure: ToolResult?
+        let before = targetSnapshots(targets)
+        var gitEnvironment = ProcessInfo.processInfo.environment
+        // `git apply` discovers repositories above cwd. Evaluation workspaces commonly live in an
+        // ignored subdirectory of a parent repository, where Git silently ignores task-relative
+        // patch paths and exits zero. Stop discovery at the workspace parent so paths are rooted at
+        // the selected workspace unless that workspace is itself a repository.
+        gitEnvironment["GIT_CEILING_DIRECTORIES"] = workspaceRoot
+            .deletingLastPathComponent()
+            .standardizedFileURL.path
 
         for mode in Self.applyModes {
             let flags = mode.flags.isEmpty ? "" : "\(mode.flags) "
             let check = shell.run(.init(
                 command: "git apply --check \(flags)\(quoted)",
                 cwd: workspaceRoot,
-                timeoutSeconds: 20
+                timeoutSeconds: 20,
+                environment: gitEnvironment
             ))
             guard check.ok else {
                 if strictFailure == nil {
@@ -139,15 +157,31 @@ public struct PatchToolExecutor: Sendable {
             let apply = shell.run(.init(
                 command: "git apply \(flags)\(quoted)",
                 cwd: workspaceRoot,
-                timeoutSeconds: 20
+                timeoutSeconds: 20,
+                environment: gitEnvironment
             ))
             if apply.ok {
+                let after = targetSnapshots(targets)
+                guard before != after else {
+                    return ToolResult(
+                        ok: false,
+                        stdout: apply.stdout,
+                        stderr: apply.stderr,
+                        exitCode: apply.exitCode,
+                        error: String(describing: PatchToolError.noChanges(targets.map(\.path)))
+                    )
+                }
                 let note = mode.disclosure.map { " (tolerant match: \($0))" } ?? ""
                 return ToolResult(
                     ok: true,
                     stdout: "Patch applied\(note).\n",
                     stderr: apply.stderr,
-                    exitCode: apply.exitCode
+                    exitCode: apply.exitCode,
+                    artifacts: targets.compactMap { target in
+                        FileManager.default.fileExists(atPath: target.url.path)
+                            ? target.url.path
+                            : nil
+                    }
                 )
             }
             // --check passed but apply failed (e.g. a concurrent change between the two): report
@@ -158,6 +192,47 @@ public struct PatchToolExecutor: Sendable {
         }
 
         return strictFailure ?? ToolResult(ok: false, error: "Patch check failed.")
+    }
+
+    private struct TargetSnapshot: Equatable {
+        var exists: Bool
+        var fileType: String?
+        var permissions: Int?
+        var contents: Data?
+        var symlinkDestination: String?
+    }
+
+    private func targetSnapshots(
+        _ targets: [(path: String, url: URL)]
+    ) -> [String: TargetSnapshot] {
+        var snapshots: [String: TargetSnapshot] = [:]
+        let fileManager = FileManager.default
+        for target in targets {
+            guard let attributes = try? fileManager.attributesOfItem(atPath: target.url.path) else {
+                snapshots[target.path] = TargetSnapshot(
+                    exists: false,
+                    fileType: nil,
+                    permissions: nil,
+                    contents: nil,
+                    symlinkDestination: nil
+                )
+                continue
+            }
+            let type = attributes[.type] as? FileAttributeType
+            let contents = type == .typeDirectory || type == .typeSymbolicLink
+                ? nil
+                : try? Data(contentsOf: target.url)
+            snapshots[target.path] = TargetSnapshot(
+                exists: true,
+                fileType: type?.rawValue,
+                permissions: (attributes[.posixPermissions] as? NSNumber)?.intValue,
+                contents: contents,
+                symlinkDestination: type == .typeSymbolicLink
+                    ? try? fileManager.destinationOfSymbolicLink(atPath: target.url.path)
+                    : nil
+            )
+        }
+        return snapshots
     }
 
     /// Lift git's specific hunk diagnostics (`error: patch failed: file:line`, `error: <file>: No such

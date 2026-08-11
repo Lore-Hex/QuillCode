@@ -1,8 +1,11 @@
 import importlib.util
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -85,6 +88,88 @@ class Wave6LongHorizonEvalTests(unittest.TestCase):
     def test_task_selection_rejects_out_of_wave_ids(self):
         with self.assertRaises(WAVE6.EvalError):
             WAVE6.parse_task_ids("311,999")
+
+    def test_native_run_task_pins_model_and_requires_firefox_computer_use_evidence(self):
+        rows = WAVE6.load_rows()
+        fixtures = WAVE6.load_category_fixtures()
+        commands = []
+
+        def completed_native_run(command, **_kwargs):
+            commands.append(command)
+
+            def argument(flag):
+                return Path(command[command.index(flag) + 1])
+
+            workspace = argument("--cowork-eval-workspace")
+            report_path = argument("--cowork-eval-report")
+            screenshot_path = argument("--cowork-eval-screenshot")
+            output = workspace / "outputs/311"
+            output.mkdir(parents=True)
+            (output / "progress.md").write_text("# Progress\n\n" + "Complete phase.\n" * 8)
+            spec = WAVE6.SPECS[311]
+            for relative in spec.required_files:
+                path = output / relative
+                if path.suffix != ".csv":
+                    path.write_text("# Complete\n\n" + "Evidence-backed content.\n" * 4)
+            for relative in ("people-shortlist.csv", "research-log.csv"):
+                count = spec.csv_minima[relative]
+                body = "".join(
+                    f"item-{index},https://example.com/{index},2026-08-09,high\n"
+                    for index in range(count)
+                )
+                (output / relative).write_text(
+                    "name,source_url,access_date,confidence\n" + body
+                )
+            (output / "signal-taxonomy.csv").write_text(
+                "signal,source_url,access_date,confidence\n"
+                "manual close,https://example.com/signal,2026-08-09,high\n"
+            )
+            (output / "segment-scorecard.csv").write_text(
+                "segment,score,rationale\nSeries A SaaS,5,Strong evidence\n"
+            )
+            screenshot_path.write_bytes(b"native-window")
+            report_path.write_text(json.dumps({
+                "ok": True,
+                "stopReason": "finished",
+                "timedOut": False,
+                "requestedModelID": WAVE6.EXACT_MODEL,
+                "selectedModelID": WAVE6.EXACT_MODEL,
+                "usage": {"promptTokens": 10, "completionTokens": 5, "totalTokens": 15},
+                "screenshot": {
+                    "path": str(screenshot_path),
+                    "distinctColorBuckets": 100,
+                },
+                "tools": [
+                    {"name": "host.computer.activate"},
+                    {"name": "host.computer.screenshot"},
+                    {"name": "host.file.write"},
+                ],
+            }))
+            return subprocess.CompletedProcess(command, 0, stdout="done", stderr="")
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            WAVE6.subprocess, "run", side_effect=completed_native_run
+        ):
+            result = WAVE6.run_task(
+                Path("/bin/echo"),
+                rows[311],
+                fixtures[rows[311]["category"]],
+                Path(temporary),
+                "secret-key",
+                21_600,
+                4_096,
+                10.0,
+                False,
+            )
+
+        self.assertTrue(result["passed"], result["checks"])
+        self.assertEqual(len(commands), 1)
+        command = commands[0]
+        self.assertEqual(
+            command[command.index("--cowork-eval-model") + 1], WAVE6.EXACT_MODEL
+        )
+        self.assertEqual(command[command.index("--cowork-eval-max-tool-steps") + 1], "4096")
+        self.assertNotIn("--cowork-eval-browser-path", command)
 
 
 if __name__ == "__main__":

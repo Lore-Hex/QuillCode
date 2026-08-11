@@ -242,9 +242,7 @@ struct QuillCodeComposerView: View {
 
             QuillCodeModelPickerView(
                 topBar: topBar,
-                isPresented: $isModelPickerPresented,
-                onSetModel: onSetModel,
-                onToggleModelFavorite: onToggleModelFavorite
+                isPresented: $isModelPickerPresented
             )
             .layoutPriority(2)
 

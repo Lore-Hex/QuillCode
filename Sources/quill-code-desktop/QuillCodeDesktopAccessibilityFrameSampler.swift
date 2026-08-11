@@ -114,7 +114,9 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         contentView: NSView,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     ) throws -> QuillCodeDesktopAccessibilityFrameSampleReport {
-        let report = sample(contentView: contentView, nativeHitTargets: nativeHitTargets)
+        let report = autoreleasepool {
+            sample(contentView: contentView, nativeHitTargets: nativeHitTargets)
+        }
         guard report.ok else {
             throw QuillCodeDesktopSmokeFailure.nativeAccessibilityFrameSamplingFailed(report.validationIssues)
         }

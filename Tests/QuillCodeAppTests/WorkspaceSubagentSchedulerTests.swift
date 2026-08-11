@@ -28,6 +28,63 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(result.update.subagents.first?.transcript, transcript)
     }
 
+    func testSchedulerPreservesFullWorkerResultOutsideCompactProgressRecord() async {
+        let marker = "FULL-EVIDENCE-AFTER-COMPACT-SUMMARY"
+        let fullResult = String(repeating: "research evidence ", count: 30) + marker
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            WorkspaceSubagentWorkerResult(summary: fullResult)
+        })
+
+        let result = await scheduler.run(request: WorkspaceSubagentRunRequest(
+            objective: "Research a company",
+            workers: [.init(name: "Researcher", role: "Find official financial evidence")]
+        ))
+
+        let workerID = result.record.workers[0].id
+        XCTAssertEqual(result.workerResults[workerID], fullResult)
+        XCTAssertLessThanOrEqual(result.record.workers[0].summary?.count ?? .max, 223)
+        XCTAssertFalse(result.record.workers[0].summary?.contains(marker) == true)
+    }
+
+    func testSchedulerPreservesDetailedResultReturnedDuringCancellation() async throws {
+        let transcript = [
+            SubagentTranscriptEntry(
+                id: "partial-source",
+                kind: .assistant,
+                title: "Worker update",
+                detail: "Confirmed Q1 from the official source.",
+                statusLabel: "Stopped"
+            )
+        ]
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            do {
+                try await Task.sleep(for: .seconds(30))
+                return WorkspaceSubagentWorkerResult(summary: "Unexpected completion")
+            } catch is CancellationError {
+                return WorkspaceSubagentWorkerResult(
+                    status: .cancelled,
+                    summary: "Cancelled with Q1 evidence preserved.",
+                    transcript: transcript
+                )
+            }
+        })
+        let run = Task {
+            await scheduler.run(request: WorkspaceSubagentRunRequest(
+                objective: "Research quarterly revenue",
+                workers: [.init(name: "Researcher", role: "Find official evidence")]
+            ))
+        }
+
+        try await Task.sleep(for: .milliseconds(25))
+        run.cancel()
+        let result = await run.value
+
+        XCTAssertEqual(result.update.subagents.first?.status, .cancelled)
+        XCTAssertEqual(result.update.subagents.first?.summary, "Cancelled with Q1 evidence preserved.")
+        XCTAssertEqual(result.update.subagents.first?.transcript, transcript)
+        XCTAssertEqual(result.workerResults.values.first, "Cancelled with Q1 evidence preserved.")
+    }
+
     func testSchedulerRunsWorkersConcurrentlyAndPublishesProgress() async throws {
         let probe = ConcurrencyProbe()
         let scheduler = WorkspaceSubagentScheduler { job in
@@ -40,7 +97,8 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
             objective: "validate release",
             workers: [
                 .init(name: "Explorer", role: "inspect code"),
-                .init(name: "Verifier", role: "run tests")
+                .init(name: "Verifier", role: "run tests"),
+                .init(name: "Researcher", role: "collect evidence")
             ]
         )
         let progress = ProgressRecorder()
@@ -50,14 +108,17 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         }
 
         let maxRunning = await probe.maximumRunningCount()
-        XCTAssertEqual(maxRunning, 2)
-        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
-        XCTAssertEqual(result.update.subagents.map(\.summary), ["checked inspect code", "checked run tests"])
-        XCTAssertTrue(result.summary.contains("Subagents completed 2 workers"))
+        XCTAssertEqual(maxRunning, 3)
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed, .completed])
+        XCTAssertEqual(
+            result.update.subagents.map(\.summary),
+            ["checked inspect code", "checked run tests", "checked collect evidence"]
+        )
+        XCTAssertTrue(result.summary.contains("Subagents completed 3 workers"))
         let updates = await progress.updates
-        XCTAssertEqual(updates.first?.subagents.map(\.status), [.queued, .queued])
-        XCTAssertEqual(updates.dropFirst().first?.subagents.map(\.status), [.running, .running])
-        XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .completed])
+        XCTAssertEqual(updates.first?.subagents.map(\.status), [.queued, .queued, .queued])
+        XCTAssertEqual(updates.dropFirst().first?.subagents.map(\.status), [.running, .running, .running])
+        XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .completed, .completed])
     }
 
     func testSchedulerCapsConcurrencyAtTheRequestedLimit() async throws {

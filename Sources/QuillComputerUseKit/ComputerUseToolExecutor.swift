@@ -56,6 +56,8 @@ public struct ComputerUseToolExecutor: Sendable {
             return try await executeMove(args)
         case ToolDefinition.computerKey.name:
             return try await executeKey(args)
+        case ToolDefinition.computerActivate.name:
+            return try await executeActivate(args)
         case ToolDefinition.workflowRecordStart.name:
             return try await executeWorkflowRecordStart(args)
         case ToolDefinition.workflowRecordStop.name:
@@ -138,6 +140,19 @@ public struct ComputerUseToolExecutor: Sendable {
         let key = try args.requiredString("key")
         try await backend.pressKey(key)
         return ToolResult(ok: true, stdout: "Pressed \(key).")
+    }
+
+    private func executeActivate(_ args: ToolArguments) async throws -> ToolResult {
+        guard let activator = backend as? any ComputerUseApplicationActivating else {
+            return ToolResult(ok: false, error: "Desktop application activation is unavailable on this backend.")
+        }
+        let query = try args.requiredString("application")
+        let application = await activator.application(matching: query)
+        if let failureMessage = appApprovalPolicy.failureMessage(for: application) {
+            return ToolResult(ok: false, error: failureMessage)
+        }
+        let activated = try await activator.activateApplication(matching: query)
+        return ToolResult(ok: true, stdout: "Activated \(activated.displayLabel).")
     }
 
     private func executeWorkflowRecordStart(_ args: ToolArguments) async throws -> ToolResult {
@@ -226,12 +241,15 @@ public struct ComputerUseToolExecutor: Sendable {
     }
 
     private static func isComputerUseTool(_ toolName: String) -> Bool {
-        (ToolDefinition.computerUseDefinitions + ToolDefinition.workflowRecordingDefinitions)
+        (ToolDefinition.computerUseDefinitions
+            + [ToolDefinition.computerActivate]
+            + ToolDefinition.workflowRecordingDefinitions)
             .contains { $0.name == toolName }
     }
 
     private static func requiresAppApproval(_ toolName: String) -> Bool {
-        ToolDefinition.computerUseDefinitions.contains { $0.name == toolName }
+        if toolName == ToolDefinition.computerActivate.name { return false }
+        return ToolDefinition.computerUseDefinitions.contains { $0.name == toolName }
     }
 
     private static func missingPermissions(
@@ -245,7 +263,8 @@ public struct ComputerUseToolExecutor: Sendable {
              ToolDefinition.computerType.name,
              ToolDefinition.computerScroll.name,
              ToolDefinition.computerMove.name,
-             ToolDefinition.computerKey.name:
+             ToolDefinition.computerKey.name,
+             ToolDefinition.computerActivate.name:
             return status.accessibilityGranted ? [] : [.accessibility]
         case ToolDefinition.workflowRecordStart.name:
             var requirements: [ComputerUsePermissionRequirement] = []
@@ -291,6 +310,8 @@ public struct ComputerUseToolExecutor: Sendable {
             return "cursor movement"
         case ToolDefinition.computerKey.name:
             return "keyboard"
+        case ToolDefinition.computerActivate.name:
+            return "application activation"
         case ToolDefinition.workflowRecordStart.name:
             return "workflow recording"
         case ToolDefinition.workflowRecordStop.name:

@@ -74,6 +74,45 @@ final class WorkspaceSubagentRunToolRequestDecoderTests: XCTestCase {
         }
     }
 
+    func testPreservesLongComplexWorkerRole() throws {
+        let role = String(repeating: "Gather one exact sourced value and retain its URL. ", count: 12)
+        let call = toolCall(workers: [["name": "Researcher", "role": role]])
+
+        let request = try WorkspaceSubagentRunToolRequestDecoder.decode(call)
+
+        XCTAssertEqual(request.workers[0].role, role.trimmingCharacters(in: .whitespaces))
+        XCTAssertGreaterThan(request.workers[0].role.count, 140)
+    }
+
+    func testRejectsImplicitWorkerDependency() {
+        let call = toolCall(workers: [
+            ["name": "CPI-Research", "role": "Fetch exact official monthly CPI values."],
+            ["name": "Deliverable-Draft", "role": "Draft the report using facts returned by CPI-Research."],
+        ])
+
+        XCTAssertThrowsError(try WorkspaceSubagentRunToolRequestDecoder.decode(call)) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Delegated worker Deliverable-Draft uses results from CPI-Research but does not declare it in dependsOn. Add the dependency or make the roles independent."
+            )
+        }
+    }
+
+    func testAcceptsExplicitWorkerDependency() throws {
+        let call = toolCall(workers: [
+            ["name": "CPI-Research", "role": "Fetch exact official monthly CPI values."],
+            [
+                "name": "Deliverable-Draft",
+                "role": "Draft the report using facts returned by CPI-Research.",
+                "dependsOn": ["CPI-Research"],
+            ],
+        ])
+
+        let request = try WorkspaceSubagentRunToolRequestDecoder.decode(call)
+
+        XCTAssertEqual(request.workers[1].dependsOn, ["CPI-Research"])
+    }
+
     func testRejectsMalformedArgumentsWithActionableCopy() {
         let call = ToolCall(name: ToolDefinition.subagentsRun.name, argumentsJSON: #"{"workers":[]}"#)
 

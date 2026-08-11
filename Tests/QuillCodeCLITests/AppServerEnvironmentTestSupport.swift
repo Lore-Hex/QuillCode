@@ -26,6 +26,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     private var connectError: AppServerExecServerError?
     private var infoError: AppServerExecServerError?
     private var processResults: [AppServerRemoteProcessResult]
+    private var processFileWrites: [[String: Data]]
     private var files: [String: Data]
     private var directories: Set<String>
     private var canonicalURIs: [String: String]
@@ -54,6 +55,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         connectError: AppServerExecServerError? = nil,
         infoError: AppServerExecServerError? = nil,
         processResults: [AppServerRemoteProcessResult] = [],
+        processFileWrites: [[String: Data]] = [],
         files: [String: Data] = [:],
         directories: Set<String> = ["file:///workspace"],
         canonicalURIs: [String: String] = [:],
@@ -66,6 +68,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         self.connectError = connectError
         self.infoError = infoError
         self.processResults = processResults
+        self.processFileWrites = processFileWrites
         self.files = files
         self.directories = directories
         self.canonicalURIs = canonicalURIs
@@ -122,6 +125,11 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
                 sandboxDenied: false
             )
             : processResults.removeFirst()
+        if !processFileWrites.isEmpty {
+            for (uri, data) in processFileWrites.removeFirst() {
+                files[uri] = data
+            }
+        }
         let delay = processDelay
         let stream = AsyncThrowingStream<AppServerRemoteProcessEvent, Error>.makeStream()
         let producer = Task {

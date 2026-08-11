@@ -48,8 +48,10 @@ public struct PermissionRuleSubject: Sendable, Hashable {
     private static let pathArgumentKeyByTool: [String: String] = [
         "host.file.read": "path",
         "host.file.write": "path",
+        "host.chart.render": "path",
         "host.file.list": "path",
-        "host.file.search": "path"
+        "host.file.search": "path",
+        "host.pdf.merge": "output"
     ]
 
     private static let shellRunToolName = "host.shell.run"

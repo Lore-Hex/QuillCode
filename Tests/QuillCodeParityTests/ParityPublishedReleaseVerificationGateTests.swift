@@ -125,6 +125,21 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         )
     }
 
+    func testVerifierRejectsPerformanceMemoryMeasurementDriftAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            evidence["memoryMeasurement"] = "resident-set-size"
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance evidence memoryMeasurement is invalid"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsForgedPerformanceDeltaAfterIntegrityChecksPass() throws {
         let fixture = try makeFixture { evidence in
             var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
@@ -681,11 +696,12 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         ]
         let selectedAttempt = attempts[1]
         var evidence: [String: Any] = [
-            "schemaVersion": 4,
+            "schemaVersion": 5,
             "ok": true,
             "product": "Quill Cowork",
             "workload": "daily-driver-100-chats",
             "measurement": "initial-live-window",
+            "memoryMeasurement": "physical-footprint",
             "postInteractionMeasurement": "settled-after-native-interaction-sweep",
             "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
             "interactionSweepCount": 2,

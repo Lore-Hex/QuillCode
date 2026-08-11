@@ -8,16 +8,38 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     static let defaultModelID = "deepseek/deepseek-v4-flash-0731"
     static let maximumTimeoutSeconds = 21_600
     static let maximumToolSteps = 4_096
+    static let maximumDelegationBudgetSeconds = 7_200
+    static let minimumDelegationBudgetSeconds = 60
 
     var homePath: String
     var workspacePath: String
     var promptPath: String
     var reportPath: String?
+    var screenshotPath: String?
     var browserPath: String?
     var modelID: String
+    var isConfidential: Bool
     var timeoutSeconds: Int
     var maxToolSteps: Int
     var runSpendFuseUSD: Double?
+
+    private var researchBudgetSeconds: Int {
+        min(
+            max(0, timeoutSeconds - 1),
+            max(
+                Self.minimumDelegationBudgetSeconds,
+                min(Self.maximumDelegationBudgetSeconds, timeoutSeconds * 2 / 3)
+            )
+        )
+    }
+
+    var subagentDelegationBudget: Duration {
+        .seconds(max(1, researchBudgetSeconds))
+    }
+
+    var boundedRunFinalizationAfterSeconds: TimeInterval {
+        TimeInterval(researchBudgetSeconds)
+    }
 
     init?(arguments: [String]) {
         guard arguments.contains("--cowork-eval") else { return nil }
@@ -30,10 +52,14 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
             ?? fallbackRoot.appendingPathComponent("workspace", isDirectory: true).path
         promptPath = Self.value(after: "--cowork-eval-prompt-file", in: arguments) ?? ""
         reportPath = Self.value(after: "--cowork-eval-report", in: arguments)
+        screenshotPath = Self.value(after: "--cowork-eval-screenshot", in: arguments)
         browserPath = Self.value(after: "--cowork-eval-browser-path", in: arguments)
-        modelID = TrustedRouterDefaults.normalizedDefaultModelID(
-            Self.value(after: "--cowork-eval-model", in: arguments) ?? Self.defaultModelID
-        )
+        isConfidential = arguments.contains("--cowork-eval-confidential")
+        modelID = isConfidential
+            ? TrustedRouterDefaults.e2eModel
+            : TrustedRouterDefaults.normalizedDefaultModelID(
+                Self.value(after: "--cowork-eval-model", in: arguments) ?? Self.defaultModelID
+            )
         timeoutSeconds = min(
             Self.maximumTimeoutSeconds,
             max(1, Int(Self.value(after: "--cowork-eval-timeout-seconds", in: arguments) ?? "240") ?? 240)
@@ -64,12 +90,20 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         config.runSpendFuseUSD = runSpendFuseUSD
         try? ConfigStore(fileURL: paths.configFile).save(config)
         let runtimeFactory = QuillCodeRuntimeFactory(paths: paths, environment: environment)
-        return QuillCodeDesktopController(
+        let controller = QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
             browserLiveDOMCapturer: nil,
             automationNotifier: QuillCodeDesktopCoworkEvalNotifier(),
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
             workspaceRoot: workspace
         )
+        controller.model.subagentDelegationBudgetOverride = subagentDelegationBudget
+        controller.model.boundedRunFinalizationAfterSecondsOverride =
+            boundedRunFinalizationAfterSeconds
+        return controller
     }
 
     private static func value(after flag: String, in arguments: [String]) -> String? {
@@ -94,6 +128,56 @@ struct QuillCodeDesktopCoworkEvalNotifier: QuillCodeAutomationNotifying {
 }
 
 struct QuillCodeDesktopCoworkEvalReport: Encodable {
+    struct ScheduledAutomation: Encodable {
+        struct Recurrence: Encodable {
+            var interval: Int
+            var unit: String
+            var weekdays: [Int]?
+            var hour: Int?
+            var minute: Int?
+        }
+
+        var id: String
+        var title: String
+        var detail: String
+        var kind: String
+        var status: String
+        var scheduleKind: String
+        var scheduleDescription: String
+        var nextRunAt: Date?
+        var recurrence: Recurrence?
+
+        init(_ automation: QuillAutomation) {
+            id = automation.id.uuidString
+            title = automation.title
+            detail = automation.detail
+            kind = automation.kind.rawValue
+            status = automation.status.rawValue
+            scheduleKind = automation.scheduleKind.rawValue
+            scheduleDescription = automation.scheduleDescription
+            nextRunAt = automation.nextRunAt
+            recurrence = automation.recurrence.map {
+                Recurrence(
+                    interval: $0.interval,
+                    unit: $0.unit.rawValue,
+                    weekdays: $0.weekdays,
+                    hour: $0.hour,
+                    minute: $0.minute
+                )
+            }
+        }
+    }
+
+    struct Screenshot: Encodable {
+        var path: String
+        var width: Int
+        var height: Int
+        var opaquePixelRatio: Double
+        var brightPixelRatio: Double
+        var accentPixelRatio: Double
+        var distinctColorBuckets: Int
+    }
+
     struct Tool: Encodable {
         var name: String
         var status: String
@@ -107,11 +191,17 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
     var stopReasonDetail: String?
     var requestedModelID: String
     var selectedModelID: String
+    var isConfidential: Bool
     var prompt: String
     var finalAnswer: String
     var lastError: String?
     var browserURL: String?
     var workspacePath: String
+    var windowSource: String
+    var workspaceWindowCount: Int
+    var screenshot: Screenshot?
+    var desktopCaptureError: String?
+    var scheduledAutomation: ScheduledAutomation?
     var durationMilliseconds: Int
     var usage: ModelTokenUsage
     var messageCount: Int

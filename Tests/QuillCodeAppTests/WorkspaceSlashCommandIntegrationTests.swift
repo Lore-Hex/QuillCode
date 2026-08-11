@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import QuillCodeAgent
 import QuillCodeCore
 @testable import QuillCodeApp
 
@@ -202,7 +203,9 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
 
     func testSlashSubagentsRunsSchedulerAndRecordsActivityProgress() async throws {
         let root = try makeQuillCodeTestDirectory()
-        let model = QuillCodeWorkspaceModel()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: SubagentCompletionLLMClient())
+        )
 
         model.setDraft("/subagents validate release | Explorer: inspect code | Verifier: run focused tests")
         await model.submitComposer(workspaceRoot: root)

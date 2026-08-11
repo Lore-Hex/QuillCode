@@ -183,6 +183,82 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertNil(AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say"}"#))
     }
 
+    #if !os(Linux)
+    func testDirectSSEDecoderPreservesReasoningTextAndUsage() async throws {
+        let bytes = byteStream([
+            #"data: {"choices":[{"delta":{"reasoning_content":"Inspect evidence."}}]}"# + "\n\n",
+            #"data: {"choices":[{"delta":{"content":"{\"type\":\"say\",\"text\":\"done\"}"}}]}"# + "\n\n",
+            #"data: {"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"# + "\n\n",
+            "data: [DONE]\n\n",
+        ])
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(from: bytes, onTermination: {})
+
+        var events: [AgentTextStreamEvent] = []
+        for try await event in decoded {
+            events.append(event)
+        }
+
+        XCTAssertEqual(events.count, 3)
+        XCTAssertEqual(events[0], .reasoning("Inspect evidence."))
+        XCTAssertEqual(events[1], .text(#"{"type":"say","text":"done"}"#))
+        guard case .usage(let usage) = events[2] else {
+            return XCTFail("Expected a usage event")
+        }
+        XCTAssertEqual(usage.promptTokens, 11)
+        XCTAssertEqual(usage.completionTokens, 7)
+        XCTAssertEqual(usage.totalTokens, 18)
+    }
+
+    func testReasoningBudgetTerminatesDirectSSEProducer() async {
+        let termination = StreamTerminationProbe()
+        let bytes = byteStream([
+            #"data: {"choices":[{"delta":{"reasoning_content":"12345678"}}]}"# + "\n\n",
+            #"data: {"choices":[{"delta":{"content":"{\"type\":\"say\",\"text\":\"too late\"}"}}]}"# + "\n\n",
+        ])
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(from: bytes) {
+            termination.record()
+        }
+        let guarded = AgentPreActionReasoningBudget.enforcing(
+            maximumCharacters: 6,
+            on: decoded
+        )
+
+        do {
+            for try await _ in guarded {}
+            XCTFail("Expected the reasoning budget to fire")
+        } catch is AgentPreActionReasoningBudgetExceededError {
+            // Expected.
+        } catch {
+            XCTFail("Wrong error: \(error)")
+        }
+
+        for _ in 0..<100 where !termination.wasRecorded {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(termination.wasRecorded, "The direct transport must be cancelled promptly")
+    }
+
+    func testDirectSSEDecoderDoesNotDropEventsWhenConsumerIsSlow() async throws {
+        let expected = (0..<64).map(String.init)
+        let frames = expected.map { value in
+            #"data: {"choices":[{"delta":{"content":""# + value + #""}}]}"# + "\n\n"
+        }
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(
+            from: byteStream(frames),
+            onTermination: {}
+        )
+
+        var received: [String] = []
+        for try await event in decoded {
+            guard case .text(let value) = event else { continue }
+            received.append(value)
+            try await Task.sleep(for: .milliseconds(1))
+        }
+
+        XCTAssertEqual(received, expected)
+    }
+    #endif
+
     private func stream(_ chunks: [String]) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             for chunk in chunks {
@@ -199,6 +275,28 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
             }
             continuation.finish()
         }
+    }
+
+    private func byteStream(_ frames: [String]) -> AsyncThrowingStream<UInt8, Error> {
+        AsyncThrowingStream { continuation in
+            for byte in frames.joined().utf8 {
+                continuation.yield(byte)
+            }
+            continuation.finish()
+        }
+    }
+}
+
+private final class StreamTerminationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded = false
+
+    var wasRecorded: Bool {
+        lock.withLock { recorded }
+    }
+
+    func record() {
+        lock.withLock { recorded = true }
     }
 }
 

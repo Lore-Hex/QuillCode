@@ -105,6 +105,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             "onboarding.developer-key",
             phase: .initialSurface,
             expectedOutcome: "developer-key onboarding opens Developer override settings and dismisses through Close",
+            isApplicable: { !$0.model.root.trustedRouterAPIKeyConfigured },
             observe: { $0.isSettingsPresented },
             resetToBaseline: { $1.isSettingsPresented = $0 },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyDeveloperKeySettingsDismissal
@@ -200,7 +201,10 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         let probesByID = Dictionary(uniqueKeysWithValues: nativeHitTargets.clickProbes.map { ($0.contractID, $0) })
         var checks: [QuillCodeDesktopAccessibilityActivationCheck] = []
         var validationIssues: [String] = []
-        let sampledContracts = orderedActivationContracts(includesInitialSurface: includesInitialSurface)
+        let sampledContracts = applicableActivationContracts(
+            includesInitialSurface: includesInitialSurface,
+            controller: controller
+        )
 
         for contract in sampledContracts {
             markStage("start", contractID: contract.contractID)
@@ -250,6 +254,24 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
 
     static func orderedActivationContractIDs(includesInitialSurface: Bool) -> [String] {
         orderedActivationContracts(includesInitialSurface: includesInitialSurface).map(\.contractID)
+    }
+
+    static func applicableActivationContractIDs(
+        includesInitialSurface: Bool,
+        controller: QuillCodeDesktopController
+    ) -> [String] {
+        applicableActivationContracts(
+            includesInitialSurface: includesInitialSurface,
+            controller: controller
+        ).map(\.contractID)
+    }
+
+    private static func applicableActivationContracts(
+        includesInitialSurface: Bool,
+        controller: QuillCodeDesktopController
+    ) -> [QuillCodeDesktopAccessibilityActivationContract] {
+        orderedActivationContracts(includesInitialSurface: includesInitialSurface)
+            .filter { $0.isApplicable(controller) }
     }
 
     private static func orderedActivationContracts(
@@ -393,7 +415,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
 
     private static func markStage(_ stage: String, contractID: String) {
         let residentMemory = (try? QuillCodeDesktopProcessResourceSnapshot.capture())
-            .map { " rss=\($0.residentMemoryBytes) threads=\($0.threadCount)" }
+            .map { " footprint=\($0.residentMemoryBytes) threads=\($0.threadCount)" }
             ?? ""
         FileHandle.standardError.write(
             Data("quill-code-desktop AX activation \(stage): \(contractID)\(residentMemory)\n".utf8)

@@ -478,6 +478,7 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         ])
 
         self.assertEqual(WAVE5.ranked_score_issues(valid, source), [])
+        self.assertEqual(WAVE5.ranked_score_issues(valid + "\n\n" + valid, source), [])
 
         wrong_order = valid.replace(
             f"| 1 | {scored[0][0]} | {scored[0][1]:.2f} |",
@@ -493,6 +494,10 @@ class Wave5CoworkEvalTests(unittest.TestCase):
             f"| 1 | {scored[0][0]} | 0.00 |",
         )
         self.assertTrue(any("expected" in issue for issue in WAVE5.ranked_score_issues(bad_math, source)))
+        self.assertTrue(any(
+            "ranking table 2" in issue and "expected" in issue
+            for issue in WAVE5.ranked_score_issues(valid + "\n\n" + bad_math, source)
+        ))
 
     def test_service_resilience_tabletop_uses_benign_continuity_language(self):
         rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
@@ -596,6 +601,13 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertNotIn("LedgerLoop", anchors)
         self.assertEqual(matched, ["Devon Lee", "Sam Ortiz", "Kim Wu"])
 
+    def test_customer_commitment_concept_accepts_roadmap_review_language(self):
+        output = WAVE5.normalize(
+            "The current commitment conflicts with the roadmap commitment and is an unowned promise."
+        )
+
+        self.assertTrue(WAVE5.concept_matches("customer commitment", output))
+
     def test_recruiting_grounding_accepts_counts_in_markdown_table_columns(self):
         row = {"ID": 216, "Category": "Customer Discovery"}
         anchors = WAVE5.grounding_anchors(row)
@@ -637,6 +649,14 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertTrue(WAVE5.tool_writes_artifact(shell_write, output))
         self.assertTrue(WAVE5.has_artifact_readback([shell_write, read], output))
         self.assertFalse(WAVE5.has_artifact_readback([read, shell_write], output))
+
+    def test_native_chart_render_records_artifact_provenance(self):
+        output = "outputs/chart.png"
+        chart = tool("host.chart.render", {"path": output}, {"ok": True})
+        read = tool("host.file.read", {"path": output}, {"ok": True})
+
+        self.assertTrue(WAVE5.tool_writes_artifact(chart, output))
+        self.assertTrue(WAVE5.has_artifact_readback([chart, read], output))
 
     def test_shell_artifact_provenance_rejects_failed_or_read_only_commands(self):
         output = "outputs/wave5-233.md"

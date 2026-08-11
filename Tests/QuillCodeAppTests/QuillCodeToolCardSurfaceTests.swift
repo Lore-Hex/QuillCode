@@ -3,6 +3,30 @@ import XCTest
 @testable import QuillCodeApp
 
 final class QuillCodeToolCardSurfaceTests: XCTestCase {
+    func testRawToolDetailsPreviewBoundsRenderedTextWithoutChangingShortText() {
+        XCTAssertEqual(QuillCodeToolRawDetailsPreview.text("short output"), "short output")
+
+        let longOutput = String(repeating: "x", count: QuillCodeToolRawDetailsPreview.characterLimit + 37)
+        let preview = QuillCodeToolRawDetailsPreview.text(longOutput)
+
+        XCTAssertTrue(preview.hasPrefix(String(repeating: "x", count: QuillCodeToolRawDetailsPreview.characterLimit)))
+        XCTAssertTrue(preview.hasSuffix("[Preview truncated: 37 characters omitted]"))
+        XCTAssertLessThan(preview.count, longOutput.count + 80)
+    }
+
+    func testFailedToolCardsKeepRawDetailsCollapsedByDefault() {
+        let card = ToolCardState(
+            id: "failed-fetch",
+            title: "host.web.fetch",
+            subtitle: "Failed",
+            status: .failed,
+            outputJSON: String(repeating: "x", count: 50_000)
+        )
+
+        XCTAssertEqual(card.density, .peek)
+        XCTAssertFalse(card.opensDetailsByDefault)
+    }
+
     func testArtifactStateDerivesLinksAndImagePreviews() {
         let imageFile = ToolArtifactState(value: "/tmp/quillcode/screenshot.png")
         XCTAssertEqual(imageFile.kind, .file)

@@ -58,7 +58,10 @@ enum AgentBrowserToolAnswerFormatters {
         else {
             return nil
         }
-        let value = AgentToolAnswerFormatters.truncated(script.value, maxCharacters: 320)
+        // DOM extraction is often the only complete evidence path for authenticated or
+        // JavaScript-rendered pages. Keep enough of the result for downstream synthesis; the
+        // model-feedback projector applies its own global bound before replaying the observation.
+        let value = AgentToolAnswerFormatters.truncated(script.value, maxCharacters: 4_000)
         return "Ran JavaScript in `\(script.title)` at \(script.url).\nResult: \(value)"
     }
 

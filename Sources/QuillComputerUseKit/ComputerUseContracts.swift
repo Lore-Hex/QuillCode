@@ -154,6 +154,11 @@ public protocol ComputerUseForegroundApplicationProviding: Sendable {
     func foregroundApplication() async -> ComputerUseApplication?
 }
 
+public protocol ComputerUseApplicationActivating: Sendable {
+    func application(matching nameOrBundleIdentifier: String) async -> ComputerUseApplication?
+    func activateApplication(matching nameOrBundleIdentifier: String) async throws -> ComputerUseApplication
+}
+
 public protocol ComputerUseAccessibilitySnapshotProviding: Sendable {
     func accessibilitySnapshot(limit: Int) async -> ComputerUseAccessibilitySnapshot?
 }

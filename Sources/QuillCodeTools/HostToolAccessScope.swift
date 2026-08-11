@@ -44,6 +44,17 @@ public enum HostToolAccessScope: Sendable, Hashable {
                 with: "on the host filesystem"
             )
             adapted.parametersJSON = pathSchema(definition.parametersJSON)
+        case ToolDefinition.fileReadMany.name:
+            adapted.description = definition.description
+                + " Host filesystem paths outside the current project are allowed."
+            adapted.parametersJSON = schema(
+                definition.parametersJSON,
+                property: "paths",
+                description: """
+                Paths to read in order. Relative paths start at the current project; absolute and \
+                escaping paths are allowed.
+                """
+            )
         case ToolDefinition.fileList.name:
             adapted.description = definition.description.replacingOccurrences(
                 of: "inside a workspace directory",
@@ -59,6 +70,22 @@ public enum HostToolAccessScope: Sendable, Hashable {
         case ToolDefinition.fileWrite.name:
             adapted.description = "Write a UTF-8 file on the host filesystem."
             adapted.parametersJSON = pathSchema(definition.parametersJSON)
+        case ToolDefinition.chartRender.name:
+            adapted.description = definition.description.replacingOccurrences(
+                of: "inside the project workspace",
+                with: "on the host filesystem"
+            )
+            adapted.parametersJSON = pathSchema(definition.parametersJSON)
+        case ToolDefinition.pdfMerge.name:
+            adapted.description = definition.description.replacingOccurrences(
+                of: "workspace PDF files",
+                with: "host filesystem PDF files"
+            )
+            adapted.parametersJSON = schema(
+                definition.parametersJSON,
+                property: "output",
+                description: "Output PDF path. Absolute and escaping paths are allowed."
+            )
         default:
             break
         }

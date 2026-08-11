@@ -20,7 +20,12 @@ public struct ToolCallFingerprint: Sendable, Hashable {
     public let value: String
 
     public static func make(name: String, argumentsJSON: String, workspaceRoot: URL? = nil) -> ToolCallFingerprint {
-        ToolCallFingerprint(value: "\(name)|\(canonicalArguments(argumentsJSON, workspaceRoot: workspaceRoot))")
+        let arguments = canonicalArguments(
+            argumentsJSON,
+            toolName: name,
+            workspaceRoot: workspaceRoot
+        )
+        return ToolCallFingerprint(value: "\(name)|\(arguments)")
     }
 
     public static func make(call: ToolCall, workspaceRoot: URL? = nil) -> ToolCallFingerprint {
@@ -29,18 +34,36 @@ public struct ToolCallFingerprint: Sendable, Hashable {
 
     /// Sorted-keys re-encode with normalized string values; unparseable JSON falls back to
     /// whitespace-collapsed raw text so a malformed call still fingerprints stably.
-    private static func canonicalArguments(_ json: String, workspaceRoot: URL?) -> String {
+    private static func canonicalArguments(
+        _ json: String,
+        toolName: String,
+        workspaceRoot: URL?
+    ) -> String {
         guard
             let data = json.data(using: .utf8),
-            let object = try? JSONSerialization.jsonObject(with: data),
+            let decoded = try? JSONSerialization.jsonObject(with: data),
             let canonical = try? JSONSerialization.data(
-                withJSONObject: normalize(object, workspaceRoot: workspaceRoot),
+                withJSONObject: normalize(
+                    flailIdentityArguments(decoded, toolName: toolName),
+                    workspaceRoot: workspaceRoot
+                ),
                 options: [.sortedKeys]
             )
         else {
             return collapseWhitespace(json)
         }
         return String(decoding: canonical, as: UTF8.self)
+    }
+
+    /// Focused fetch queries change which evidence window is returned, but repeatedly fetching the
+    /// same page is still one no-progress action for flail detection. Keep the URL as its identity
+    /// so three query rewrites trigger the normal self-assessment and source-change recovery.
+    private static func flailIdentityArguments(_ value: Any, toolName: String) -> Any {
+        guard toolName == ToolDefinition.webFetch.name,
+              let arguments = value as? [String: Any],
+              let url = arguments["url"]
+        else { return value }
+        return ["url": url]
     }
 
     private static func normalize(_ value: Any, workspaceRoot: URL?) -> Any {

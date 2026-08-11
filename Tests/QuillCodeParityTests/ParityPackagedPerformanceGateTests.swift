@@ -28,7 +28,8 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         Self.assertSource(snapshot, containsAll: [
             "proc_pidinfo(",
             "PROC_PIDTASKINFO",
-            "pti_resident_size",
+            "TASK_VM_INFO",
+            "phys_footprint",
             "pti_threadnum",
             #"static let measurement = "initial-live-window""#,
             #"static let postInteractionMeasurement = "settled-after-native-interaction-sweep""#,
@@ -157,9 +158,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(manifest["ok"] as? Bool, true)
         XCTAssertEqual(manifest["withinBudget"] as? Bool, true)
-        XCTAssertEqual(manifest["schemaVersion"] as? Int, 4)
+        XCTAssertEqual(manifest["schemaVersion"] as? Int, 5)
         XCTAssertEqual(manifest["workload"] as? String, "daily-driver-100-chats")
         XCTAssertEqual(manifest["measurement"] as? String, "initial-live-window")
+        XCTAssertEqual(manifest["memoryMeasurement"] as? String, "physical-footprint")
         XCTAssertEqual(
             manifest["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
@@ -496,6 +498,30 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
     }
 
+    func testPerformanceValidatorRejectsMislabeledMemoryMeasurement() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let reportData = try Data(contentsOf: fixture.report)
+        var report = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reportData) as? [String: Any]
+        )
+        var performance = try XCTUnwrap(report["performance"] as? [String: Any])
+        performance["memoryMeasurement"] = "resident-set-size"
+        report["performance"] = performance
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted])
+            .write(to: fixture.report, options: .atomic)
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("unexpected performance memory measurement"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
     private func makeFixture() throws -> (root: URL, report: URL, manifest: URL) {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-performance-gate-(UUID().uuidString)")
@@ -520,9 +546,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "ok": true,
             "appName": "Quill Cowork",
             "performance": [
-                "schemaVersion": 4,
+                "schemaVersion": 5,
                 "workload": "daily-driver-100-chats",
                 "measurement": "initial-live-window",
+                "memoryMeasurement": "physical-footprint",
                 "launchReadyMilliseconds": launchReadyMilliseconds,
                 "residentMemoryBytes": residentMemoryBytes,
                 "threadCount": threadCount,

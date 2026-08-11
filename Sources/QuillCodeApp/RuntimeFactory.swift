@@ -93,6 +93,14 @@ public struct QuillCodeRuntimeFactory: Sendable {
             base: baseClient,
             onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
         )
+        // Keep native desktop runs alive when the selected route repeatedly returns clean-but-empty
+        // action streams. The agent only consults this client after exhausting the primary route's
+        // bounded empty-response recovery, and the per-send context builder removes it entirely for
+        // confidential/E2E traffic.
+        let fallbackLLM = RetryingLLMClient(
+            base: baseClient.overridingModel(TrustedRouterDefaults.safetyPrimaryCatalogModel),
+            onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
+        )
         // Context-summary/compaction calls are one-shot auxiliary housekeeping: each prompt is
         // unique and never re-sent, so a prompt-cache breakpoint on it could only ever be a cache
         // WRITE (billed at 1.25x) with no possible read. The auxiliary-model selector can pick an
@@ -107,17 +115,20 @@ public struct QuillCodeRuntimeFactory: Sendable {
             apiKeyOverride: apiKey,
             baseURL: config.apiBaseURL
         )
-        // host.web.search: grounded DuckDuckGo search first (a real index over the SSRF-safe fetch
-        // transport), falling back to the TrustedRouter LLM-guess client only when the real engine
-        // fails or finds nothing (F18: an LLM with no live index hallucinates URLs that 404; the
-        // downstream liveness filter still vets whatever the fallback returns).
+        // host.web.search: grounded engines over the SSRF-safe fetch transport first. Brave's
+        // server-rendered results are primary; DuckDuckGo is secondary because its HTML endpoint
+        // can return a bot challenge. The model-based client remains a last resort, and the
+        // downstream liveness filter vets every result.
         let webSearch = FallbackWebSearchClient(
-            primary: DuckDuckGoWebSearchClient(),
-            fallback: TrustedRouterWebSearchClient(
-                sessionStore: sessionStore,
-                apiKeyOverride: apiKey,
-                model: config.defaultModel,
-                baseURL: config.apiBaseURL
+            primary: BraveWebSearchClient(),
+            fallback: FallbackWebSearchClient(
+                primary: DuckDuckGoWebSearchClient(),
+                fallback: TrustedRouterWebSearchClient(
+                    sessionStore: sessionStore,
+                    apiKeyOverride: apiKey,
+                    model: config.defaultModel,
+                    baseURL: config.apiBaseURL
+                )
             )
         )
         // Compaction (issue #862): when a model call overflows the context window, the run loop folds
@@ -156,7 +167,8 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 webSearchLivenessChecker: WebFetchURLLivenessChecker(),
                 maxToolSteps: config.maxToolSteps,
                 enablesImmediateActionPreflight: true,
-                compaction: AgentCompactionPolicy(compactor: compactor)
+                compaction: AgentCompactionPolicy(compactor: compactor),
+                fallbackLLM: fallbackLLM
             ),
             contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: summaryLLM),
             mode: .trustedRouter,
@@ -184,7 +196,6 @@ public struct QuillCodeRuntimeFactory: Sendable {
     }
 
     public func hasTrustedRouterAPIKey() -> Bool {
-        guard !forcedMock else { return false }
         if configuredAPIKey() != nil { return true }
         return sessionStore().hasAPIKey
     }

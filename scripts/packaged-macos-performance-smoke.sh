@@ -80,7 +80,7 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
   exit 1
 fi
 
-echo "==> Measuring packaged Quill Cowork launch and resident memory"
+echo "==> Measuring packaged Quill Cowork launch and physical footprint"
 REPORT_PATHS=()
 for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
   REPORT_PATH="$SMOKE_ROOT/window-report-$attempt.json"

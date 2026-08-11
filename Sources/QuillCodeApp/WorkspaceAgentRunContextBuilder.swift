@@ -114,6 +114,17 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
             } else {
                 activeRunner.webSearch = nil
             }
+            activeRunner.fallbackLLM = nil
+        } else if let fallbackLLM = activeRunner.fallbackLLM {
+            // A fallback must use a different route from the selected primary. GLM is the ordinary
+            // recovery model; when the user selected GLM itself, rotate the recovery step to Kimi.
+            let fallbackModelID = modelID == TrustedRouterDefaults.safetyPrimaryCatalogModel
+                ? TrustedRouterDefaults.safetyFallbackCatalogModel
+                : TrustedRouterDefaults.safetyPrimaryCatalogModel
+            activeRunner.fallbackLLM = overridingModelIfSupported(
+                fallbackLLM,
+                modelID: fallbackModelID
+            )
         }
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(
@@ -206,6 +217,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if threadIsConfidential { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
+        if computerUseBackend is any ComputerUseApplicationActivating {
+            definitions.append(ToolDefinition.computerActivate)
+        }
         let status = computerUseBackend.status
         if !status.available,
            let screenshotIndex = definitions.firstIndex(where: {

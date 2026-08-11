@@ -44,7 +44,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
                         "content": "hello from subagent\n"
                     ])
                 )),
-                .say("Created subagent.txt and verified the write.")
+                .say("COMPLETE: Created subagent.txt and verified the write.")
             ]
         )
 
@@ -52,7 +52,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             WorkspaceSubagentJob(name: "Builder", role: "create the marker", objective: "prepare fixture")
         )
 
-        XCTAssertEqual(summary, "Created subagent.txt and verified the write.")
+        XCTAssertTrue(summary.hasPrefix("COMPLETE: Created subagent.txt and verified the write."))
+        XCTAssertTrue(summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(summary.contains("host.file.write: Wrote"))
         XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "hello from subagent\n")
     }
 
@@ -94,7 +96,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
                     name: ToolDefinition.fileWrite.name,
                     argumentsJSON: ToolArguments.json(["path": "blocked.txt", "content": "no"])
                 )),
-                .say("Done.")
+                .say("COMPLETE: Done.")
             ],
             safety: StaticSafetyReviewer(),
             parentThread: parent
@@ -121,7 +123,9 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
 
         let resumed = try await worker.resume(pause, job: job)
 
-        XCTAssertEqual(resumed.summary, "Done.")
+        XCTAssertTrue(resumed.summary.hasPrefix("COMPLETE: Done."))
+        XCTAssertTrue(resumed.summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(resumed.summary.contains("host.file.write: Wrote"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("blocked.txt").path))
         XCTAssertTrue(resumed.transcript.contains { $0.kind == .tool && $0.statusLabel == "Done" })
     }
@@ -181,9 +185,215 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("validate release"))
         XCTAssertTrue(prompt.contains("inspect code"))
         XCTAssertTrue(prompt.contains("Explorer"))
+        XCTAssertTrue(prompt.contains("your role defines your ownership boundary"))
+        XCTAssertTrue(prompt.contains("Do not create or modify a parent deliverable"))
+        XCTAssertTrue(prompt.contains("Research-only roles must"))
+        XCTAssertTrue(prompt.contains("leave final synthesis"))
         XCTAssertTrue(prompt.contains("Work autonomously with the available tools"))
         XCTAssertTrue(prompt.contains("Do not merely announce what you intend to do"))
+        XCTAssertTrue(prompt.contains("Do not finish while any recoverable part"))
+        XCTAssertTrue(prompt.contains("preserve each useful fact with its source URL"))
+        XCTAssertTrue(prompt.contains("exact value appears in successful"))
+        XCTAssertTrue(prompt.contains("two focused"))
+        XCTAssertTrue(prompt.contains("switch to another"))
+        XCTAssertTrue(prompt.contains("source or extraction method instead of rewriting the query again"))
+        XCTAssertTrue(prompt.contains("Prefer direct evidence gathering over building helper"))
+        XCTAssertTrue(prompt.contains("COMPLETE:"))
+        XCTAssertTrue(prompt.contains("BLOCKED:"))
+        XCTAssertFalse(prompt.contains("any remaining next steps"))
         XCTAssertFalse(prompt.contains(#"{"type":"say""#))
+    }
+
+    func testPromptIncludesCoordinatorGroundedEvidence() {
+        let prompt = WorkspaceSubagentPromptBuilder.prompt(
+            objective: "calculate real revenue",
+            job: WorkspaceSubagentJob(name: "Researcher", role: "verify CPI"),
+            parentEvidence: "host.web.fetch: 2025 annual CPI average = 321.943"
+        )
+
+        XCTAssertTrue(prompt.contains("Grounded evidence already collected by the coordinator:"))
+        XCTAssertTrue(prompt.contains("2025 annual CPI average = 321.943"))
+        XCTAssertTrue(prompt.contains("Successful tool output is stronger than model memory"))
+    }
+
+    func testExplicitBlockedResultIsNotReportedAsDone() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(
+            root: root,
+            actions: [.say("BLOCKED: the required account is signed out after two login checks.")]
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Verifier", role: "inspect the private account", objective: "audit")
+        )
+
+        XCTAssertEqual(result.status, .blocked)
+        XCTAssertTrue(result.summary.contains("BLOCKED:"))
+    }
+
+    func testCancellationSummaryPreservesLatestWorkerNote() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .assistant, content: "Confirmed Q1 revenue from the official release.\nQ2 remains unresolved.")
+        ])
+
+        XCTAssertEqual(
+            AgentWorkspaceSubagentWorker.cancellationSummary(from: thread),
+            "Cancelled at the delegation deadline. Latest worker note: Confirmed Q1 revenue from the official release. Q2 remains unresolved."
+        )
+    }
+
+    func testCancellationSummaryExplainsMissingFinalNote() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "Research quarterly revenue.")
+        ])
+
+        XCTAssertEqual(
+            AgentWorkspaceSubagentWorker.cancellationSummary(from: thread),
+            "Cancelled at the delegation deadline before the worker produced a final summary."
+        )
+    }
+
+    func testIncompleteTerminalNarrationIsNotReportedAsDone() {
+        let stalls = [
+            "COMPLETE: I need Q4 revenue to finish the requested set.",
+            "The IR page uses JavaScript. Fetching the Q2 release next for revenue figures.",
+            "I found the annual report. I will try Nasdaq next for the missing quarter.",
+            "The first source was blocked; let me search the investor-relations archive.",
+            "GitLab Q1 FY2026 confirmed. Now retrieving Q2 FY2026 results for the missing figure.",
+            "COMPLETE: I have not yet obtained reliable total revenue figures for three quarters.",
+            "The role is not fully complete; I need to fetch the remaining releases.",
+            "Starting research. I have Q1, and now I need Q2 through Q4.",
+            "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
+            "The query windows returned only the headline ($333.9M for Q4 2025) and not the full GAAP revenue table. Fetching the alternate press-release URL to extract the complete fiscal-year and quarterly GAAP revenue figures.",
+            "I have all four FY2026 quarters, but I need to verify the",
+            "The previous attempts failed because the focused-evidence fetches kept truncating before the",
+            "COMPLETE: Need the four Q figures. One Q4 FY2026 figure found: $205.6M. Need to fetch remaining quarters.",
+            "The prior source repeated the same result. I'll switch to a different source: TipRanks for historical quarterly values.",
+            "I have partial evidence so far. Key findings: Columbus Foundation Core Support Grants are ",
+            "I'll locate the latest published figure. Let me start by fetching the official source.",
+            "Verified the figure against the official source, but omitted the required terminal marker.",
+        ]
+
+        for stall in stalls {
+            XCTAssertEqual(WorkspaceSubagentTerminalStatus.status(for: stall), .failed)
+        }
+    }
+
+    func testExplicitCompleteMarkerIsReportedAsDone() {
+        XCTAssertEqual(
+            WorkspaceSubagentTerminalStatus.status(
+                for: "COMPLETE: Verified all four quarters against official investor-relations releases."
+            ),
+            .completed
+        )
+    }
+
+    func testCancellationSummaryRecoversGroundedReasoningAndToolEvidence() throws {
+        let feedback = AgentToolFeedback(
+            toolCall: ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: #"{"url":"https://ir.example.test/q1"}"#
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: "Fetched https://ir.example.test/q1. Q1 revenue was $214.5 million."
+            )
+        )
+        let thread = ChatThread(
+            messages: [
+                ChatMessage(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+                ChatMessage(role: .assistant, content: "I have the values, but I need to verify the"),
+            ],
+            events: [
+                ThreadEvent(
+                    kind: .notice,
+                    summary: "Thinking: Q1 $214.5M and Q2 $236.0M reconcile to the official filing."
+                ),
+            ]
+        )
+
+        let summary = AgentWorkspaceSubagentWorker.cancellationSummary(from: thread)
+
+        XCTAssertTrue(summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(summary.contains("Q1 $214.5M"))
+        XCTAssertTrue(summary.contains("https://ir.example.test/q1"))
+    }
+
+    func testFinishedWorkerWithAbruptFinalRecoversGroundedToolEvidence() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let evidence = root.appendingPathComponent("gitlab-q2.txt")
+        try "Official source https://ir.example.test/q2: Total revenue was $236.0 million."
+            .write(to: evidence, atomically: true, encoding: .utf8)
+        let worker = makeWorker(
+            root: root,
+            actions: [
+                .tool(ToolCall(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: ToolArguments.json(["path": "gitlab-q2.txt"])
+                )),
+                .say("The previous attempts failed because the focused-evidence fetches kept truncating before the"),
+            ]
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Researcher", role: "gather every quarter", objective: "compare revenue")
+        )
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(result.summary.contains("https://ir.example.test/q2"))
+        XCTAssertTrue(result.summary.contains("$236.0 million"))
+    }
+
+    func testEvidenceDigestPrioritizesDistinctValueBearingSourcesOverTrailingNavigation() throws {
+        func toolMessage(url: String, output: String) throws -> ChatMessage {
+            let feedback = AgentToolFeedback(
+                toolCall: ToolCall(
+                    name: ToolDefinition.webFetch.name,
+                    argumentsJSON: ToolArguments.json(["url": url])
+                ),
+                result: ToolResult(ok: true, stdout: output)
+            )
+            return ChatMessage(role: .tool, content: try JSONHelpers.encodePretty(feedback))
+        }
+
+        let thread = ChatThread(messages: [
+            try toolMessage(url: "https://ir.example.test/q1", output: "Navigation only."),
+            try toolMessage(url: "https://ir.example.test/q1", output: "Q1 total revenue was $214.5 million."),
+            try toolMessage(url: "https://ir.example.test/q2", output: "Q2 total revenue was $236.0 million."),
+            try toolMessage(url: "https://ir.example.test/q3", output: "Q3 total revenue was $244.4 million."),
+            try toolMessage(url: "https://ir.example.test/q4", output: "Q4 total revenue was $260.4 million."),
+            try toolMessage(url: "https://example.test/nav-1", output: "Fetched page navigation and footer."),
+            try toolMessage(url: "https://example.test/nav-2", output: "Fetched page navigation and footer."),
+        ])
+
+        let summary = try XCTUnwrap(WorkspaceSubagentEvidenceDigest.summary(from: thread))
+
+        XCTAssertTrue(summary.contains("$214.5 million"))
+        XCTAssertTrue(summary.contains("$236.0 million"))
+        XCTAssertTrue(summary.contains("$244.4 million"))
+        XCTAssertTrue(summary.contains("$260.4 million"))
+        XCTAssertFalse(summary.contains("page navigation and footer"))
+    }
+
+    func testToolStepCeilingIsNotReportedAsCompleted() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(
+            root: root,
+            actions: [.tool(ToolCall(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "missing.txt"])
+            ))],
+            maxToolSteps: 1
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Researcher", role: "gather all quarters", objective: "compare revenue")
+        )
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.summary.contains("1-step tool limit"))
+        XCTAssertTrue(result.summary.contains("Latest evidence:"))
     }
 
     func testPromptOffersOptionalDelegationViaTheParsedMarker() {
@@ -262,13 +472,15 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         root: URL,
         actions: [AgentAction],
         safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
-        parentThread: ChatThread = ChatThread()
+        parentThread: ChatThread = ChatThread(),
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) -> AgentWorkspaceSubagentWorker {
         makeWorker(
             root: root,
             llm: SubagentRecordingLLMClient(state: SubagentRecordingActionQueue(actions: actions)),
             safety: safety,
-            parentThread: parentThread
+            parentThread: parentThread,
+            maxToolSteps: maxToolSteps
         )
     }
 
@@ -276,10 +488,11 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         root: URL,
         llm: any LLMClient,
         safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
-        parentThread: ChatThread = ChatThread()
+        parentThread: ChatThread = ChatThread(),
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) -> AgentWorkspaceSubagentWorker {
         let factory = WorkspaceAgentSendSessionFactory(
-            baseRunner: AgentRunner(llm: llm, safety: safety),
+            baseRunner: AgentRunner(llm: llm, safety: safety, maxToolSteps: maxToolSteps),
             selectedProject: nil,
             config: AppConfig(),
             browser: BrowserState(),

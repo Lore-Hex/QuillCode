@@ -5,6 +5,7 @@ enum AgentReasoningBudgetPhase: Sendable {
     case synthesis
     case checkpoint
     case correction
+    case boundedFinalization
 }
 
 /// A model exhausted the bounded reasoning budget before emitting the run's first action JSON.
@@ -31,12 +32,27 @@ enum AgentPreActionReasoningBudget {
     /// when the route receives `reasoning_effort: none`. Keep enough room for a grounded decision,
     /// but interrupt before the provider ceiling can consume the entire action turn.
     static let deepSeekV4Flash0731CharacterLimit = 6_000
+    /// Grounded synthesis is materially different from startup routing. DeepSeek V4 Flash often
+    /// reaches the action only after roughly 2,000 reasoning tokens even with reasoning disabled at
+    /// the route. Give synthesis and action-only recovery one larger, still-bounded window while
+    /// keeping startup, checkpoint verification, and every other model on their existing limits.
+    static let deepSeekV4Flash0731SynthesisCharacterLimit = 12_000
 
-    static func effectiveMaximumCharacters(configured: Int, modelID: String) -> Int {
+    static func effectiveMaximumCharacters(
+        configured: Int,
+        modelID: String,
+        phase: AgentReasoningBudgetPhase
+    ) -> Int {
         guard modelID == TrustedRouterChatParameters.deepSeekV4Flash0731Model else {
             return configured
         }
-        return min(configured, deepSeekV4Flash0731CharacterLimit)
+        let providerLimit = switch phase {
+        case .startup, .checkpoint:
+            deepSeekV4Flash0731CharacterLimit
+        case .synthesis, .correction, .boundedFinalization:
+            deepSeekV4Flash0731SynthesisCharacterLimit
+        }
+        return min(configured, providerLimit)
     }
 
     /// Stops a continuously reasoning startup stream before it consumes the whole provider
@@ -91,9 +107,28 @@ enum AgentPreActionReasoningBudget {
     }
 
     static let correctionPrompt = """
-    You used the available reasoning budget without starting an action. Stop planning. Do not scan \
-    or inventory the workspace unless the user named it as a source. If required business facts \
-    are missing, ask one focused question; otherwise use explicit assumptions and placeholders. \
-    Respond now with exactly one JSON action object (a concrete tool call, or a final "say").
+    You used the available reasoning budget without starting an action. Stop planning and do not \
+    narrate. Use the evidence and tool results already in the thread. If the user named a text \
+    deliverable that has not been written, write the best current evidence checkpoint to that exact \
+    path now; otherwise emit the single concrete tool action that advances the latest unfinished \
+    step. Do not restart broad research, ask the user, or insert placeholders when an available tool \
+    can make progress. Respond now with exactly one JSON action object (a concrete tool call, or a \
+    final "say" only when the requested work is actually complete or irrecoverably blocked).
     """
+
+    static func recoveryPrompt(preserving priorCorrection: String?) -> String {
+        guard let priorCorrection,
+              !priorCorrection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return correctionPrompt
+        }
+        return """
+        You used the available reasoning budget without starting an action. The immediately preceding \
+        corrective instruction remains authoritative; do not replace, reinterpret, or defer it. Stop \
+        planning and execute its concrete action now using the evidence already in the thread. If that \
+        instruction names a tool or exact output path, your next action MUST use that tool and exact path. \
+        Do not resume research, delegate more work, ask the user, narrate, or return a final answer instead \
+        of the required action. Respond now with exactly one JSON action object.
+        """
+    }
 }

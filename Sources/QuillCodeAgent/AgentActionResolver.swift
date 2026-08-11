@@ -39,7 +39,8 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler?,
         injectedCorrection: String? = nil,
         reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
-        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard,
+        absoluteTurnDeadline: Date? = nil
     ) async throws -> AgentAction {
         if injectedCorrection == nil,
            enablesImmediateActionPreflight,
@@ -62,6 +63,7 @@ extension AgentRunner {
         // transcript; the durable thread gets only a Self-healing notice per attempt.
         var correctiveThread = thread
         var pendingCorrectionPrompt: String? = injectedCorrection
+        let authoritativeCorrectionPrompt = injectedCorrection
         if let injectedCorrection {
             correctiveThread.messages.append(.init(role: .user, content: injectedCorrection))
             correctiveThread.updatedAt = Date()
@@ -70,22 +72,39 @@ extension AgentRunner {
         var emptyResponseAttempt = 0
         // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
         // primary exhausts the empty-response budget — a route-quality death an alternate model
-        // reliably survives. Scoped per-action: the next action starts back on the primary.
+        // reliably survives. The owning send loop promotes a successful fallback for later actions.
         var activeLLM: LLMClient = llm
         var usedFallback = false
         while true {
+            var attemptRunner = self
+            if let absoluteTurnDeadline {
+                guard let deadlineSeconds = AgentBoundedRunFinalizationGate
+                    .preFinalizationTurnDeadlineSeconds(
+                        remainingSeconds: absoluteTurnDeadline.timeIntervalSinceNow,
+                        configuredTurnDeadlineSeconds: turnDeadlineSeconds
+                    )
+                else {
+                    // Throw outside the corrective catch below so the owning run loop can enter
+                    // finalization instead of spending another retry beyond the reserved boundary.
+                    throw AgentTurnDeadlineExceededError(seconds: 0)
+                }
+                attemptRunner.turnDeadlineSeconds = deadlineSeconds
+            }
             do {
                 if let correctionPrompt = pendingCorrectionPrompt {
-                    return try await performCorrectiveAttempt(
+                    return try await attemptRunner.performCorrectiveAttempt(
                         correctiveThread: correctiveThread,
                         correctionPrompt: correctionPrompt,
                         tools: tools,
                         thread: &thread,
                         onProgress: onProgress,
-                        via: activeLLM
+                        via: activeLLM,
+                        reasoningBudgetPhase: reasoningBudgetPhase == .boundedFinalization
+                            ? .boundedFinalization
+                            : .correction
                     )
                 }
-                return try await dispatchNextAction(
+                return try await attemptRunner.dispatchNextAction(
                     thread: &thread,
                     userMessage: userMessage,
                     tools: tools,
@@ -196,11 +215,40 @@ extension AgentRunner {
                 // first, then spend a bounded corrective attempt telling the model to stop planning
                 // and emit the next action grounded in the tool output it actually has.
                 try Task.checkCancellation()
+                let shouldSwitchRoute = !usedFallback
+                    && fallbackLLM != nil
+                    && (reasoningBudgetPhase == .boundedFinalization
+                        || attempt >= Self.malformedActionCorrectionLimit)
+                if shouldSwitchRoute, let fallback = fallbackLLM {
+                    usedFallback = true
+                    activeLLM = fallback
+                    // Closure turns have only a short host reserve. Give the alternate route an
+                    // initial sample plus one correction, instead of replaying the full deadline
+                    // budget that the selected route already consumed.
+                    attempt = reasoningBudgetPhase == .boundedFinalization
+                        ? max(0, Self.malformedActionCorrectionLimit - 1)
+                        : 0
+                    emptyResponseAttempt = 0
+                    pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                        preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                    )
+                    thread.events.append(.init(
+                        kind: .notice,
+                        summary: Self.turnDeadlineFallbackSwitchNotice
+                    ))
+                    thread.updatedAt = Date()
+                    await onProgress?(thread)
+                    continue
+                }
                 guard attempt < Self.malformedActionCorrectionLimit else {
                     throw overrun
                 }
                 attempt += 1
-                let correctionPrompt = AgentTurnDeadline.correctionPrompt
+                let correctionPrompt = authoritativeCorrectionPrompt == nil
+                    ? AgentTurnDeadline.correctionPrompt
+                    : AgentPreActionReasoningBudget.recoveryPrompt(
+                        preserving: authoritativeCorrectionPrompt
+                    )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -215,10 +263,33 @@ extension AgentRunner {
             } catch let overrun as AgentPreActionReasoningBudgetExceededError {
                 try Task.checkCancellation()
                 guard attempt < Self.malformedActionCorrectionLimit else {
+                    if let fallback = fallbackLLM, !usedFallback {
+                        usedFallback = true
+                        activeLLM = fallback
+                        // The new route has not consumed any semantic corrections for this step.
+                        // Reset the local budget so a fast malformed/prose response can still be
+                        // repaired into an action instead of inheriting the displaced route's
+                        // exhausted reasoning attempts. `usedFallback` and the per-route limit keep
+                        // the recovery bounded: there is still only one route switch.
+                        attempt = 0
+                        emptyResponseAttempt = 0
+                        pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                            preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                        )
+                        thread.events.append(.init(
+                            kind: .notice,
+                            summary: Self.reasoningFallbackSwitchNotice
+                        ))
+                        thread.updatedAt = Date()
+                        await onProgress?(thread)
+                        continue
+                    }
                     throw overrun
                 }
                 attempt += 1
-                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                let correctionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                    preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -236,7 +307,9 @@ extension AgentRunner {
                     throw reasoningOnly
                 }
                 attempt += 1
-                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                let correctionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                    preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -256,7 +329,7 @@ extension AgentRunner {
                 }
                 attempt += 1
                 // A pure resample through the normal (streaming) path — no corrective context needed.
-                pendingCorrectionPrompt = nil
+                pendingCorrectionPrompt = authoritativeCorrectionPrompt
                 thread.events.append(.init(
                     kind: .notice,
                     summary: "Self-healing: the model stream was interrupted mid-response; retrying "
@@ -279,11 +352,10 @@ extension AgentRunner {
                         activeLLM = fallback
                         attempt = 0
                         emptyResponseAttempt = 0
-                        pendingCorrectionPrompt = nil
+                        pendingCorrectionPrompt = authoritativeCorrectionPrompt
                         thread.events.append(.init(
                             kind: .notice,
-                            summary: "Self-healing: the model kept returning empty responses; "
-                                + "switching to the fallback model for this step."
+                            summary: Self.fallbackSwitchNotice
                         ))
                         thread.updatedAt = Date()
                         await onProgress?(thread)
@@ -295,7 +367,7 @@ extension AgentRunner {
                 let backoffSeconds = emptyResponseRetryPolicy.backoffSeconds(
                     forAttempt: emptyResponseAttempt
                 )
-                pendingCorrectionPrompt = nil
+                pendingCorrectionPrompt = authoritativeCorrectionPrompt
                 thread.events.append(.init(
                     kind: .notice,
                     summary: backoffSeconds > 0
@@ -328,9 +400,10 @@ extension AgentRunner {
         tools: [ToolDefinition],
         thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?,
-        via llm: LLMClient
+        via llm: LLMClient,
+        reasoningBudgetPhase: AgentReasoningBudgetPhase
     ) async throws -> AgentAction {
-        var correctiveRun = correctiveThread
+        var correctiveRun = AgentCorrectiveContext.projected(correctiveThread)
         let priorEventCount = correctiveRun.events.count
         let action = try await dispatchNextAction(
             thread: &correctiveRun,
@@ -338,7 +411,7 @@ extension AgentRunner {
             tools: tools,
             onProgress: nil,
             via: llm,
-            reasoningBudgetPhase: .correction
+            reasoningBudgetPhase: reasoningBudgetPhase
         )
         if correctiveRun.events.count > priorEventCount {
             thread.events.append(contentsOf: correctiveRun.events[priorEventCount...])

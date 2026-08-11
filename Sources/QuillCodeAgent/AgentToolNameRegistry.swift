@@ -39,6 +39,18 @@ enum AgentToolNameRegistry {
     }()
 
     static func isKnownToolName(_ name: String) -> Bool {
-        knownToolNames.contains(name)
+        canonicalName(name) != nil
+    }
+
+    /// Some OpenAI-compatible routes omit QuillCode's `host.` namespace while otherwise emitting
+    /// a complete tool action (for example `file.write`). Recover only aliases that map back into
+    /// the closed built-in registry; dynamic or arbitrary names remain invalid.
+    static func canonicalName(_ name: String) -> String? {
+        if knownToolNames.contains(name) {
+            return name
+        }
+        guard !name.hasPrefix("host.") else { return nil }
+        let hosted = "host.\(name)"
+        return knownToolNames.contains(hosted) ? hosted : nil
     }
 }

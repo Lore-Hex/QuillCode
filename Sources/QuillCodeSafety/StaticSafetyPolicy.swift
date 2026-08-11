@@ -40,6 +40,7 @@ struct StaticSafetyPolicy: Sendable {
     ///   statically approved — the user just said no.
     static let workspaceBoundedMutationTools: Set<String> = [
         "host.file.write",
+        "host.chart.render",
         "host.apply_patch",
     ]
 

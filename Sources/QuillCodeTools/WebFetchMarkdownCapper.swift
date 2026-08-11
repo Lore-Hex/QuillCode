@@ -6,8 +6,8 @@ import Foundation
 ///
 /// `maxBytes` bounds the kept PAYLOAD; the one-line note is metadata appended after capping.
 public enum WebFetchMarkdownCapper {
-    public static let defaultMaxLines = 2000
-    public static let defaultMaxBytes = 48_000
+    public static let defaultMaxLines = 600
+    public static let defaultMaxBytes = 16_000
 
     public static func cap(
         _ text: String,

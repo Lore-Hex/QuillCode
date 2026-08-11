@@ -8,6 +8,10 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 struct WorkspaceAgentSendSessionFactory: Sendable {
+    /// Delegated roles remain bounded, but research workers need enough turns to search, fetch,
+    /// recover from blocked pages, and verify a complete evidence track before reporting back.
+    static let maximumSubagentToolSteps = 128
+
     private let baseRunner: AgentRunner
     private let selectedProject: ProjectRef?
     private let config: AppConfig
@@ -30,6 +34,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let subagentThreadStore: SubagentThreadStore?
     private let subagentApprovalPayloadStore: SubagentApprovalPayloadStore?
     private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
+    private let subagentDelegationBudgetOverride: Duration?
+    private let boundedRunFinalizationAfterSecondsOverride: TimeInterval?
     private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
     private let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     private let hooks: [ProjectPluginHook]
@@ -56,6 +62,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         subagentThreadStore: SubagentThreadStore? = nil,
         subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
         subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
+        subagentDelegationBudgetOverride: Duration? = nil,
+        boundedRunFinalizationAfterSecondsOverride: TimeInterval? = nil,
         subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
         sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(),
         hooks: [ProjectPluginHook]? = nil,
@@ -87,6 +95,9 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.subagentThreadStore = subagentThreadStore
         self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
         self.subagentSchedulerOverride = subagentSchedulerOverride
+        self.subagentDelegationBudgetOverride = subagentDelegationBudgetOverride
+        self.boundedRunFinalizationAfterSecondsOverride =
+            boundedRunFinalizationAfterSecondsOverride
         self.subagentRunRecordSink = subagentRunRecordSink
         self.sessionStartHookCoordinator = sessionStartHookCoordinator
         self.hooks = hooks ?? selectedProject?.pluginHooks ?? []
@@ -99,21 +110,26 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         thread: ChatThread,
         recordsUserMessage: Bool = true,
         allowsSubagents: Bool? = nil,
-        lifecycle: WorkspaceAgentSessionLifecycle? = nil
+        lifecycle: WorkspaceAgentSessionLifecycle? = nil,
+        maximumToolSteps: Int? = nil
     ) -> WorkspaceAgentSendSession {
         let permitsSubagents = allowsSubagents ?? !thread.runtimeContext.isEphemeral
+        var runner = configuredRunner(
+            modelID: thread.model,
+            threadID: thread.id,
+            allowsSubagents: permitsSubagents,
+            threadIsConfidential: thread.runtimeContext.isConfidential
+        )
+        if let maximumToolSteps {
+            runner.maxToolSteps = min(runner.maxToolSteps, maximumToolSteps)
+        }
         return WorkspaceAgentSendSession(
             prompt: prompt,
             thread: thread,
             // Pin this run to the THREAD's selected model so a `/model` switch (popup, typed, or
             // top-bar picker) takes effect on the next turn without a Settings save/re-sign-in, and
             // so each thread runs on its own model.
-            runner: configuredRunner(
-                modelID: thread.model,
-                threadID: thread.id,
-                allowsSubagents: permitsSubagents,
-                threadIsConfidential: thread.runtimeContext.isConfidential
-            ),
+            runner: runner,
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
             // Run hooks receive the raw prompt / last assistant message on stdin and execute
@@ -150,7 +166,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
                 job: job,
                 threadStore: subagentThreadStore,
                 runsStartHook: runsStartHook
-            )
+            ),
+            maximumToolSteps: Self.maximumSubagentToolSteps
         )
     }
 
@@ -199,6 +216,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             allowsSubagents: allowsSubagents,
             threadIsConfidential: threadIsConfidential
         ).configuredRunner(from: baseRunner, modelID: modelID)
+        runner.boundedRunFinalizationAfterSeconds =
+            boundedRunFinalizationAfterSecondsOverride
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
         // language server persists across sends; nil (feature off / remote project) leaves the runner
@@ -213,7 +232,9 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
                 threadStore: subagentThreadStore,
                 approvalPayloadStore: subagentApprovalPayloadStore,
                 schedulerOverride: subagentSchedulerOverride,
-                recordSink: subagentRunRecordSink
+                recordSink: subagentRunRecordSink,
+                delegationBudget: subagentDelegationBudgetOverride
+                    ?? WorkspaceSubagentRunToolExecutor.defaultDelegationBudget
             ).executionOverride
         } else {
             runner.threadToolExecutionOverride = nil

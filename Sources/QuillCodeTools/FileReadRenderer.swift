@@ -61,7 +61,24 @@ public enum FileReadRenderer {
 
     /// A short, honest one-liner for a binary/image file instead of erroring or dumping garbage.
     public static func binaryDescription(_ data: Data, fileName: String) -> String {
-        "[\(mediaKind(data)) file: \(fileName), \(data.count) byte\(data.count == 1 ? "" : "s") — not shown as text]"
+        let dimensions = pngDimensions(data).map { ", \($0.width)x\($0.height) pixels" } ?? ""
+        return "[\(mediaKind(data)) file: \(fileName)\(dimensions), \(data.count) "
+            + "byte\(data.count == 1 ? "" : "s") — not shown as text]"
+    }
+
+    /// PNG stores its unsigned, big-endian dimensions in the fixed IHDR fields at bytes 16...23.
+    private static func pngDimensions(_ data: Data) -> (width: UInt32, height: UInt32)? {
+        let bytes = Array(data.prefix(24))
+        guard bytes.count == 24,
+              Array(bytes[0..<8]) == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+              Array(bytes[12..<16]) == [0x49, 0x48, 0x44, 0x52]
+        else { return nil }
+        func value(at offset: Int) -> UInt32 {
+            bytes[offset..<(offset + 4)].reduce(0) { ($0 << 8) | UInt32($1) }
+        }
+        let dimensions = (width: value(at: 16), height: value(at: 20))
+        guard dimensions.width > 0, dimensions.height > 0 else { return nil }
+        return dimensions
     }
 
     private static func mediaKind(_ data: Data) -> String {

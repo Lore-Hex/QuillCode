@@ -385,7 +385,8 @@ public enum RunIntegrityScanner {
     static func hadRecognizedFileProducer(in thread: ChatThread) -> Bool {
         for event in thread.events where event.kind == .toolQueued {
             guard let call = decodeCall(event.payloadJSON) else { continue }
-            if call.name == fileWriteToolName || call.name == applyPatchToolName { return true }
+            if call.name == fileWriteToolName || call.name == chartRenderToolName
+                || call.name == applyPatchToolName { return true }
         }
         return false
     }
@@ -537,6 +538,9 @@ public enum RunIntegrityScanner {
     /// The tool that WRITES a whole file (its `path` argument names the file produced). Duplicated as a
     /// literal to keep this scanner in the dependency-free Core layer; guarded by a parity test.
     public static let fileWriteToolName = "host.file.write"
+
+    /// The tool that renders a PNG file (its `path` argument names the file produced).
+    public static let chartRenderToolName = "host.chart.render"
 
     /// The tool that applies a unified-diff PATCH (the file paths live inside its `patch` argument).
     /// Duplicated as a literal for the same layering reason; guarded by a parity test.

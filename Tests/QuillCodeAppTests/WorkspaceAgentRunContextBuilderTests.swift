@@ -65,6 +65,46 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         )
     }
 
+    func testConfiguredRunnerRotatesFallbackAndDisablesItForE2ETraffic() throws {
+        let fallback = TrustedRouterLLMClient(model: "placeholder/fallback")
+        let baseRunner = AgentRunner(fallbackLLM: fallback)
+        let ordinaryBuilder = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let deepSeekRunner = ordinaryBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: "deepseek/deepseek-v4-flash-0731"
+        )
+        XCTAssertEqual(
+            (deepSeekRunner.fallbackLLM as? TrustedRouterLLMClient)?.model,
+            TrustedRouterDefaults.safetyPrimaryCatalogModel
+        )
+
+        let glmRunner = ordinaryBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: TrustedRouterDefaults.safetyPrimaryCatalogModel
+        )
+        XCTAssertEqual(
+            (glmRunner.fallbackLLM as? TrustedRouterLLMClient)?.model,
+            TrustedRouterDefaults.safetyFallbackCatalogModel
+        )
+
+        var confidentialBuilder = ordinaryBuilder
+        confidentialBuilder.threadIsConfidential = true
+        let confidentialRunner = confidentialBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: "deepseek/deepseek-v4-flash-0731"
+        )
+        XCTAssertNil(confidentialRunner.fallbackLLM)
+    }
+
     func testConfiguredRunnerWiresProactiveCompactionToTheActiveModelsContextWindow() {
         var builder = WorkspaceAgentRunContextBuilder(
             selectedProject: nil,
@@ -219,6 +259,22 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertTrue(screenshot?.description.contains(
             "Current Computer Use setup status: Needs Screen Recording + Accessibility."
         ) == true)
+    }
+
+    func testComputerUseDefinitionsIncludeApplicationActivationWhenSupported() {
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: ActivatingStubComputerUseBackend(),
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []))
+
+        XCTAssertTrue(runner.additionalToolDefinitions.contains {
+            $0.name == ToolDefinition.computerActivate.name
+        })
     }
 
     func testConfiguredRunnerWiresSpendFusePolicyFromConfigAndCatalog() {
@@ -438,4 +494,31 @@ private struct StubComputerUseBackend: ComputerUseBackend, ComputerUseForeground
     func foregroundApplication() async -> ComputerUseApplication? {
         foregroundApplicationValue
     }
+}
+
+private struct ActivatingStubComputerUseBackend: ComputerUseBackend, ComputerUseApplicationActivating {
+    let status = ComputerUseStatus.permissionStatus(
+        screenRecordingGranted: true,
+        accessibilityGranted: true
+    )
+
+    func application(matching nameOrBundleIdentifier: String) async -> ComputerUseApplication? {
+        ComputerUseApplication(name: nameOrBundleIdentifier)
+    }
+
+    func activateApplication(
+        matching nameOrBundleIdentifier: String
+    ) async throws -> ComputerUseApplication {
+        ComputerUseApplication(name: nameOrBundleIdentifier)
+    }
+
+    func screenshot() async throws -> ComputerScreenshot {
+        ComputerScreenshot(width: 1, height: 1, pngBase64: "")
+    }
+
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
 }

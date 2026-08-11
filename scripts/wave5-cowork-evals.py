@@ -280,6 +280,7 @@ CONCEPT_ALIASES = {
     "competitor": ("competitor", "competitive", "competition"),
     "customer commitment": (
         "customer commitment", "customer promise", "sales commitment", "customer-facing commitment",
+        "current commitment", "roadmap commitment", "unowned promise",
     ),
     "event": ("event", "trigger"),
     "jobs to be done": ("jobs to be done", "jtbd", "functional job"),
@@ -828,50 +829,64 @@ def ranked_score_issues(text, source_csv):
             None,
         )
         score_index = next(
-            (index for index, header in enumerate(canonical) if "score" in header),
-            None,
+            (
+                index for index, header in enumerate(canonical)
+                if header in {"score", "weightedscore"}
+            ),
+            next(
+                (
+                    index for index, header in enumerate(canonical)
+                    if "score" in header and "calc" not in header
+                ),
+                None,
+            ),
         )
         if rank_index is not None and id_index is not None and score_index is not None:
             ranking_tables.append((rows, rank_index, id_index, score_index))
-    if len(ranking_tables) != 1:
-        return [f"expected exactly one Rank/ID/Score table, found {len(ranking_tables)}"]
+    if not ranking_tables:
+        return ["expected at least one Rank/ID/Score table, found 0"]
 
-    rows, rank_index, id_index, score_index = ranking_tables[0]
     issues = []
-    parsed = []
-    for row_number, row in enumerate(rows, start=1):
-        rank_match = re.fullmatch(r"#?\s*(\d+)\s*[.)]?", clean_markdown(row[rank_index]))
-        score_match = re.fullmatch(
-            r"[-+]?\d+(?:\.\d+)?",
-            clean_markdown(row[score_index]).replace(",", ""),
-        )
-        if not rank_match or not score_match:
-            issues.append(f"ranking row {row_number} has a non-numeric rank or score")
-            continue
-        parsed.append((
-            int(rank_match.group(1)),
-            clean_markdown(row[id_index]),
-            float(score_match.group(0)),
-        ))
-
     expected_ids = [item[0] for item in expected]
-    actual_ids = [item[1] for item in parsed]
-    if len(rows) != len(expected) or len(parsed) != len(expected):
-        issues.append(f"ranking has {len(rows)} rows; expected {len(expected)}")
-    if [item[0] for item in parsed] != list(range(1, len(expected) + 1)):
-        issues.append("ranks must be sequential from 1 in table order")
-    if actual_ids != expected_ids:
-        issues.append(f"ranking order is {actual_ids}; expected {expected_ids}")
-    if len(set(actual_ids)) != len(actual_ids):
-        issues.append("ranking contains duplicate candidate IDs")
-
     expected_scores = {item[0]: item[1] for item in expected}
-    for _, candidate_id, score in parsed:
-        expected_score = expected_scores.get(candidate_id)
-        if expected_score is not None and abs(score - expected_score) > 0.011:
-            issues.append(
-                f"{candidate_id} reports score {score:.2f}; expected {expected_score:.2f}"
+    for table_number, (rows, rank_index, id_index, score_index) in enumerate(
+        ranking_tables,
+        start=1,
+    ):
+        label = f"ranking table {table_number}"
+        parsed = []
+        for row_number, row in enumerate(rows, start=1):
+            rank_match = re.fullmatch(r"#?\s*(\d+)\s*[.)]?", clean_markdown(row[rank_index]))
+            score_match = re.fullmatch(
+                r"[-+]?\d+(?:\.\d+)?",
+                clean_markdown(row[score_index]).replace(",", ""),
             )
+            if not rank_match or not score_match:
+                issues.append(f"{label} row {row_number} has a non-numeric rank or score")
+                continue
+            parsed.append((
+                int(rank_match.group(1)),
+                clean_markdown(row[id_index]),
+                float(score_match.group(0)),
+            ))
+
+        actual_ids = [item[1] for item in parsed]
+        if len(rows) != len(expected) or len(parsed) != len(expected):
+            issues.append(f"{label} has {len(rows)} rows; expected {len(expected)}")
+        if [item[0] for item in parsed] != list(range(1, len(expected) + 1)):
+            issues.append(f"{label} ranks must be sequential from 1 in table order")
+        if actual_ids != expected_ids:
+            issues.append(f"{label} ranking order is {actual_ids}; expected {expected_ids}")
+        if len(set(actual_ids)) != len(actual_ids):
+            issues.append(f"{label} contains duplicate candidate IDs")
+
+        for _, candidate_id, score in parsed:
+            expected_score = expected_scores.get(candidate_id)
+            if expected_score is not None and abs(score - expected_score) > 0.011:
+                issues.append(
+                    f"{label} {candidate_id} reports score {score:.2f}; "
+                    f"expected {expected_score:.2f}"
+                )
     return list(dict.fromkeys(issues))
 
 
@@ -1019,7 +1034,7 @@ def tool_writes_artifact(tool, output_path):
     expected = normalized_tool_path(output_path)
     name = tool.get("name")
     arguments = tool_payload(tool, "inputJSON")
-    if name == "host.file.write":
+    if name in {"host.file.write", "host.chart.render"}:
         path = arguments.get("path") or arguments.get("filename")
         return normalized_tool_path(path) == expected
     if name == "host.apply_patch":
@@ -1272,6 +1287,7 @@ def run_case(binary, row, root, key, timeout, keep_homes):
     prompt = build_prompt(row)
     prompt_path = case_dir / "prompt.txt"
     report_path = case_dir / "desktop-report.json"
+    screenshot_path = case_dir / "desktop-window.png"
     stdout_path = case_dir / "stdout.txt"
     stderr_path = case_dir / "stderr.txt"
     prompt_path.write_text(prompt, encoding="utf-8")
@@ -1283,6 +1299,7 @@ def run_case(binary, row, root, key, timeout, keep_homes):
         "--cowork-eval-workspace", str(workspace),
         "--cowork-eval-prompt-file", str(prompt_path),
         "--cowork-eval-report", str(report_path),
+        "--cowork-eval-screenshot", str(screenshot_path),
         "--cowork-eval-model", EXACT_MODEL,
         "--cowork-eval-timeout-seconds", str(timeout),
     ]
@@ -1323,6 +1340,19 @@ def run_case(binary, row, root, key, timeout, keep_homes):
     stderr_path.write_text(sanitize(stderr, key), encoding="utf-8")
     report = read_json(report_path) if report_path.exists() else None
     checks, output = grade(row, workspace, report, source_hashes)
+    screenshot = report.get("screenshot") if report else None
+    screenshot_ok = (
+        isinstance(screenshot, dict)
+        and screenshot.get("path") == str(screenshot_path)
+        and screenshot_path.is_file()
+        and screenshot_path.stat().st_size > 0
+        and screenshot.get("distinctColorBuckets", 0) >= 14
+    )
+    checks.append({
+        "name": "native desktop window screenshot",
+        "passed": screenshot_ok,
+        "detail": str(screenshot_path) if screenshot_ok else repr(screenshot),
+    })
     passed = exit_code == 0 and not timed_out and all(check["passed"] for check in checks)
 
     if keep_homes:
@@ -1347,6 +1377,7 @@ def run_case(binary, row, root, key, timeout, keep_homes):
             "workspace": str(workspace.relative_to(root)),
             "output": str(output.relative_to(root)),
             "report": str(report_path.relative_to(root)) if report_path.exists() else None,
+            "screenshot": str(screenshot_path.relative_to(root)) if screenshot_path.exists() else None,
             "stdout": str(stdout_path.relative_to(root)),
             "stderr": str(stderr_path.relative_to(root)),
             "home": home_record,
@@ -1436,6 +1467,9 @@ def main():
             results.append(result)
             state = "PASS" if result["passed"] else "FAIL"
             print(f"[{state}] {result['id']} ({result['durationMilliseconds']} ms)", flush=True)
+            # A long batch must not lose earlier native evidence if a later case is
+            # interrupted or the app exits unexpectedly.
+            write_summary(root, list(results))
     summary = write_summary(root, results)
     leaked = []
     secret_bytes = key.encode("utf-8")

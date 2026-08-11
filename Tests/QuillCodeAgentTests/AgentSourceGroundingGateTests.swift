@@ -391,7 +391,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "Completed and verified `outputs/review.md`."
+            "The corrected review is complete and verified."
         )
     }
 
@@ -445,7 +445,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 4)
+        XCTAssertEqual(result.toolResults.count, 6)
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("source-grounding audit")
@@ -486,8 +486,8 @@ final class AgentSourceGroundingGateTests: XCTestCase {
 
         XCTAssertEqual(
             result.toolResults.count,
-            4,
-            "two model writes, one deterministic repair, and the forced final readback"
+            6,
+            "each of two model writes and one deterministic repair is read back immediately"
         )
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),

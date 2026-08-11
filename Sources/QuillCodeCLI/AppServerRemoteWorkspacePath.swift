@@ -16,6 +16,14 @@ struct AppServerRemoteWorkspacePath: Sendable, Equatable {
     private let flavor: Flavor
     private let rootComponents: [String]
 
+    var repositoryDiscoveryCeilingNativePath: String {
+        Self.resolved(
+            components: Array(rootComponents.dropLast()),
+            relativeComponents: [],
+            flavor: flavor
+        ).nativePath
+    }
+
     init(cwd: String, fallbackCWDURI: String?) throws {
         let selected = cwd.trimmingCharacters(in: .whitespacesAndNewlines)
         let native = try Self.nativePath(

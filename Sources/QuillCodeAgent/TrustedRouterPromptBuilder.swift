@@ -1,15 +1,20 @@
+import Foundation
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 
 public struct TrustedRouterPromptBuilder: Sendable {
     public let historyLimit: Int
+    public let historyCharacterLimit: Int
     public let imageAttachmentStore: ImageAttachmentStore?
 
     public init(
         historyLimit: Int = 20,
+        historyCharacterLimit: Int = 32_000,
         imageAttachmentStore: ImageAttachmentStore? = nil
     ) {
         self.historyLimit = max(0, historyLimit)
+        self.historyCharacterLimit = max(0, historyCharacterLimit)
         self.imageAttachmentStore = imageAttachmentStore
     }
 
@@ -70,11 +75,19 @@ public struct TrustedRouterPromptBuilder: Sendable {
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         let history = orderedModelHistory(from: thread)
-        appendRecentHistory(history, to: &messages)
+        let recentHistory = appendRecentHistory(history, userMessage: userMessage, to: &messages)
         appendRuntimeBoundary(from: thread, to: &messages)
-        appendCurrentUserMessageIfNeeded(thread: thread, userMessage: userMessage, to: &messages)
+        appendCurrentUserMessageIfNeeded(
+            thread: thread,
+            userMessage: userMessage,
+            alreadyIncluded: recentHistory.includesCurrentUserMessage,
+            to: &messages
+        )
 
-        return (messages, history.count <= historyLimit)
+        return (
+            messages,
+            history.count <= historyLimit && recentHistory.includesAllCountLimitedEntries
+        )
     }
 
     /// Environment bring-up + anti-fabrication guidance. Added after driving a real benchmark task
@@ -108,6 +121,20 @@ public struct TrustedRouterPromptBuilder: Sendable {
     perform multi-row arithmetic from memory. Reconcile the computed population to the source row \
     IDs, sort rankings from computed values, revalidate final order and ties, and preserve enough \
     row-level evidence to audit every reported aggregate.
+    - Treat shell-computed quantitative results as canonical. Do not recompute or retype a repeated \
+    figure from rounded values or memory. After writing a quantitative deliverable, parse the saved \
+    artifact with the shell and verify that every repeated amount, rate, total, and formula result is \
+    internally consistent; rewrite the artifact if any duplicate claim disagrees.
+    CSV deliverables — serialize and parse before reporting:
+    - Create CSV with a standards-compliant serializer (for example Python's `csv` module), not by \
+    manually joining values with commas. Quote fields containing commas, quotes, or newlines.
+    - Read the saved CSV back with a CSV parser and verify one header row, a consistent column count \
+    on every row, and the requested record count before reporting completion.
+    Charts and PNG deliverables — render real images without dependency installs:
+    - When host.chart.render is available, use it for stacked or grouped bar charts instead of \
+    installing plotting libraries, writing plain text to a .png path, or stopping on a missing library. \
+    Compute values from the source first, pass one numeric value per category for every series, then \
+    read the generated PNG back with host.file.read to verify its dimensions and format.
     Do the work — do not narrate it:
     - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
     anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \
@@ -123,12 +150,27 @@ public struct TrustedRouterPromptBuilder: Sendable {
     (or host.apply_patch) and read it back to confirm. Putting the content only in your final chat \
     reply does NOT satisfy a request for a file — the file must exist on disk when you finish.
     Web research and citations — cite only what you actually retrieved:
+    - Before browsing, make a coverage checklist of every requested entity and field. Search each \
+    missing field deliberately and do not treat a partially filled table as complete.
+    - Establish exact entity identity from the supplied name plus domain, location, or other context \
+    before transferring facts. A similarly named company is not the same entity. When identity \
+    remains ambiguous after focused searches, write `unverified` or `needs review` with the reason; \
+    never fill the row from a near-name result.
+    - Prefer official company, manufacturer, government, regulator, filing, or other primary sources \
+    for current facts. Use credible independent test sources for measured performance. Affiliate \
+    roundups, generic directories, and search snippets are discovery or fallback evidence, not the \
+    sole support for a central recommendation when primary evidence exists.
+    - For budget comparisons, fetch and record a live price and budget-fit result for every candidate. \
+    Do not recommend an item whose current price or central requested measurements were not verified.
     - Fetch only URLs that appear in your web-search results. Do NOT guess, construct, or recall a \
     URL from memory — invented URLs 404 and poison the report.
     - Cite a source ONLY if you fetched it successfully in this run. If host.web.fetch returned an \
     error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
     plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
     page you actually opened.
+    - If you fetch new evidence after drafting a deliverable, update the deliverable with the \
+    relevant evidence or an explicit unusable-source note, then read the revised file back. A draft \
+    written before the final research step is not the final artifact.
     Merges and transformations — verify per-source invariants before reporting:
     - When you merge, convert, or reshape data files, the output can be silently wrong while looking \
     plausible (dropped columns, mis-mapped headers, lost rows). Before reporting, reconcile the \
@@ -151,6 +193,16 @@ public struct TrustedRouterPromptBuilder: Sendable {
     the user explicitly asks for a reusable template and does not request a send-ready or \
     placeholder-free artifact. Otherwise use complete generic wording (for example, "Hello,") \
     and never leave `[Name]`, `[Date]`, `[Company]`, or similar fill-in tokens in the deliverable.
+    Exact deliverables first — the requested path and format define success:
+    - Treat the exact requested output path and file extension as the primary completion condition. As \
+    soon as the source facts are grounded, create that final artifact before optional scratch files, \
+    summaries, or polish.
+    - Never substitute CSV, Markdown, plain text, or an intermediate script for a requested XLSX, PDF, \
+    PNG, DOCX, or other final format. Scratch and intermediate files do not satisfy the task.
+    - Read the final artifact back and verify its real format and requested structure before reporting \
+    completion. If a dependency check is necessary, combine it with the artifact-producing action and a \
+    compatible fallback so the check cannot become a dead-end turn. Obey any instruction that forbids \
+    dependency installation.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
@@ -159,6 +211,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         }.joined(separator: "\n")
         let computerUseGuidance = computerUsePrompt(tools: tools)
         let browserGuidance = browserPrompt(tools: tools)
+        let collectionReadGuidance = collectionReadPrompt(tools: tools)
+        let subagentGuidance = subagentPrompt(tools: tools)
         return """
         You are QuillCode, a native Swift coding agent.
 
@@ -174,6 +228,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
         \(officeCoworkerPrompt)
 
+        \(collectionReadGuidance)
+
+        \(subagentGuidance)
+
         \(computerUseGuidance)
 
         Requirements:
@@ -184,11 +242,19 @@ public struct TrustedRouterPromptBuilder: Sendable {
         unless the user explicitly asks for a shell command.
         - For workspace text or symbol searches, use host.file.search with non-empty "query" and optional \
         "path"; do not use shell grep/find unless the user explicitly asks for a shell command.
+        - To combine PDF files, create a table of contents, or add per-file PDF bookmarks, use \
+        host.pdf.merge. Do not install PDF libraries or overwrite a .pdf path with plain text.
+        - To create a PNG bar chart, use host.chart.render. Pass `categories` as labels and `series` \
+        as an object whose string values contain comma-separated numbers. Do not install plotting \
+        libraries or write plain text to a .png path.
         - If the user asks to load, use, or run an installed skill, call host.skill.load immediately \
         with a non-empty "name" string, then follow the returned skill instructions.
         - If the user asks to run a command, create a host.shell.run action immediately. Do not answer \
         first with "I'll run ..." or "I will run ...".
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
+        - Reserve interpreter `-c` commands for complete single-line programs. For multiline Python, \
+        Node, Ruby, or Perl, write a relative workspace script with host.file.write and execute that \
+        script with host.shell.run so JSON and shell quote nesting cannot corrupt the program.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and \
         "content". Do not answer first with "I'll create ..." or "I will create ...".
         - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately \
@@ -256,6 +322,39 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
         Available tools:
         \(toolList)
+        """
+    }
+
+    private static func collectionReadPrompt(tools: [ToolDefinition]) -> String {
+        guard tools.contains(where: { $0.name == ToolDefinition.fileReadMany.name }) else {
+            return ""
+        }
+        return """
+        Collection source grounding:
+        - When a task identifies two or more source files, call host.file.read_many with their known \
+        paths instead of reading one file per model turn. If paths need discovery, call host.file.list \
+        once, then pass the discovered source paths together.
+        - Keep the batch bounded. Use host.file.read for a specific source only when read_many reports \
+        truncation and the omitted details are necessary for the requested result.
+        """
+    }
+
+    private static func subagentPrompt(tools: [ToolDefinition]) -> String {
+        guard tools.contains(where: { $0.name == ToolDefinition.subagentsRun.name }) else {
+            return ""
+        }
+        return """
+        Long-horizon delegation:
+        - When a task naturally splits into two or more substantial independent research or analysis workstreams, \
+        call host.subagents.run early instead of serially consuming the parent context. Give workers precise, \
+        non-overlapping roles and require concrete facts, source URLs, and any requested calculations.
+        - When the request sets an exact or minimum number of externally researched candidates, products, results, \
+        or opportunities, over-provision independent candidate tracks before writing. Use one worker per candidate \
+        when practical or non-overlapping rank ranges for larger counts, fill the available concurrent worker slots, \
+        and replace blocked candidates until the requested number has complete evidence.
+        - After delegated work returns, the parent owns integration: create or update the requested artifact, verify \
+        it against the original request, and continue until the deliverable is complete. Do not delegate trivial or \
+        tightly coupled steps, and do not treat worker summaries as the final user response.
         """
     }
 
@@ -454,16 +553,51 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
     private func appendRecentHistory(
         _ history: [ModelHistoryEntry],
+        userMessage: String,
         to messages: inout [[String: Any]]
-    ) {
-        for entry in history.suffix(historyLimit) {
-            switch entry {
-            case .message(let message):
-                messages.append(chatMessage(message))
-            case .context(let item):
-                messages.append(ThreadModelContextPromptProjector.message(for: item))
+    ) -> RecentHistoryProjection {
+        let countLimited = history.suffix(historyLimit).map { entry in
+            (entry: entry, message: projectedMessage(for: entry))
+        }
+        var selected: [(entry: ModelHistoryEntry, message: [String: Any])] = []
+        var usedCharacters = 0
+
+        if historyCharacterLimit > 0 {
+            for candidate in countLimited.reversed() {
+                let candidateCharacters = projectedCharacterCount(candidate.message)
+                guard usedCharacters + candidateCharacters <= historyCharacterLimit else { break }
+                selected.append(candidate)
+                usedCharacters += candidateCharacters
             }
         }
+        selected.reverse()
+        messages.append(contentsOf: selected.map(\.message))
+
+        return RecentHistoryProjection(
+            includesAllCountLimitedEntries: selected.count == countLimited.count,
+            includesCurrentUserMessage: selected.contains { candidate in
+                guard case .message(let message) = candidate.entry else { return false }
+                return message.role == .user && message.content == userMessage
+            }
+        )
+    }
+
+    private func projectedMessage(for entry: ModelHistoryEntry) -> [String: Any] {
+        switch entry {
+        case .message(let message):
+            return chatMessage(message)
+        case .context(let item):
+            return ThreadModelContextPromptProjector.message(for: item)
+        }
+    }
+
+    private func projectedCharacterCount(_ message: [String: Any]) -> Int {
+        guard JSONSerialization.isValidJSONObject(message),
+              let data = try? JSONSerialization.data(withJSONObject: message)
+        else {
+            return String(describing: message).utf8.count
+        }
+        return data.count
     }
 
     private func orderedModelHistory(from thread: ChatThread) -> [ModelHistoryEntry] {
@@ -489,12 +623,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
     private func appendCurrentUserMessageIfNeeded(
         thread: ChatThread,
         userMessage: String,
+        alreadyIncluded: Bool,
         to messages: inout [[String: Any]]
     ) {
-        guard thread.messages.last(where: { $0.role == .user })?.content != userMessage else {
-            return
+        guard !alreadyIncluded else { return }
+        if let durableMessage = thread.messages.last(where: {
+            $0.role == .user && $0.content == userMessage
+        }) {
+            messages.append(chatMessage(durableMessage))
+        } else {
+            messages.append(Self.chatMessage(role: "user", content: userMessage))
         }
-        messages.append(Self.chatMessage(role: "user", content: userMessage))
     }
 
     private func chatMessage(_ message: ChatMessage) -> [String: Any] {
@@ -520,7 +659,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             // turn) — and (b) teaches the model that assistant turns NARRATE tool results, the
             // exact fabrication habit seen in coworker runs. Role "user" matches the multimodal
             // path below, which always sent feedback as user.
-            let text = "Tool output: \(message.content)"
+            let text = "Tool output: \(AgentToolFeedbackModelProjector.project(message.content))"
             guard !message.attachments.isEmpty else {
                 return Self.chatMessage(role: "user", content: text)
             }
@@ -617,7 +756,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
         When the user explicitly requires an existing desktop app or browser, a signed-in session, a named \
         browser/profile (such as Firefox), or local application state, use Computer Use first and start with a \
-        screenshot to verify the active app and session. Never substitute host.browser.* or a guest/logged-out page. \
+        screenshot to verify the active app and session. If the named running app is not foreground and \
+        host.computer.activate is available, activate it by exact app name or bundle identifier, then take a fresh \
+        screenshot before interacting. Never substitute host.browser.* or a guest/logged-out page. \
         If Computer Use returns a setup or permission error, report the exact blocker, do not claim the signed-in \
         work was completed, and continue only independent parts that do not require that desktop session.
         """
@@ -647,4 +788,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
 private enum ModelHistoryEntry {
     case message(ChatMessage)
     case context(ThreadModelContextItem)
+}
+
+private struct RecentHistoryProjection {
+    let includesAllCountLimitedEntries: Bool
+    let includesCurrentUserMessage: Bool
 }

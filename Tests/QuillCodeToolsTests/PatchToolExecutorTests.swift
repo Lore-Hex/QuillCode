@@ -25,6 +25,31 @@ final class PatchToolExecutorTests: XCTestCase {
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "hello world\n")
+        XCTAssertEqual(result.artifacts, [file.path])
+    }
+
+    func testApplyPatchInsideIgnoredNestedWorkspaceDoesNotUseParentRepositoryRoot() throws {
+        let parent = try makeTempDirectory()
+        try initializeGitRepo(at: parent)
+        let root = parent.appendingPathComponent(".build/evaluation/workspace")
+        let outputs = root.appendingPathComponent("outputs")
+        try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+        let file = outputs.appendingPathComponent("deliverable.md")
+        try "value 291.. n=11\n".write(to: file, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/outputs/deliverable.md b/outputs/deliverable.md
+        --- a/outputs/deliverable.md
+        +++ b/outputs/deliverable.md
+        @@ -1 +1 @@
+        -value 291.. n=11
+        +value n=11
+        """
+
+        let result = PatchToolExecutor(workspaceRoot: root).apply(unifiedDiff: patch)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "value n=11\n")
+        XCTAssertEqual(result.artifacts, [file.path])
     }
 
     func testStrictApplyDisclosesNoTolerantMatch() throws {

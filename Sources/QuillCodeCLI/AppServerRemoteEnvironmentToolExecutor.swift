@@ -347,16 +347,20 @@ actor AppServerRemoteEnvironmentToolExecutor {
                 throw FileEditGuardError.patchWithoutRead(target)
             }
         }
+        let before = try await patchTargetSnapshots(targets)
 
         let temporary = try await temporaryFile(data: Data(patch.utf8), suffix: "patch")
         let quoted = shellQuotedPath(temporary.nativePath)
         let strict = "git apply --check \(quoted) && git apply \(quoted)"
+        let gitEnvironment = [
+            "GIT_CEILING_DIRECTORIES": workspace.repositoryDiscoveryCeilingNativePath
+        ]
         let executionResult: ToolResult
         do {
             var attempted = try await runCommand(
                 strict,
                 cwd: workspace.root,
-                environment: [:],
+                environment: gitEnvironment,
                 timeout: 60
             )
             if !attempted.ok {
@@ -364,7 +368,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
                 let fallback = try await runCommand(
                     recount,
                     cwd: workspace.root,
-                    environment: [:],
+                    environment: gitEnvironment,
                     timeout: 60
                 )
                 if fallback.ok {
@@ -389,6 +393,13 @@ actor AppServerRemoteEnvironmentToolExecutor {
             sandbox: sandbox
         )
         guard executionResult.ok else { return executionResult }
+        let after = try await patchTargetSnapshots(targets)
+        guard before != after else {
+            var result = executionResult
+            result.ok = false
+            result.error = String(describing: PatchToolError.noChanges(targets))
+            return result
+        }
 
         var result = executionResult
         var artifacts: [String] = []
@@ -402,6 +413,32 @@ actor AppServerRemoteEnvironmentToolExecutor {
         result.artifacts = artifacts
         if result.stdout.isEmpty { result.stdout = "Patch applied.\n" }
         return result
+    }
+
+    private struct RemotePatchTargetSnapshot: Equatable {
+        var metadata: AppServerRemoteFileMetadata?
+        var contents: Data?
+    }
+
+    private func patchTargetSnapshots(
+        _ targets: [String]
+    ) async throws -> [String: RemotePatchTargetSnapshot] {
+        var snapshots: [String: RemotePatchTargetSnapshot] = [:]
+        for target in targets {
+            let resolved = try workspace.resolve(target)
+            let metadata = try await optionalMetadata(at: resolved.uri)
+            let contents: Data?
+            if let metadata, !metadata.isDirectory {
+                contents = try await client.readFile(at: resolved.uri, sandbox: sandbox)
+            } else {
+                contents = nil
+            }
+            snapshots[target] = RemotePatchTargetSnapshot(
+                metadata: metadata,
+                contents: contents
+            )
+        }
+        return snapshots
     }
 
     private func runCommand(

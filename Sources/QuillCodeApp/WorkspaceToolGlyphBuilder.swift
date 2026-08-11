@@ -14,10 +14,12 @@ enum WorkspaceToolGlyphBuilder {
         switch toolName {
         case ToolDefinition.shellRun.name:
             return "terminal"
-        case ToolDefinition.fileRead.name:
+        case ToolDefinition.fileRead.name, ToolDefinition.fileReadMany.name:
             return "doc.text"
         case ToolDefinition.fileWrite.name:
             return "square.and.pencil"
+        case ToolDefinition.chartRender.name:
+            return "chart.bar.xaxis"
         case ToolDefinition.fileList.name:
             return "folder"
         case ToolDefinition.fileSearch.name:

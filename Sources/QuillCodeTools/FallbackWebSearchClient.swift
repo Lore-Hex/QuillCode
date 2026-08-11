@@ -3,12 +3,9 @@ import Foundation
 /// A `WebSearchClient` that tries a grounded primary engine first and falls back to a secondary
 /// only when the primary fails or finds nothing.
 ///
-/// The intended composition (see the runtime factories) is
-/// `primary = DuckDuckGoWebSearchClient` (a real index; can rate-limit or drift its HTML shape)
-/// and `fallback = TrustedRouterWebSearchClient` (an LLM acting as a search engine; always
-/// answers, but its URLs are guesses that survive only the downstream liveness filter). Ordering
-/// is the point: real results when the real engine works, and the guessing client is only ever
-/// consulted when the alternative is returning nothing at all.
+/// Runtime factories nest this type to try grounded search engines before the TrustedRouter
+/// model-based client. Ordering is the point: real indexed results win, while guessed results are
+/// consulted only when every grounded engine fails or returns nothing.
 public struct FallbackWebSearchClient: WebSearchClient {
     private let primary: any WebSearchClient
     private let fallback: any WebSearchClient

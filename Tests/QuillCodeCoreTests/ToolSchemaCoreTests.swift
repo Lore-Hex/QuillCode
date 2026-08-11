@@ -194,6 +194,8 @@ final class ToolSchemaCoreTests: XCTestCase {
         XCTAssertEqual(definition.host, .local)
         XCTAssertEqual(definition.risk, .read)
         XCTAssertTrue(definition.description.contains("Run real delegated agents"))
+        XCTAssertTrue(definition.description.contains("substantial independent workstreams"))
+        XCTAssertTrue(definition.description.contains("parent must integrate"))
         XCTAssertTrue(definition.parametersJSON.contains(#""objective""#))
         XCTAssertTrue(definition.parametersJSON.contains(#""workers""#))
         XCTAssertTrue(definition.parametersJSON.contains(#""dependsOn""#))

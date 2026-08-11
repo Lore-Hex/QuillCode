@@ -4,33 +4,6 @@ import QuillCodePlatformUI
 struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
     @Binding var isPresented: Bool
-    var onSetModel: (String) -> Void
-    var onToggleModelFavorite: (String) -> Void
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var searchText = ""
-    @State private var expandedModelID: String?
-    @State private var selection = ModelPickerSelection()
-    @State private var focusRequest = 0
-
-    private var filteredCategories: [ModelCategorySurface] {
-        topBar.filteredModelCategories(matching: searchText)
-    }
-
-    private var filteredModels: [ModelOptionSurface] {
-        filteredCategories.flatMap(\.models)
-    }
-
-    private var filteredModelCount: Int {
-        filteredCategories.reduce(0) { $0 + $1.models.count }
-    }
-
-    private var currentModelID: String? {
-        topBar.modelCategories
-            .flatMap(\.models)
-            .first { $0.isSelected }?
-            .id
-    }
 
     var body: some View {
         Button {
@@ -66,22 +39,41 @@ struct QuillCodeModelPickerView: View {
         .help(topBar.modelIsLocked ? "Model locked: confidential chats always use the E2E encrypted route" : "Choose model")
         .accessibilityLabel(topBar.modelIsLocked ? "Model locked, \(topBar.modelLabel)" : "Model, \(topBar.modelLabel)")
         .accessibilityIdentifier("quillcode-model-picker-button")
-        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            popoverBody
-        }
-        .onChange(of: isPresented) { _, presented in
-            if presented {
-                expandedModelID = currentModelID
-                ensureHighlightedModel(preferredID: currentModelID)
-            } else {
-                searchText = ""
-                expandedModelID = nil
-                selection.reconcile(with: [])
-            }
-        }
+    }
+}
+
+struct QuillCodeModelPickerDialog: View {
+    var topBar: TopBarSurface
+    @Binding var isPresented: Bool
+    var onSetModel: (String) -> Void
+    var onToggleModelFavorite: (String) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var searchText = ""
+    @State private var expandedModelID: String?
+    @State private var selection = ModelPickerSelection()
+    @State private var focusRequest = 0
+
+    private var filteredCategories: [ModelCategorySurface] {
+        topBar.filteredModelCategories(matching: searchText)
     }
 
-    private var popoverBody: some View {
+    private var filteredModels: [ModelOptionSurface] {
+        filteredCategories.flatMap(\.models)
+    }
+
+    private var filteredModelCount: Int {
+        filteredCategories.reduce(0) { $0 + $1.models.count }
+    }
+
+    private var currentModelID: String? {
+        topBar.modelCategories
+            .flatMap(\.models)
+            .first { $0.isSelected }?
+            .id
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
             searchField
@@ -107,29 +99,52 @@ struct QuillCodeModelPickerView: View {
         .onChange(of: searchText) { _, _ in
             ensureHighlightedModel(preferredID: highlightedModelID)
         }
+        .onAppear {
+            expandedModelID = currentModelID
+            ensureHighlightedModel(preferredID: currentModelID)
+        }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Choose Model")
-                .font(.custom("Iowan Old Style", size: 18).weight(.semibold))
-            Text("Search provider, category, model, state, or us-only / eu-only / china-only")
-                .font(.caption)
-                .foregroundStyle(QuillCodePalette.muted)
-            Text(topBar.modelCatalogStatusLabel)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(QuillCodePalette.blue)
-                .lineLimit(1)
-                .help(topBar.modelCatalogStatusDetail ?? topBar.modelCatalogStatusLabel)
-            if let healthLabel = topBar.modelProviderHealthLabel {
-                Text(healthLabel)
-                    .font(.caption2.weight(.medium))
+        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Choose Model")
+                    .font(.custom("Iowan Old Style", size: 18).weight(.semibold))
+                Text("Search provider, category, model, state, or us-only / eu-only / china-only")
+                    .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
+                Text(topBar.modelCatalogStatusLabel)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.blue)
                     .lineLimit(1)
-                    .help(topBar.modelProviderHealthDetail ?? healthLabel)
+                    .help(topBar.modelCatalogStatusDetail ?? topBar.modelCatalogStatusLabel)
+                if let healthLabel = topBar.modelProviderHealthLabel {
+                    Text(healthLabel)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .help(topBar.modelProviderHealthDetail ?? healthLabel)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                isPresented = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .quillCodeIconButtonTarget(size: 36, radius: QuillCodeMetrics.iconControlRadius)
+                    .background(QuillCodePalette.selection.opacity(0.45))
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous)
+                    )
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .keyboardShortcut(.cancelAction)
+            .help("Close model picker")
+            .accessibilityLabel("Close model picker")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var searchField: some View {

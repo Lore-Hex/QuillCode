@@ -74,17 +74,19 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
 
-        let runtime = QuillCodeRuntimeFactory(
+        let runtimeFactory = QuillCodeRuntimeFactory(
             paths: paths,
             environment: [
                 "TRUSTEDROUTER_API_KEY": "sk-test",
                 "QUILLCODE_USE_MOCK_LLM": "true"
             ]
-        ).makeRuntime(config: AppConfig())
+        )
+        let runtime = runtimeFactory.makeRuntime(config: AppConfig())
 
         XCTAssertEqual(runtime.mode, .mock)
         XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.mockLLM)
         XCTAssertFalse(runtime.contextSummaryGenerator.isModelBacked)
+        XCTAssertTrue(runtimeFactory.hasTrustedRouterAPIKey())
     }
 
     func testModelCatalogFetchesPublicCatalogWithoutKey() async throws {

@@ -330,15 +330,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
     }
 
     func testExhaustedEmptyStreamingResponsesStayFatal() async throws {
-        let client = ThrowingSequenceLLMClient(steps: [
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-        ])
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let resolverRuns = AgentRunner.startupActionContinuationLimit + 1
+        let client = ThrowingSequenceLLMClient(steps: (0..<(attemptsPerResolver * resolverRuns)).map { _ in
+            .failure(AgentError.emptyStreamingResponse)
+        })
         let sleeper = RecordingEmptyResponseRetrySleeper()
         let runner = AgentRunner(llm: client, emptyResponseRetrySleeper: sleeper)
 
@@ -353,12 +349,48 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             // Correct terminal error.
         }
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 7)
+        XCTAssertEqual(calls.count, attemptsPerResolver * resolverRuns)
+        XCTAssertTrue(calls[attemptsPerResolver].userMessage.contains("startup recovery 1 of 3"))
+        XCTAssertTrue(calls[attemptsPerResolver * 2].userMessage.contains("startup recovery 2 of 3"))
+        XCTAssertTrue(calls[attemptsPerResolver * 3].userMessage.contains("startup recovery 3 of 3"))
         let durations = await sleeper.recordedDurations()
         XCTAssertEqual(
             durations,
-            [.seconds(2), .seconds(4), .seconds(8), .seconds(12), .seconds(12), .seconds(12)]
+            Array(
+                repeating: [.seconds(2), .seconds(4), .seconds(8), .seconds(12), .seconds(12), .seconds(12)],
+                count: resolverRuns
+            ).flatMap { $0 }
         )
+    }
+
+    func testExhaustedStartupResponsesRecoverThroughActionOnlyContinuation() async throws {
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let client = ThrowingSequenceLLMClient(steps:
+            (0..<attemptsPerResolver).map { _ in
+                .failure(AgentError.emptyStreamingResponse)
+            } + [
+                .action(.say("Recovered after startup correction.")),
+            ]
+        )
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered after startup correction.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no actionable startup response")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, attemptsPerResolver + 1)
+        XCTAssertTrue(calls.last?.userMessage.contains("startup recovery 1 of 3") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("Emit exactly one QuillCode JSON object") == true)
     }
 
     func testExhaustedEmptyFinalResponseAfterSuccessfulWriteFinishesFromToolResult() async throws {
@@ -398,7 +430,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(durations, [], "the single post-tool resample should be immediate")
     }
 
-    func testExhaustedEmptyResponseAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
+    func testExhaustedEmptyResponseAfterSuccessfulReadGetsThreeRunLevelContinuations() async throws {
         let root = try makeTempDirectory()
         try "source facts\n".write(
             to: root.appendingPathComponent("source.txt"),
@@ -420,8 +452,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.tool(readSource)),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
-            .action(.say("Created and verified report.md.")),
             .action(.say("Created and verified report.md.")),
         ])
         let runner = AgentRunner(
@@ -441,9 +476,108 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no action after successful source work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 6)
+        XCTAssertEqual(
+            calls.count,
+            9,
+            "the exact artifact readback is local and preserves the final model turn"
+        )
         XCTAssertTrue(calls[3].userMessage.contains("QuillCode continuation"))
+        XCTAssertTrue(calls[3].userMessage.contains("continuation 1 of 3"))
+        XCTAssertTrue(calls[5].userMessage.contains("continuation 2 of 3"))
+        XCTAssertTrue(calls[7].userMessage.contains("continuation 3 of 3"))
         XCTAssertTrue(calls[3].userMessage.contains("host.file.read"))
+    }
+
+    func testExhaustedEmptyResponseAfterFailedToolGetsRunLevelContinuation() async throws {
+        let root = try makeTempDirectory()
+        let missingRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "missing-source.txt"])
+        )
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(missingRead)),
+        ] + (0..<attemptsPerResolver).map { _ in
+            .failure(AgentError.emptyStreamingResponse)
+        } + [
+            .action(.say("Recovered after the failed source read.")),
+        ])
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [false])
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered after the failed source read.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no action after a failed tool result")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, attemptsPerResolver + 2)
+        XCTAssertTrue(calls.last?.userMessage.contains("continuation 1 of 3") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("including any reported failure") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("host.file.read") == true)
+    }
+
+    func testExhaustedContinuationBudgetResetsAfterNextExecutedTool() async throws {
+        let root = try makeTempDirectory()
+        try "source facts\n".write(
+            to: root.appendingPathComponent("source.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readSource = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "source.txt"])
+        )
+        let listWorkspace = ToolCall(
+            name: ToolDefinition.fileList.name,
+            argumentsJSON: ToolArguments.json(["path": "."])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readSource)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.tool(listWorkspace)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.say("Read the source and inspected the workspace.")),
+        ])
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true])
+        let continuationNotices = result.thread.events.filter {
+            $0.kind == .notice && $0.summary.contains("no action after successful source work")
+        }
+        XCTAssertEqual(continuationNotices.count, 4)
+        XCTAssertEqual(
+            continuationNotices.filter { $0.summary.contains("attempt 1 of 3") }.count,
+            2,
+            "the continuation budget should restart after the second tool executes"
+        )
+        XCTAssertEqual(
+            continuationNotices.filter { $0.summary.contains("attempt 2 of 3") }.count,
+            2
+        )
     }
 
     func testExhaustedEmptyResponseAdvancesUnreadExplicitSourceBeforeModelContinuation() async throws {
@@ -501,8 +635,105 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 6, "local source recovery must not consume another model call")
+        XCTAssertEqual(calls.count, 5, "local source and artifact recovery consume no model calls")
         XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
+    }
+
+    func testTerminalAnswerAdvancesRequiredInputInventoryBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "task map\n".write(
+            to: root.appendingPathComponent("inputs/source-map.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "evaluation context\n".write(
+            to: root.appendingPathComponent("inputs/evaluation-context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readMap = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "inputs/source-map.md"])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nGrounded result.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readMap)),
+            .action(.say("Done.")),
+            .action(.tool(write)),
+            .action(.say("Created and verified outputs/report.md.")),
+            .action(.say("Created and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            """
+            Read every applicable source directly before acting.
+            For this task the required inputs are: `inputs/source-map.md`, \
+            `inputs/evaluation-context.md`, `inputs`.
+            Write the deliverable to `outputs/report.md`, then read the saved file back to verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two source reads, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("before accepting the final answer")
+        })
+    }
+
+    func testMutationAdvancesRequiredInputInventoryBeforeExecutingWrite() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "evaluation context\n".write(
+            to: root.appendingPathComponent("inputs/evaluation-context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nGrounded result.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(write)),
+            .action(.tool(write)),
+            .action(.say("Created and verified outputs/report.md.")),
+            .action(.say("Created and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            """
+            Read all required inputs before acting.
+            Required inputs are: `inputs/evaluation-context.md`.
+            Write the deliverable to `outputs/report.md`, then read the saved file back to verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "required source read, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("before the first pending mutation")
+        })
     }
 
     func testMalformedTerminalOutputAfterWriteStillEnforcesReadback() async throws {
@@ -533,7 +764,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("malformed terminal output")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 5)
+        XCTAssertEqual(calls.count, 4, "the exact artifact readback is advanced locally")
     }
 
     func testExhaustedEmptyReadArgumentsAfterWriteStillEnforceReadback() async throws {
@@ -564,7 +795,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("required artifact readback")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 5)
+        XCTAssertEqual(calls.count, 4, "the exact artifact readback is advanced locally")
     }
 
     func testUserStopAtBudgetExhaustionSurfacesAsCancellationNotFailure() async throws {

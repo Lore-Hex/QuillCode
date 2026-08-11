@@ -9,6 +9,7 @@ final class WorkspaceToolGlyphBuilderTests: XCTestCase {
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.shellRun.name), "terminal")
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.fileRead.name), "doc.text")
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.fileWrite.name), "square.and.pencil")
+        XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.chartRender.name), "chart.bar.xaxis")
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.applyPatch.name), "pencil")
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.fileSearch.name), "magnifyingglass")
         XCTAssertEqual(WorkspaceToolGlyphBuilder.symbolName(for: ToolDefinition.fileList.name), "folder")

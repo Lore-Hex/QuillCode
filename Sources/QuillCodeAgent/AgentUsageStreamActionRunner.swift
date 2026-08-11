@@ -16,17 +16,20 @@ extension AgentRunner {
             userMessage: userMessage,
             tools: tools
         )
+        let routedModelID = routedModelIDIfSupported(streamingLLM, fallback: thread.model)
         if let deadline = turnDeadlineSeconds {
             stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
         }
-        let reasoningLimit = switch reasoningBudgetPhase {
+        let reasoningLimit: Int? = switch reasoningBudgetPhase {
         case .startup, .checkpoint:
             preActionReasoningCharacterLimit
-        case .synthesis:
+        case .synthesis, .boundedFinalization:
             interActionReasoningCharacterLimit
         case .correction:
             preActionReasoningCharacterLimit.map {
-                min($0, Self.correctiveActionReasoningCharacterLimit)
+                routedModelID == TrustedRouterChatParameters.deepSeekV4Flash0731Model
+                    ? min($0, AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit)
+                    : min($0, Self.correctiveActionReasoningCharacterLimit)
             }
         }
         if let reasoningLimit {
@@ -35,7 +38,8 @@ extension AgentRunner {
                     1,
                     AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                         configured: reasoningLimit,
-                        modelID: thread.model
+                        modelID: routedModelID,
+                        phase: reasoningBudgetPhase
                     )
                 ),
                 on: stream
@@ -45,6 +49,7 @@ extension AgentRunner {
             return try await Self.collectStreamingAction(
                 from: stream,
                 thread: &thread,
+                modelID: routedModelID,
                 onProgress: onProgress
             )
         } catch let error where RetryClassifier.classify(error) != .none {
