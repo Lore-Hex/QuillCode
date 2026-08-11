@@ -457,8 +457,8 @@ Real revenue = nominal revenue x (latest 2026 CPI / selected CPI basis index).
 
 | Year | Nominal revenue | Real revenue | Nominal YoY | Real YoY |
 | --- | ---: | ---: | ---: | ---: |
-| 2023 | $4,200,000 | $4,603,187 | n/a | n/a |
-| 2024 | $5,100,000 | $5,429,442 | 21.4% | 17.9% |
+| 2023 | $4,200,000 | $4,603,181 | n/a | n/a |
+| 2024 | $5,100,000 | $5,429,439 | 21.4% | 17.9% |
 | 2025 | $6,000,000 | $6,223,810 | 17.6% | 14.6% |
 
 Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
@@ -466,6 +466,16 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
             path.write_text(structured_basis_with_monthly_equations, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
+
+            wrong_latest_period = structured_basis_with_monthly_equations.replace(
+                "June benchmark", "July benchmark"
+            ).replace(
+                "June monthly index", "July monthly index"
+            )
+            path.write_text(wrong_latest_period, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertFalse(valid)
+            self.assertIn("latest 2026 benchmark is June", detail)
 
             wrong_source_basis = artifact.replace(
                 "304.701583", "306.996"

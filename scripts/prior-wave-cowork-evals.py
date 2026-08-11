@@ -2427,9 +2427,13 @@ def validate_task_126_real_revenue(path):
         if year in cpi_values and abs(cpi_values[year] - expected) > Decimal("0.0005")
     }
     nominal_by_year = {2023: 4200000, 2024: 5100000, 2025: 6000000}
-    target_cpi = TASK_126_EXPECTED_CPI_BY_YEAR[2026]
+    calculation_cpi_by_year = {
+        year: cpi_values.get(year, expected)
+        for year, expected in TASK_126_EXPECTED_CPI_BY_YEAR.items()
+    }
+    target_cpi = calculation_cpi_by_year[2026]
     adjusted_by_year = {
-        year: Decimal(nominal) * target_cpi / TASK_126_EXPECTED_CPI_BY_YEAR[year]
+        year: Decimal(nominal) * target_cpi / calculation_cpi_by_year[year]
         for year, nominal in nominal_by_year.items()
     }
     expected_real_by_year = {
@@ -2533,6 +2537,30 @@ def validate_task_126_real_revenue(path):
         )
         if not has_valid_delimiter:
             malformed_table_headers.append(index + 1)
+    latest_2026_contexts = [
+        match.group(0)
+        for match in re.finditer(
+            r"[^.!?\n]*(?:latest|benchmark)[^.!?\n]*",
+            text,
+            re.I,
+        )
+        if "2026" in match.group(0)
+    ]
+    latest_2026_period_is_june = any(
+        re.search(r"\bjune\b", context, re.I)
+        for context in latest_2026_contexts
+    )
+    latest_2026_period_claims_july = any(
+        re.search(r"\bjuly\b", context, re.I)
+        and not re.search(
+            r"(?:\bnot\b|\bno\b|unavailable|missing|blank)"
+            r"[^|.!?\n]{0,30}\bjuly\b|"
+            r"\bjuly\b[^|.!?\n]{0,30}(?:unavailable|missing|blank)",
+            context,
+            re.I,
+        )
+        for context in latest_2026_contexts
+    )
     checks = {
         "series": "cuur0000sa0" in text.casefold(),
         "official BLS URL": bool(re.search(r"https?://(?:[a-z0-9-]+\.)?bls\.gov/", text, re.I)),
@@ -2572,6 +2600,10 @@ def validate_task_126_real_revenue(path):
             and re.search(r"monthly|month", text, re.I)
             and re.search(r"latest|benchmark", text, re.I)
         ),
+        "latest 2026 benchmark is June": (
+            latest_2026_period_is_june
+            and not latest_2026_period_claims_july
+        ),
         "real-dollar basis": bool(re.search(r"\b2026[- ]dollars?\b", text, re.I)),
         "adjustment formula": bool(
             re.search(r"real\s+revenue", text, re.I)
@@ -2599,6 +2631,7 @@ def validate_task_126_real_revenue(path):
     detail = (
         f"missing years={missing_years}; missing nominal revenue={missing_nominal_revenue}; "
         f"failed checks={failed}; CPI values={cpi_values}; expected real={expected_real_by_year}; "
+        f"latest 2026 contexts={latest_2026_contexts}; "
         f"source CPI mismatches={source_cpi_mismatches}; "
         f"inconsistent dollar values={inconsistent_dollar_values}; "
         f"inconsistent percentages={inconsistent_percentage_values}; "
