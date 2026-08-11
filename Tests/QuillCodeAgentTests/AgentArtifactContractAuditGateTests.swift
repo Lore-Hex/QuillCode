@@ -775,6 +775,9 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
             in: "Run a deterministic post-write validator against the report."
         ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "Report exactly ranks 1 through 10 and include at least six H2s and four links."
+        ))
         XCTAssertFalse(AgentArtifactContractAuditGate.requiresAudit(
             in: "Draft exactly three emails for each of six prospects, and include a CTA in every email."
         ))

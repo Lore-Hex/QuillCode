@@ -1018,6 +1018,9 @@ final class AgentRunLoopStateTests: XCTestCase {
         let receipt = try XCTUnwrap(state.latestResearchEvidenceReceipt)
         XCTAssertTrue(receipt.contains("official fetched value: 333.952"))
         XCTAssertFalse(receipt.contains("unverified snippet"))
+        let authoritative = try XCTUnwrap(state.latestAuthoritativeEvidenceReceipt)
+        XCTAssertTrue(authoritative.contains("unverified snippet says 999.999"))
+        XCTAssertTrue(authoritative.contains("not fetched-page fact evidence"))
     }
 
     func testVisibleBrowserExtractionBecomesLatestResearchEvidenceReceipt() throws {

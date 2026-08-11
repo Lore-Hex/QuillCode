@@ -2169,6 +2169,7 @@ public struct AgentRunner: Sendable {
                            }) == true,
                            completion.result.ok,
                            let auditPath = runLoop.pendingArtifactContractAuditPath(),
+                           !runLoop.needsBoundedRunFinalization(at: auditPath),
                            AgentBoundedRunFinalizationGate.isDeliverableMutation(
                             completion.call,
                             deliverablePath: auditPath

@@ -28,6 +28,10 @@ struct AgentRunLoopState: Sendable {
         var structuredLineCount: Int
     }
     private var researchEvidenceReceipts: [ResearchEvidenceReceipt] = []
+    /// The latest successful search result order is retained separately from fetched-page evidence.
+    /// Search snippets never become citation provenance, but their observed rank/title/URL order is
+    /// authoritative when the task explicitly asks for a SERP analysis.
+    private(set) var latestSearchEvidenceReceipt: String?
     private(set) var writtenWorkspacePaths: Set<String> = []
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
@@ -150,6 +154,7 @@ struct AgentRunLoopState: Sendable {
     var latestAuthoritativeEvidenceReceipt: String? {
         let receipts: [String] = [
             latestRequiredInputEvidenceReceipt,
+            latestSearchEvidenceReceipt,
             latestResearchEvidenceReceipt,
         ].compactMap { receipt -> String? in
             guard let receipt,
@@ -974,7 +979,11 @@ struct AgentRunLoopState: Sendable {
                !containsSemanticFailure {
                 didFetchSuccessfully = true
             }
-            if name != ToolDefinition.webSearch.name,
+            if name == ToolDefinition.webSearch.name {
+                latestSearchEvidenceReceipt = Self.boundedSearchEvidence(
+                    completion.result.stdout
+                )
+            } else if
                !containsSemanticFailure,
                let receipt = Self.researchEvidenceReceipt(
                 call: completion.call,
@@ -1143,6 +1152,23 @@ struct AgentRunLoopState: Sendable {
         return String(text.prefix(headCount))
             + "\n[...middle of required local input omitted from retained evidence...]\n"
             + String(text.suffix(tailCount))
+    }
+
+    private static func boundedSearchEvidence(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let maximumCharacters = 12_000
+        let bounded = trimmed.count <= maximumCharacters
+            ? trimmed
+            : String(trimmed.prefix(maximumCharacters))
+                + "\n[...remaining search results omitted from retained evidence...]"
+        return """
+        Host-retained search-result observation. Preserve the exact observed rank, title, and URL \
+        order when the request asks for search-result analysis. Snippets are not fetched-page fact \
+        evidence and do not independently ground claims about page contents.
+
+        \(bounded)
+        """
     }
 
     private static func researchEvidenceRetentionScore(

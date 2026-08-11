@@ -452,8 +452,9 @@ enum AgentBoundedRunFinalizationGate {
         missing evidence. Remove internal checkpoint, progress, provisional, and future-work \
         language unless the original request explicitly requires a provisional artifact. \
         \(AgentArtifactContractAuditGate.sourceTableIntegrityInstruction) Respond \
-        with host.file.write for exactly ./\(path); no other action is \
-        permitted until that deliverable exists. The normal artifact readback and validation steps will \
+        with host.file.write for exactly ./\(path); do not update the plan, explain what remains, \
+        or emit any other action. Planning is already complete and no other action is permitted \
+        until that deliverable exists. The normal artifact readback and validation steps will \
         run after the write.
 
         Original request requirements:
