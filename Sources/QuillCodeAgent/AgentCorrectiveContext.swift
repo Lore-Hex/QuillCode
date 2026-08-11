@@ -8,6 +8,7 @@ import QuillCodeTools
 enum AgentCorrectiveContext {
     static let maximumRecentMessageCharacters = 36_000
     static let minimumRecentMessageCount = 4
+    static let maximumRecentMessageEntryCharacters = 8_000
     static let maximumResearchEvidenceCharacters = 48_000
     static let maximumResearchEvidenceEntryCharacters = 16_000
     static let maximumRequiredInputEvidenceCharacters = 24_000
@@ -54,13 +55,15 @@ enum AgentCorrectiveContext {
             let isOriginalRequest = message.id == originalRequest?.id
             if isOriginalRequest { continue }
 
+            let retainedMessage = boundedRecentMessage(message)
             let mustKeep = retainedReversed.count < minimumRecentMessageCount
             if !mustKeep,
-               retainedCharacters + message.content.count > maximumRecentMessageCharacters {
+               retainedCharacters + retainedMessage.content.count
+                    > maximumRecentMessageCharacters {
                 break
             }
-            retainedReversed.append(message)
-            retainedCharacters += message.content.count
+            retainedReversed.append(retainedMessage)
+            retainedCharacters += retainedMessage.content.count
         }
 
         let retainedIDs = Set(retainedReversed.map(\.id))
@@ -98,6 +101,126 @@ enum AgentCorrectiveContext {
         messages.append(contentsOf: retainedReversed.reversed())
         projected.messages = messages
         return projected
+    }
+
+    private static func boundedRecentMessage(_ message: ChatMessage) -> ChatMessage {
+        guard message.content.count > maximumRecentMessageEntryCharacters else { return message }
+
+        var retained = message
+        if message.role == .tool,
+           let feedback = try? JSONDecoder().decode(
+               AgentToolFeedback.self,
+               from: Data(message.content.utf8)
+           ) {
+            retained.content = compactedToolFeedback(feedback)
+        } else {
+            retained.content = boundedExcerpt(
+                message.content,
+                maximumCharacters: maximumRecentMessageEntryCharacters
+            )
+        }
+        return retained
+    }
+
+    private static func compactedToolFeedback(_ original: AgentToolFeedback) -> String {
+        var feedback = original
+        feedback.toolCall.argumentsJSON = compactedToolArguments(
+            original.toolCall.argumentsJSON
+        )
+        feedback.result = compactedToolResult(
+            original.result,
+            toolName: original.toolCall.name,
+            stdoutLimit: 5_500
+        )
+        if let followUp = original.followUpResult {
+            feedback.followUpResult = compactedToolResult(
+                followUp,
+                toolName: original.toolCall.name,
+                stdoutLimit: 800
+            )
+        }
+
+        if let encoded = encodedToolFeedback(feedback),
+           encoded.count <= maximumRecentMessageEntryCharacters {
+            return encoded
+        }
+
+        feedback.toolCall.argumentsJSON = "{}"
+        feedback.result = compactedToolResult(
+            original.result,
+            toolName: original.toolCall.name,
+            stdoutLimit: 1_500
+        )
+        feedback.followUpResult = nil
+        return encodedToolFeedback(feedback) ?? boundedExcerpt(
+            original.result.stdout,
+            maximumCharacters: maximumRecentMessageEntryCharacters
+        )
+    }
+
+    private static func compactedToolResult(
+        _ original: ToolResult,
+        toolName: String,
+        stdoutLimit: Int
+    ) -> ToolResult {
+        var result = original
+        let preferredOutput = toolName == ToolDefinition.subagentsRun.name
+            ? delegatedResearchDigest(from: original.stdout) ?? original.stdout
+            : original.stdout
+        result.stdout = boundedExcerpt(preferredOutput, maximumCharacters: stdoutLimit)
+        result.stderr = boundedExcerpt(original.stderr, maximumCharacters: 500)
+        result.error = original.error.map {
+            boundedExcerpt($0, maximumCharacters: 500)
+        }
+        result.artifacts = original.artifacts.prefix(8).map {
+            boundedExcerpt($0, maximumCharacters: 300)
+        }
+        return result
+    }
+
+    private static func compactedToolArguments(_ argumentsJSON: String) -> String {
+        guard argumentsJSON.count > 1_500,
+              let data = argumentsJSON.data(using: .utf8),
+              var arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return argumentsJSON }
+
+        for key in arguments.keys {
+            if key == "content" || key == "text" || key == "body" {
+                arguments[key] = "[large payload omitted from corrective context]"
+            } else if let value = arguments[key] as? String, value.count > 1_000 {
+                arguments[key] = boundedExcerpt(value, maximumCharacters: 1_000)
+            }
+        }
+        guard let compacted = try? JSONSerialization.data(
+            withJSONObject: arguments,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ) else { return "{}" }
+        let compactedJSON = String(decoding: compacted, as: UTF8.self)
+        guard compactedJSON.count > 1_500 else { return compactedJSON }
+
+        let visibleKeys = ["path", "paths", "url", "query", "name", "cmd", "pattern"]
+        var summary: [String: Any] = [:]
+        for key in visibleKeys {
+            if let value = arguments[key] as? String {
+                summary[key] = boundedExcerpt(value, maximumCharacters: 500)
+            } else if let values = arguments[key] as? [String] {
+                summary[key] = values.prefix(8).map {
+                    boundedExcerpt($0, maximumCharacters: 200)
+                }
+            }
+        }
+        guard let summarized = try? JSONSerialization.data(
+            withJSONObject: summary,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ), summarized.count <= 1_500 else { return "{}" }
+        return String(decoding: summarized, as: UTF8.self)
+    }
+
+    private static func encodedToolFeedback(_ feedback: AgentToolFeedback) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(feedback) else { return nil }
+        return String(decoding: data, as: UTF8.self)
     }
 
     private static func pinnedRequiredInputEvidence(
@@ -280,10 +403,15 @@ enum AgentCorrectiveContext {
 
     private static func boundedExcerpt(_ text: String, maximumCharacters: Int) -> String {
         guard text.count > maximumCharacters else { return text }
-        let headCount = maximumCharacters * 2 / 3
-        let tailCount = maximumCharacters - headCount
+        let marker = "\n[...middle omitted from retained evidence...]\n"
+        guard maximumCharacters > marker.count else {
+            return String(text.prefix(maximumCharacters))
+        }
+        let availableCharacters = maximumCharacters - marker.count
+        let headCount = availableCharacters * 2 / 3
+        let tailCount = availableCharacters - headCount
         return String(text.prefix(headCount))
-            + "\n[...middle omitted from retained evidence...]\n"
+            + marker
             + String(text.suffix(tailCount))
     }
 }

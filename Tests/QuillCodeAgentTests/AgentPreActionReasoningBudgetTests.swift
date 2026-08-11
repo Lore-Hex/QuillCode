@@ -695,6 +695,57 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertLessThan(projected.messages.count, thread.messages.count)
     }
 
+    func testCorrectiveContextBoundsMandatoryRecentToolMessagesAsValidFeedback() throws {
+        func fetchedPage(index: Int) throws -> ChatMessage {
+            let feedback = AgentToolFeedback(
+                toolCall: ToolCall(
+                    name: ToolDefinition.webFetch.name,
+                    argumentsJSON: ToolArguments.json([
+                        "url": "https://example.com/result-\(index)",
+                    ])
+                ),
+                result: ToolResult(
+                    ok: true,
+                    stdout: "RESULT_\(index)\n" + String(repeating: "page evidence ", count: 12_000)
+                )
+            )
+            return ChatMessage(
+                role: .tool,
+                content: try JSONHelpers.encodePretty(feedback)
+            )
+        }
+
+        let original = ChatMessage(role: .user, content: "Build a ten-result SEO brief.")
+        let stale = (0..<8).map { index in
+            ChatMessage(role: .assistant, content: String(repeating: "stale-\(index) ", count: 2_000))
+        }
+        let recent = try (0..<4).map(fetchedPage)
+        let projected = AgentCorrectiveContext.projected(
+            ChatThread(messages: [original] + stale + recent)
+        )
+        let retainedRecent = Array(projected.messages.suffix(4))
+
+        XCTAssertEqual(retainedRecent.map(\.id), recent.map(\.id))
+        XCTAssertLessThanOrEqual(
+            retainedRecent.map(\.content.count).reduce(0, +),
+            AgentCorrectiveContext.maximumRecentMessageCharacters
+        )
+        for (index, message) in retainedRecent.enumerated() {
+            XCTAssertLessThanOrEqual(
+                message.content.count,
+                AgentCorrectiveContext.maximumRecentMessageEntryCharacters
+            )
+            let feedback = try JSONDecoder().decode(
+                AgentToolFeedback.self,
+                from: Data(message.content.utf8)
+            )
+            XCTAssertEqual(feedback.toolCall.name, ToolDefinition.webFetch.name)
+            XCTAssertTrue(feedback.toolCall.argumentsJSON.contains("result-\(index)"))
+            XCTAssertTrue(feedback.result.stdout.contains("RESULT_\(index)"))
+            XCTAssertTrue(feedback.result.stdout.contains("middle omitted"))
+        }
+    }
+
     func testCorrectiveContextPinsSuccessfulResearchOutsideRecentWindow() throws {
         func toolMessage(name: String, ok: Bool, stdout: String, url: String? = nil) throws
             -> ChatMessage {
