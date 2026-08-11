@@ -1,6 +1,14 @@
 import Foundation
 
 public struct BrowserLiveDOMSnapshot: Sendable, Hashable {
+    public static let maximumURLCharacters = 16_384
+    public static let maximumTitleCharacters = 512
+    public static let maximumVisibleTextCharacters = 12_000
+    public static let maximumOutlineCount = 48
+    public static let maximumOutlineCharacters = 512
+    public static let maximumHTMLCharacters = 512_000
+    public static let maximumViewportCharacters = 128
+
     public var finalURL: URL
     public var title: String?
     public var visibleText: String?
@@ -16,12 +24,37 @@ public struct BrowserLiveDOMSnapshot: Sendable, Hashable {
         html: String? = nil,
         viewportDescription: String? = nil
     ) {
-        self.finalURL = finalURL
-        self.title = title
-        self.visibleText = visibleText
-        self.outline = outline
-        self.html = html
-        self.viewportDescription = viewportDescription
+        self.finalURL = WorkspaceBrowserRetentionPolicy.boundedURL(finalURL)
+        self.title = title.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: Self.maximumTitleCharacters
+            )
+        }
+        self.visibleText = visibleText.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: Self.maximumVisibleTextCharacters
+            )
+        }
+        self.outline = outline.prefix(Self.maximumOutlineCount).map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: Self.maximumOutlineCharacters
+            )
+        }
+        self.html = html.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: Self.maximumHTMLCharacters
+            )
+        }
+        self.viewportDescription = viewportDescription.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: Self.maximumViewportCharacters
+            )
+        }
     }
 }
 

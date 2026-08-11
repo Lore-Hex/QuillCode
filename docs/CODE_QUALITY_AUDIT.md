@@ -17360,3 +17360,26 @@ Validation:
 - Final physical-footprint evidence: 294.68 ms launch-ready, 41.00 MiB initial, 87.92 MiB post-interaction, 89.94 MiB repeated-interaction, and 2.02 MiB repeated growth
 - `python3 scripts/grade-code-quality.py --root .` (all touched modules A+)
 - `git diff --check`
+
+## 2026-08-11 Bounded Browser Session Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ crash resilience, A+ packaged usability**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory architecture | A+ | Browser residency is bounded to 20 tabs, 128 history entries per tab, 100 comments per tab, and capped snapshot fields; oversized restores process only the retained history window instead of allocating normalized copies of every imported entry. |
+| WebKit boundary | A+ | Page-controlled URL, title, visible text, outline, HTML, and viewport payloads are capped in JavaScript before bridge transfer and normalized again in the model-owned snapshot contract. |
+| Long-session resilience | A+ | Repeated fetch and live-DOM failures replace their prior diagnostics, forward-history pruning remains valid, and rejected over-capacity session tabs cannot steal selection. |
+| Capacity UX | A+ | Native and HTML new-tab controls disable at capacity, tab creation fails without changing the active page, and concise statuses explain released history/comments or shortened comment text. |
+| Browser workflow | A+ | Packaged direct and Launch Services runs completed authenticated-form, CRM, and shared-sheet inspect/type/click/script analogues with matching rendered state. These are deterministic local analogues and do not claim external SaaS authentication coverage. |
+| Packaged performance | A+ | Three independent 100-chat launches passed: 306.25 ms median readiness, 41.09 MiB initial physical footprint, 85.97 MiB post-interaction, 88.58 MiB repeated-interaction, 2.61 MiB repeated growth, and eight repeated-interaction threads. |
+| Regression evidence | A+ | Scale tests cover retained-window index fidelity, long navigation, comment rollover, diagnostic replacement, tab capacity, external session insertion, DOM payload caps, and native/HTML parity. |
+
+Validation:
+
+- `swift test` (6,183 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live-window accessibility, browser workflows, computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 306.25 ms median launch-ready, 41.09 MiB initial, 85.97 MiB post-interaction, 88.58 MiB repeated-interaction, and 2.61 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
+- `git diff --check`

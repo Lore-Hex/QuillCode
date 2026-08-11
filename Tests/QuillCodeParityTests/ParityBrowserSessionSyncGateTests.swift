@@ -5,6 +5,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         let snapshotText = try Self.appSourceText(named: "BrowserSessionSyncSnapshot.swift")
         let updateText = try Self.appSourceText(named: "BrowserSessionUpdate.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
+        let retentionPolicyText = try Self.appSourceText(named: "WorkspaceBrowserRetentionPolicy.swift")
         let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowserSession.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
@@ -14,6 +15,7 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         let controllerText = try Self.desktopControllerSourceText()
         let snapshotTests = try Self.appTestSourceText(named: "BrowserSessionSyncSnapshotTests.swift")
         let engineTests = try Self.appTestSourceText(named: "WorkspaceBrowserEngineTests.swift")
+        let retentionTests = try Self.appTestSourceText(named: "WorkspaceBrowserRetentionTests.swift")
         let integrationTests = try Self.appTestSourceText(named: "WorkspaceBrowserIntegrationTests.swift")
 
         for expected in [
@@ -36,6 +38,18 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         Self.assertSource(updateText, excludes: "WebKit")
         Self.assertSource(updateText, excludes: "AppKit")
         Self.assertSource(engineText, contains: "static func applySessionUpdate")
+        for expected in [
+            "static let maximumTabCount = 20",
+            "static let maximumHistoryEntryCount = 128",
+            "static let maximumCommentCount = 100",
+            "static func historyByAppending",
+            "static func replacingDiagnostic"
+        ] {
+            Self.assertSource(retentionPolicyText, contains: expected)
+        }
+        Self.assertSource(engineText, contains: "state.canCreateNewTab")
+        Self.assertSource(engineText, contains: "WorkspaceBrowserRetentionPolicy.normalizedComments")
+        Self.assertSource(engineText, contains: "WorkspaceBrowserRetentionPolicy.replacingDiagnostic")
         Self.assertSource(workflowText, contains: "WorkspaceBrowserEngine.applySessionUpdate")
         Self.assertSource(browserModelText, contains: "public func applyBrowserSessionUpdate")
         for expected in [
@@ -86,6 +100,14 @@ final class ParityBrowserSessionSyncGateTests: QuillCodeParityTestCase {
         Self.assertSource(
             engineTests,
             contains: "testSessionUpdateCanCarryRenderedLiveDOMFromVisibleBrowserSession"
+        )
+        Self.assertSource(
+            retentionTests,
+            contains: "testLongNavigationRetainsNewestBoundedHistoryAndValidBackState"
+        )
+        Self.assertSource(
+            retentionTests,
+            contains: "testSessionUpdateCannotInsertTabBeyondCapacityOrStealSelection"
         )
         Self.assertSource(integrationTests, contains: "testVisibleBrowserSessionUpdateRefreshesModelAndSurface")
         Self.assertSource(integrationTests, contains: "testVisibleBrowserSessionUpdateRefreshesRenderedSnapshotInSurface")

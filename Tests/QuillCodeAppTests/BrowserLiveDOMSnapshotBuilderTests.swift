@@ -56,4 +56,43 @@ final class BrowserLiveDOMSnapshotBuilderTests: XCTestCase {
         XCTAssertEqual(snapshot.outline, ["Main landmark"])
         XCTAssertEqual(snapshot.textSnippet, "Rendered copy")
     }
+
+    func testLiveDOMCaptureBoundsPageControlledPayloadBeforeStorage() throws {
+        let oversizedURL = try XCTUnwrap(URL(string: "https://example.com/?q=" + String(
+            repeating: "u",
+            count: BrowserLiveDOMSnapshot.maximumURLCharacters + 20
+        )))
+        let capture = BrowserLiveDOMSnapshot(
+            finalURL: oversizedURL,
+            title: String(repeating: "t", count: BrowserLiveDOMSnapshot.maximumTitleCharacters + 20),
+            visibleText: String(
+                repeating: "v",
+                count: BrowserLiveDOMSnapshot.maximumVisibleTextCharacters + 20
+            ),
+            outline: (0..<(BrowserLiveDOMSnapshot.maximumOutlineCount + 5)).map { index in
+                "\(index)-" + String(
+                    repeating: "o",
+                    count: BrowserLiveDOMSnapshot.maximumOutlineCharacters + 20
+                )
+            },
+            html: String(repeating: "h", count: BrowserLiveDOMSnapshot.maximumHTMLCharacters + 20),
+            viewportDescription: String(
+                repeating: "p",
+                count: BrowserLiveDOMSnapshot.maximumViewportCharacters + 20
+            )
+        )
+
+        XCTAssertEqual(capture.finalURL.absoluteString.count, BrowserLiveDOMSnapshot.maximumURLCharacters)
+        XCTAssertEqual(capture.title?.count, BrowserLiveDOMSnapshot.maximumTitleCharacters)
+        XCTAssertEqual(capture.visibleText?.count, BrowserLiveDOMSnapshot.maximumVisibleTextCharacters)
+        XCTAssertEqual(capture.outline.count, BrowserLiveDOMSnapshot.maximumOutlineCount)
+        XCTAssertTrue(capture.outline.allSatisfy {
+            $0.count == BrowserLiveDOMSnapshot.maximumOutlineCharacters
+        })
+        XCTAssertEqual(capture.html?.count, BrowserLiveDOMSnapshot.maximumHTMLCharacters)
+        XCTAssertEqual(
+            capture.viewportDescription?.count,
+            BrowserLiveDOMSnapshot.maximumViewportCharacters
+        )
+    }
 }

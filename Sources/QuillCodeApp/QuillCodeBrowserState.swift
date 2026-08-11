@@ -33,6 +33,10 @@ public struct BrowserState: Sendable, Hashable {
         tabs.count > 1
     }
 
+    public var canCreateNewTab: Bool {
+        tabs.count < WorkspaceBrowserRetentionPolicy.maximumTabCount
+    }
+
     public init(
         isVisible: Bool = false,
         tabs: [BrowserTabState] = [],
@@ -48,7 +52,7 @@ public struct BrowserState: Sendable, Hashable {
     ) {
         self.isVisible = isVisible
         let selectedTabID = selectedTabID ?? tabs.first?.id ?? UUID()
-        self.tabs = tabs.isEmpty ? [
+        let initializedTabs = tabs.isEmpty ? [
             BrowserTabState(
                 id: selectedTabID,
                 addressDraft: addressDraft,
@@ -60,15 +64,39 @@ public struct BrowserState: Sendable, Hashable {
                 snapshot: snapshot,
                 comments: comments
             )
-        ] : tabs
-        self.selectedTabID = selectedTabID
-        self.addressDraft = addressDraft
-        self.currentURL = currentURL
-        self.history = history
-        self.historyIndex = historyIndex
-        self.title = title
-        self.status = status
-        self.snapshot = snapshot
-        self.comments = comments
+        ] : WorkspaceBrowserRetentionPolicy.normalizedTabs(
+            tabs,
+            selectedTabID: selectedTabID
+        )
+        self.tabs = initializedTabs
+        self.selectedTabID = initializedTabs.contains { $0.id == selectedTabID }
+            ? selectedTabID
+            : initializedTabs[0].id
+        self.addressDraft = WorkspaceBrowserRetentionPolicy.bounded(
+            addressDraft,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumLocationCharacters
+        )
+        self.currentURL = currentURL.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumLocationCharacters
+            )
+        }
+        let retainedHistory = WorkspaceBrowserRetentionPolicy.normalizedHistory(
+            history,
+            selectedIndex: historyIndex
+        )
+        self.history = retainedHistory.entries
+        self.historyIndex = retainedHistory.selectedIndex
+        self.title = WorkspaceBrowserRetentionPolicy.bounded(
+            title,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumTabTitleCharacters
+        )
+        self.status = WorkspaceBrowserRetentionPolicy.bounded(
+            status,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumStatusCharacters
+        )
+        self.snapshot = snapshot.map(WorkspaceBrowserRetentionPolicy.normalizedSnapshot)
+        self.comments = WorkspaceBrowserRetentionPolicy.normalizedComments(comments)
     }
 }

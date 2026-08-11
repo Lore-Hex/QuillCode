@@ -17,6 +17,22 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(capturerText, contains: "DesktopBrowserLiveDOMSnapshotExtractor.snapshot")
         Self.assertSource(extractorText, contains: "evaluateJavaScript")
         Self.assertSource(extractorText, contains: "BrowserLiveDOMSnapshot")
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumURLCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumOutlineCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumVisibleTextCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumHTMLCharacters"
+        )
         Self.assertSource(capturerText, contains: "enum DesktopBrowserLiveDOMProfile")
         Self.assertSource(capturerText, contains: "case persistent")
         Self.assertSource(capturerText, contains: "case ephemeral")

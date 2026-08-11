@@ -22,6 +22,10 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
         !addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    public var canCreateNewTab: Bool {
+        tabs.count < WorkspaceBrowserRetentionPolicy.maximumTabCount
+    }
+
     public init(
         browser: BrowserState,
         emptyTitle: String = "Open a localhost, file, or web page inside \(QuillCodeProduct.displayName).",
