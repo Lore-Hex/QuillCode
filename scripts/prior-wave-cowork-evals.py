@@ -2341,9 +2341,52 @@ def validate_task_126_real_revenue(path):
             )
         )
     cpi_values = {}
+    markdown_lines = text.splitlines()
+    for index, line in enumerate(markdown_lines[:-2]):
+        if not line.lstrip().startswith("|"):
+            continue
+        header_cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        delimiter_cells = [
+            cell.strip()
+            for cell in markdown_lines[index + 1].strip().strip("|").split("|")
+        ]
+        if len(header_cells) != len(delimiter_cells) or not all(
+            re.fullmatch(r":?-{3,}:?", cell) for cell in delimiter_cells
+        ):
+            continue
+        normalized_headers = [re.sub(r"[^a-z]+", " ", cell.casefold()).strip() for cell in header_cells]
+        year_indexes = [
+            offset for offset, header in enumerate(normalized_headers)
+            if header in {"year", "fiscal year"}
+        ]
+        basis_indexes = [
+            offset for offset, header in enumerate(normalized_headers)
+            if "cpi" in header and any(term in header for term in ("basis", "index", "benchmark"))
+        ]
+        if not year_indexes or not basis_indexes:
+            continue
+        year_index = year_indexes[0]
+        basis_index = basis_indexes[0]
+        for row_line in markdown_lines[index + 2:]:
+            if not row_line.lstrip().startswith("|"):
+                break
+            cells = [cell.strip() for cell in row_line.strip().strip("|").split("|")]
+            if len(cells) != len(header_cells):
+                break
+            year_match = re.match(r"(2023|2024|2025|2026)\b", cells[year_index])
+            value_match = re.search(r"\b[23]\d{2}\.\d{3,}\b", cells[basis_index])
+            if not year_match or not value_match:
+                continue
+            try:
+                cpi_values[int(year_match.group(1))] = Decimal(value_match.group(0))
+            except InvalidOperation:
+                continue
+
     missing_cpi_years = []
     year_matches = list(re.finditer(r"\b(2023|2024|2025|2026)\b", text))
     for year in (2023, 2024, 2025, 2026):
+        if year in cpi_values:
+            continue
         candidates = []
         for index, year_match in enumerate(year_matches):
             if int(year_match.group(1)) != year:
@@ -2418,15 +2461,21 @@ def validate_task_126_real_revenue(path):
         ]
         if re.search(r"\binflation\b[^.!?\n]{0,35}$", nearby_prefix, re.I):
             continue
+        raw_percentage = percentage_match.group(2)
+        fractional_digits = len(raw_percentage.partition(".")[2])
+        displayed_tolerance = Decimal("0.5").scaleb(-fractional_digits)
         percentage_values.append((
-            Decimal(percentage_match.group(2)),
+            Decimal(raw_percentage),
             bool(percentage_match.group(1)),
+            displayed_tolerance,
         ))
     inconsistent_percentage_values = sorted(
-        value for value, is_approximate in percentage_values
+        value for value, is_approximate, displayed_tolerance in percentage_values
         if not any(
             abs(value - expected) <= (
-                Decimal("0.5") if is_approximate else Decimal("0.02")
+                Decimal("0.5")
+                if is_approximate
+                else max(Decimal("0.02"), displayed_tolerance)
             )
             for expected in expected_growth_percentages
         )
@@ -2464,7 +2513,6 @@ def validate_task_126_real_revenue(path):
         if tied_to_partial_year and not explicitly_negated:
             mislabeled_2025_average = True
             break
-    markdown_lines = text.splitlines()
     malformed_table_headers = []
     for index, line in enumerate(markdown_lines[:-1]):
         if not line.lstrip().startswith("|"):
@@ -2510,7 +2558,11 @@ def validate_task_126_real_revenue(path):
                 text,
                 re.I,
             )
-            and re.search(r"observed[- ]month proxy|partial[- ]year proxy", text, re.I)
+            and re.search(
+                r"observed[- ]month (?:proxy|mean)|partial[- ]year proxy",
+                text,
+                re.I,
+            )
             and re.search(r"october", text, re.I)
         ),
         "2025 basis is not mislabeled": not mislabeled_2025_average,
