@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-10: project bookmark restoration begins after the first window
+
+- **Decision:** Security-scoped project bookmarks are no longer read, resolved, activated, or
+  rewritten while the desktop controller is constructing its initial surface. The yielded
+  first-window startup boundary restores them once, then configures local artifact-preview access
+  before automatic project services begin.
+- **Persistence boundary:** Bookmark reconciliation writes `UserDefaults` only when it removes an
+  obsolete or invalid record or renews a stale bookmark. A healthy launch with unchanged bookmarks,
+  including the common empty-bookmark case, performs no preferences write.
+- **Recovery boundary:** Recovery startup restores explicit project access while leaving automatic
+  workspace work paused. All normal, paused, and resumed paths share one idempotent post-window gate.
+- **Evidence:** Focused coordinator tests inject bookmark persistence and prove unchanged state has
+  zero writes. Launch lifecycle coverage proves controller construction performs no bookmark
+  resolution and repeated first-window completion restores and activates access exactly once.
+
 ## 2026-08-10: Computer Use status refresh is event-driven and task-owned
 
 - **Decision:** Workspace surface projection no longer polls Computer Use permissions or launches a

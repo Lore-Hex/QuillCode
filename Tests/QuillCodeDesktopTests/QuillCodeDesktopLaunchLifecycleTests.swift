@@ -139,6 +139,52 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
     }
 
+    func testProjectBookmarkRestoreWaitsForFirstWindowAndRunsOnceDuringRecovery() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let projectURL = fixture.root.appendingPathComponent("bookmarked-project", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectURL, withIntermediateDirectories: true)
+        let suiteName = "QuillCodeDesktopLaunchLifecycleTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let storageKey = "bookmarks"
+        defaults.set([projectURL.path: Data(projectURL.path.utf8)], forKey: storageKey)
+        let bookmarkSpy = LaunchLifecycleProjectBookmarkServiceSpy()
+        let projectAccessCoordinator = QuillCodeDesktopProjectAccessCoordinator(
+            defaults: defaults,
+            storageKey: storageKey,
+            service: bookmarkSpy.service
+        )
+        let paths = QuillCodePaths(home: fixture.root.appendingPathComponent("bookmark-state"))
+        try JSONProjectStore(fileURL: paths.projectsFile).save([
+            ProjectRef(name: "Bookmarked", path: projectURL.path)
+        ])
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        let controller = QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            automationNotifier: LaunchLifecycleNoopNotifier(),
+            projectAccessCoordinator: projectAccessCoordinator,
+            updateController: QuillCodeDesktopUpdateController(configuration: nil, installResultURL: nil),
+            installationLocationController: QuillCodeDesktopInstallationLocationController(configuration: nil),
+            startupMode: .recovery,
+            workspaceRoot: fixture.root
+        )
+
+        XCTAssertEqual(bookmarkSpy.resolvedPaths, [])
+
+        controller.completeStartupIfAllowed()
+        controller.completeStartupIfAllowed()
+
+        XCTAssertEqual(bookmarkSpy.resolvedPaths, [projectURL.path])
+        XCTAssertEqual(bookmarkSpy.startedPaths, [projectURL.path])
+        XCTAssertTrue(controller.postWindowApplicationServicesStarted)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
+    }
+
     func testRecoveryStartupCanRemainPausedAndStillBecomeReady() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -442,6 +488,31 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
     private func permissions(at url: URL) throws -> Int {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         return try XCTUnwrap(attributes[.posixPermissions] as? NSNumber).intValue & 0o777
+    }
+}
+
+@MainActor
+private final class LaunchLifecycleProjectBookmarkServiceSpy {
+    private(set) var resolvedPaths: [String] = []
+    private(set) var startedPaths: [String] = []
+
+    var service: QuillCodeDesktopProjectBookmarkService {
+        QuillCodeDesktopProjectBookmarkService(
+            makeBookmark: { Data($0.path.utf8) },
+            resolveBookmark: { [weak self] data in
+                let path = String(decoding: data, as: UTF8.self)
+                self?.resolvedPaths.append(path)
+                return QuillCodeDesktopResolvedProjectBookmark(
+                    url: URL(fileURLWithPath: path),
+                    isStale: false
+                )
+            },
+            startAccessing: { [weak self] url in
+                self?.startedPaths.append(url.path)
+                return true
+            },
+            stopAccessing: { _ in }
+        )
     }
 }
 
