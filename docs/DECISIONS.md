@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-08-11: updater success waits for first-window readiness
+
+- **Decision:** Parsing the updater or relocation launch-handshake argument remains the first normal
+  process step, but parsing performs no filesystem mutation. The desktop controller writes the
+  acknowledgement only from the same first-window-ready transition that marks launch lifecycle
+  state ready.
+- **Why:** Process entry proves only that dyld reached the executable. An app can still hang while
+  loading persistence or constructing its first SwiftUI workspace and remain alive beyond the
+  helper's stability interval. A process-entry acknowledgement could therefore discard the
+  known-good rollback bundle before the replacement was usable.
+- **Recovery behavior:** A normal launch acknowledges after post-window services are installed. A
+  recovery-mode launch keeps both the crash marker and update acknowledgement pending until the user
+  explicitly keeps background work paused or resumes it. Failed acknowledgement writes remain
+  retryable and never clear the controller's one-shot request.
+- **Evidence:** Lifecycle tests prove normal readiness creates the acknowledgement and recovery
+  startup does not create it prematurely. The packaged updater parity gate requires parsing to stay
+  mutation-free in the app entry point and requires acknowledgement to remain owned by the shared
+  ready transition. Native public updater smoke then exercises that boundary on both architectures.
+
 ## 2026-08-11: updater relaunches serialize cleanup and durable exit work
 
 - **Decision:** A foreground update cancels and joins the one-shot interrupted-update recovery task

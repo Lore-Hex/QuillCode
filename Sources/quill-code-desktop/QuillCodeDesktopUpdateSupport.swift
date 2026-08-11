@@ -1,17 +1,45 @@
 import Foundation
 
-enum QuillCodeDesktopUpdateLaunchHandshake {
+struct QuillCodeDesktopUpdateLaunchHandshake: Equatable, Sendable {
     static let argument = "--quillcode-update-handshake"
 
-    static func acknowledgeIfRequested(arguments: [String] = CommandLine.arguments) {
-        guard let index = arguments.firstIndex(of: argument),
+    private let url: URL
+    private let cacheRoot: URL
+
+    init?(arguments: [String] = CommandLine.arguments) {
+        guard let cacheRoot = try? QuillCodeDesktopUpdatePaths.cacheRoot() else {
+            return nil
+        }
+        self.init(arguments: arguments, cacheRoot: cacheRoot)
+    }
+
+    init?(arguments: [String], cacheRoot: URL) {
+        guard let index = arguments.firstIndex(of: Self.argument),
               arguments.indices.contains(index + 1)
         else {
-            return
+            return nil
         }
         let url = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL
-        guard isAllowed(url) else { return }
-        try? Data("ready\n".utf8).write(to: url, options: [.atomic, .completeFileProtection])
+        let cacheRoot = cacheRoot.standardizedFileURL
+        guard Self.isAllowed(url, cacheRoot: cacheRoot) else { return nil }
+        self.url = url
+        self.cacheRoot = cacheRoot
+    }
+
+    /// Acknowledges only after the desktop root has crossed its first-window-ready boundary.
+    /// The updater keeps the previous app available until this write and its stability wait pass.
+    @discardableResult
+    func acknowledge() -> Bool {
+        guard Self.isAllowed(url, cacheRoot: cacheRoot) else { return false }
+        do {
+            try Data("ready\n".utf8).write(
+                to: url,
+                options: [.atomic, .completeFileProtection]
+            )
+            return true
+        } catch {
+            return false
+        }
     }
 
     static func isAllowed(_ url: URL) -> Bool {
