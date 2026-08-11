@@ -268,7 +268,7 @@ final class WorkspaceProgressSurfaceTests: XCTestCase {
         XCTAssertEqual(progress, model.surface())
     }
 
-    func testAgentProgressReusesFilesystemBackedWorktreeEnvironmentProjection() throws {
+    func testAgentProgressReusesCachedWorktreeEnvironmentProjection() throws {
         let root = try makeQuillCodeTestDirectory()
         let configurationDirectory = root.appendingPathComponent(".quillcode")
         let configurationURL = configurationDirectory.appendingPathComponent("config.toml")
@@ -293,6 +293,8 @@ final class WorkspaceProgressSurfaceTests: XCTestCase {
                 XCTAssertEqual(previousBuffer.baseAddress, progressBuffer.baseAddress)
             }
         }
+        XCTAssertEqual(model.surface().worktreeEnvironments.options.map(\.title), ["Development"])
+        XCTAssertTrue(model.refreshProjectContext(projectID))
         XCTAssertEqual(model.surface().worktreeEnvironments.options.map(\.title), ["Release"])
     }
 

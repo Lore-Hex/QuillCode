@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-08-11 Cached Worktree Environment Projection
+
+Overall grade after this slice: **A+ launch isolation, A+ cache ownership, A+ stale-result safety**.
+
+- Removed synchronous `.quillcode/config.toml` reads from authoritative workspace surface builds.
+  Restored projects now publish the safe automatic setup default immediately, then receive named
+  worktree environments from the existing utility-priority project-context refresh after the first
+  window. Newly added and explicitly refreshed projects populate the same model-owned cache at once.
+- Cache entries are keyed by project identity, updated only after the project refresh generation is
+  accepted, and removed with the project. This keeps stale background scans from crossing project
+  selections while preventing slow, sleeping, or unavailable project volumes from stalling launch,
+  pane interaction, agent progress refreshes, or unrelated UI work.
+- Added integration coverage proving restored project environments load off the main actor, remain
+  stable across surface rebuilds, and change only after an explicit background refresh.
+
+Verification:
+
+- Focused cache contract: 3 tests, 0 failures; widened project/surface suites: 39 tests, 0 failures.
+- Full Swift suite: 5,862 tests, 5 skipped, 0 failures.
+- Release-mode packaged daily-driver smoke: 3/3 fresh launches within budget; 349.64 ms median
+  launch-ready, 103.38 MiB first-window RSS, 174.02 MiB settled after the first interaction sweep,
+  and 180.97 MiB after the repeated sweep (6.95 MiB repeated growth).
+- `python3 scripts/grade-code-quality.py --root .`: every module summary remains A+.
+- `git diff --check`: clean.
+
 ## 2026-08-11 Point-In-Time Environment Status Snapshots
 
 Overall grade after this slice: **A+ snapshot integrity, A+ event ordering, A+ release determinism**.

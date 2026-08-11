@@ -14,15 +14,17 @@ extension QuillCodeWorkspaceModel {
     public func addProject(path: URL, name: String? = nil) -> UUID {
         let previousLocation = currentNavigationLocation
         let standardized = path.standardizedFileURL
+        let metadata = WorkspaceProjectMetadataLoader.loadLocal(
+            from: standardized,
+            hookTrustStore: projectHookTrustStore
+        )
         let result = WorkspaceProjectEngine.upsertLocalProject(
             path: standardized,
             name: name,
-            metadata: WorkspaceProjectMetadataLoader.loadLocal(
-                from: standardized,
-                hookTrustStore: projectHookTrustStore
-            ),
+            metadata: metadata,
             projects: &root.projects
         )
+        worktreeEnvironmentSurfacesByProjectID[result.projectID] = metadata.worktreeEnvironmentSurface
         root.selectedProjectID = result.projectID
         syncTerminalSessionToSelectedProject()
         refreshFileMentionIndex()
@@ -180,6 +182,8 @@ extension QuillCodeWorkspaceModel {
                 projects: &root.projects,
                 includeLocalExtensions: true
            ) {
+            worktreeEnvironmentSurfacesByProjectID[request.projectID] =
+                metadata.worktreeEnvironmentSurface
             if selectedThread?.projectID == request.projectID {
                 let refreshedContext = workspaceThreadContext(request.projectID)
                 mutateSelectedThread { thread in
@@ -400,6 +404,7 @@ extension QuillCodeWorkspaceModel {
         }
         root.projects = projects
         root.threads = threads
+        worktreeEnvironmentSurfacesByProjectID[id] = nil
         for threadID in result.changedThreadIDs {
             guard let thread = root.threads.first(where: { $0.id == threadID }) else { continue }
             threadPersistence.save(thread)

@@ -146,6 +146,9 @@ public final class QuillCodeWorkspaceModel {
     var projectContextRefreshInFlight: WorkspaceProjectContextRefreshRequest?
     var projectContextRefreshPending: WorkspaceProjectContextRefreshRequest?
     var projectMetadataLoader: @Sendable (URL, ProjectHookTrustFileStore?) -> WorkspaceProjectMetadata
+    /// Presentation-only cache populated by the same off-main project-context scan that owns
+    /// `.quillcode/config.toml`. Authoritative surface rebuilds must never perform project I/O.
+    var worktreeEnvironmentSurfacesByProjectID: [UUID: WorkspaceWorktreeEnvironmentSurface] = [:]
     /// In-memory front buffer for per-thread composer drafts during rapid thread switches.
     /// `ChatThread.composerDraft` is the cross-launch source of truth.
     public internal(set) var threadDrafts: [UUID: String] = [:]
@@ -390,11 +393,13 @@ public final class QuillCodeWorkspaceModel {
         refreshGlobalMemories()
         refreshGlobalHookConfiguration()
         let previousResolutions = instructionDiagnosticResolutions(for: id)
-        WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
+        if let metadata = WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,
             projects: &root.projects,
             hookTrustStore: projectHookTrustStore
-        )
+        ), let id {
+            worktreeEnvironmentSurfacesByProjectID[id] = metadata.worktreeEnvironmentSurface
+        }
         let currentResolutions = instructionDiagnosticResolutions(for: id)
         if currentResolutions != previousResolutions {
             saveProjects()
