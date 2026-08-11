@@ -50,7 +50,9 @@ public extension ToolDefinition {
         early so each evidence track has fresh context, then wait and return the public worker results to the parent. \
         Each worker receives a short stable name, a precise non-overlapping role, the parent project/model/safety \
         context, and any completed prerequisite summaries. The parent must integrate, write, and verify the final \
-        deliverable. Use dependencies only when one worker genuinely needs another worker's result. Do not use this \
+        deliverable. For an exact or minimum count of researched entities, over-provision distinct candidate workers \
+        or non-overlapping ranges in the first call and use concurrent slots so blocked tracks have replacements. \
+        Use dependencies only when one worker genuinely needs another worker's result. Do not use this \
         for trivial work, tightly coupled steps, or merely to display progress.
         """,
         parametersJSON: """

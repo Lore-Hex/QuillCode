@@ -17,6 +17,45 @@ enum AgentResearchCheckpointGate {
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
     static let finalizationCorrectionLimitPerPath = 2
+    static let delegationBreadthCorrectionLimitPerPath = 2
+
+    static func delegationBreadthCorrection(
+        path: String?,
+        proposedCall: ToolCall,
+        userMessage: String,
+        hasDelegatedResearch: Bool,
+        correctionCounts: [String: Int]
+    ) -> Correction? {
+        guard proposedCall.name == ToolDefinition.subagentsRun.name,
+              !hasDelegatedResearch,
+              let path,
+              correctionCounts[path, default: 0] < delegationBreadthCorrectionLimitPerPath,
+              let requestedCount = minimumExternalResearchEntityCount(in: userMessage),
+              requestedCount >= 2,
+              let workerCount = delegatedWorkerCount(in: proposedCall)
+        else { return nil }
+
+        let requiredWorkers = min(6, max(3, requestedCount + 1))
+        guard workerCount < requiredWorkers else { return nil }
+
+        let ownership = requestedCount <= 5
+            ? "Give one worker ownership of one distinct candidate and include at least one replacement candidate beyond the requested minimum."
+            : "Partition the requested entities into non-overlapping ranges or evidence tracks that collectively cover more candidates than the requested minimum."
+        return Correction(
+            path: path,
+            prompt: """
+            This first delegated batch is under-scoped for the original request's explicit minimum \
+            of \(requestedCount) externally researched entities. It proposed \(workerCount) worker(s), \
+            which creates a single-track failure point before the deliverable is written. Resubmit \
+            host.subagents.run now with at least \(requiredWorkers) independent workers and set \
+            maxConcurrentWorkers to at least \(requiredWorkers). \(ownership) Start workers together; \
+            do not make them depend on one another. Require every worker to verify all requested \
+            fields from successful tool output, preserve exact source URLs, and return BLOCKED with \
+            usable evidence when a candidate fails so the coordinator can use a replacement. Do not \
+            write ./\(path) or return prose before this broader batch runs.
+            """
+        )
+    }
 
     static func earlyDelegationCorrection(
         path: String?,
@@ -42,7 +81,7 @@ enum AgentResearchCheckpointGate {
             path: path,
             prompt: """
             The serial pre-draft research limit for ./\(path) has been reached. Do not perform \
-            another direct search or fetch. Launch host.subagents.run now with two to four precise, \
+            another direct search or fetch. Launch host.subagents.run now with two to six precise, \
             independent, research-only workers so named entities or evidence tracks are investigated \
             in parallel. Do not assign any worker to draft, synthesize, validate, or write \
             ./\(path), and do not make one worker consume another worker's results; the coordinator \
@@ -244,6 +283,47 @@ enum AgentResearchCheckpointGate {
         return String(request.prefix(half))
             + "\n[...middle of original request omitted for bounded synthesis context...]\n"
             + String(request.suffix(half))
+    }
+
+    private static func minimumExternalResearchEntityCount(in userMessage: String) -> Int? {
+        let quantity = #"(?<count>\d+|one|two|three|four|five|six|seven|eight|nine|ten)"#
+        let modifiers = #"(?:[a-z0-9][a-z0-9.'/-]*\s+){0,8}"#
+        let entity = #"(?:configurations?|options?|candidates?|products?|vendors?|companies|organizations?|programs?|opportunities|results?|sources?|pages?|prospects?|accounts?|competitors?|tools?|platforms?)"#
+        let patterns = [
+            #"(?is)\b(?:exactly|at\s+least|no\s+fewer\s+than)\s+"#
+                + quantity + #"\s+"# + modifiers + entity + #"\b"#,
+            #"(?is)\bfirst\s+"# + quantity + #"\s+"# + modifiers + entity + #"\b"#,
+        ]
+        let fullRange = NSRange(userMessage.startIndex..., in: userMessage)
+        var counts: [Int] = []
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            for match in regex.matches(in: userMessage, range: fullRange) {
+                let range = match.range(withName: "count")
+                guard range.location != NSNotFound,
+                      let swiftRange = Range(range, in: userMessage),
+                      let count = parsedCount(String(userMessage[swiftRange]))
+                else { continue }
+                counts.append(count)
+            }
+        }
+        return counts.max()
+    }
+
+    private static func parsedCount(_ value: String) -> Int? {
+        if let numeric = Int(value) { return numeric }
+        return [
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        ][value.lowercased()]
+    }
+
+    private static func delegatedWorkerCount(in call: ToolCall) -> Int? {
+        guard let data = call.argumentsJSON.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let workers = root["workers"] as? [Any]
+        else { return nil }
+        return workers.count
     }
 
     static func repeatedDelegationCorrection(path: String) -> Correction {

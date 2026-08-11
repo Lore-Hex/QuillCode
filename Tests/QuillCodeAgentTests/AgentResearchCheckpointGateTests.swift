@@ -3,6 +3,85 @@ import QuillCodeCore
 @testable import QuillCodeAgent
 
 final class AgentResearchCheckpointGateTests: XCTestCase {
+    func testBroadensFirstDelegationForMinimumConfigurationCount() throws {
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Research qualifying laptops.",
+                "workers": [["name": "Apple", "role": "Research one Apple configuration."]],
+            ])
+        )
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.delegationBreadthCorrection(
+            path: "outputs/laptops.md",
+            proposedCall: call,
+            userMessage: "Compare at least three currently purchasable exact configurations.",
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("explicit minimum of 3"))
+        XCTAssertTrue(correction.prompt.contains("at least 4 independent workers"))
+        XCTAssertTrue(correction.prompt.contains("one replacement candidate"))
+        XCTAssertTrue(correction.prompt.contains("maxConcurrentWorkers"))
+    }
+
+    func testBroadensLargeRankContractToMaximumWorkerBreadth() throws {
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Inspect search results.",
+                "workers": [
+                    ["name": "Ranks1to5", "role": "Inspect ranks 1 through 5."],
+                    ["name": "Ranks6to10", "role": "Inspect ranks 6 through 10."],
+                ],
+            ])
+        )
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.delegationBreadthCorrection(
+            path: "outputs/seo.md",
+            proposedCall: call,
+            userMessage: "Analyze the first ten organic U.S. English results.",
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("at least 6 independent workers"))
+        XCTAssertTrue(correction.prompt.contains("non-overlapping ranges"))
+    }
+
+    func testDelegationBreadthAcceptsBroadBatchAndStopsAfterSuccess() {
+        let workers = (1...4).map { index in
+            ["name": "Candidate\(index)", "role": "Research candidate \(index)."]
+        }
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Research qualifying laptops.",
+                "workers": workers,
+            ])
+        )
+
+        XCTAssertNil(AgentResearchCheckpointGate.delegationBreadthCorrection(
+            path: "outputs/laptops.md",
+            proposedCall: call,
+            userMessage: "Compare at least three currently purchasable exact configurations.",
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+        XCTAssertNil(AgentResearchCheckpointGate.delegationBreadthCorrection(
+            path: "outputs/laptops.md",
+            proposedCall: ToolCall(
+                name: ToolDefinition.subagentsRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "objective": "Research laptops.",
+                    "workers": [["name": "Apple", "role": "Research Apple."]],
+                ])
+            ),
+            userMessage: "Compare at least three configurations.",
+            hasDelegatedResearch: true,
+            correctionCounts: [:]
+        ))
+    }
+
     func testEarlyDelegationBlocksAnotherSerialFetchBeforeDraft() throws {
         let correction = try XCTUnwrap(AgentResearchCheckpointGate.earlyDelegationCorrection(
             path: "outputs/revenue.html",

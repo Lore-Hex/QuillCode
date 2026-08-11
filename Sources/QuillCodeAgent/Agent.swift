@@ -321,6 +321,9 @@ public struct AgentRunner: Sendable {
             /// Repeated serial pre-draft browsing is redirected into one early delegated batch.
             /// This is separate from checkpointing because the worker evidence should arrive first.
             var earlyDelegationCorrectionCounts: [String: Int] = [:]
+            /// Explicit minimum-count research contracts cannot begin with one narrow worker. A
+            /// separate budget forces breadth before the first delegated batch reaches the host.
+            var delegationBreadthCorrectionCounts: [String: Int] = [:]
             /// A forced checkpoint cannot terminate the run until web work resumes and the named
             /// deliverable is rewritten. This budget is separate from checkpoint creation.
             var researchCheckpointContinuationCorrectionCounts: [String: Int] = [:]
@@ -1929,6 +1932,25 @@ public struct AgentRunner: Sendable {
                             kind: .notice,
                             summary: "Self-healing: redirected an outside-workspace shell path "
                                 + "before approval review."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    if let correction = AgentResearchCheckpointGate.delegationBreadthCorrection(
+                        path: runLoop.boundedRunFinalizationTargetPath(),
+                        proposedCall: activeCall,
+                        userMessage: userMessage,
+                        hasDelegatedResearch: runLoop.successfulDelegatedResearchBatchCount > 0,
+                        correctionCounts: delegationBreadthCorrectionCounts
+                    ) {
+                        delegationBreadthCorrectionCounts[correction.path, default: 0] += 1
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: broadened count-constrained delegation for "
+                                + "./\(correction.path) before research began."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)

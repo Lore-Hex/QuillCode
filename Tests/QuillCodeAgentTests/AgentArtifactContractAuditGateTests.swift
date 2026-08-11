@@ -778,6 +778,15 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
             in: "Report exactly ranks 1 through 10 and include at least six H2s and four links."
         ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "Compare at least three currently purchasable exact configurations under $2,000."
+        ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "In one table, give each configuration's exact model, price, CPU, and GPU."
+        ))
+        XCTAssertTrue(AgentArtifactContractAuditGate.requiresAudit(
+            in: "Do not use `not verified` or similar gaps for any central comparison field."
+        ))
         XCTAssertFalse(AgentArtifactContractAuditGate.requiresAudit(
             in: "Draft exactly three emails for each of six prospects, and include a CTA in every email."
         ))

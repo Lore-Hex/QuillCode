@@ -348,6 +348,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - When a task naturally splits into two or more substantial independent research or analysis workstreams, \
         call host.subagents.run early instead of serially consuming the parent context. Give workers precise, \
         non-overlapping roles and require concrete facts, source URLs, and any requested calculations.
+        - When the request sets an exact or minimum number of externally researched candidates, products, results, \
+        or opportunities, over-provision independent candidate tracks before writing. Use one worker per candidate \
+        when practical or non-overlapping rank ranges for larger counts, fill the available concurrent worker slots, \
+        and replace blocked candidates until the requested number has complete evidence.
         - After delegated work returns, the parent owns integration: create or update the requested artifact, verify \
         it against the original request, and continue until the deliverable is complete. Do not delegate trivial or \
         tightly coupled steps, and do not treat worker summaries as the final user response.

@@ -35,12 +35,14 @@ enum AgentArtifactContractAuditGate {
     static func requiresAudit(in userMessage: String) -> Bool {
         let patterns = [
             #"(?is)\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:rows?|records?|entries|items|sections?|slides?|sheets?|columns?|cells?|series)\b"#,
-            #"(?is)\b(?:exactly|at\s+least|at\s+most|no\s+fewer\s+than|no\s+more\s+than)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:results?|ranks?|links?|recommendations?|headings?|h[1-6]s?)\b"#,
+            #"(?is)\b(?:exactly|at\s+least|at\s+most|no\s+fewer\s+than|no\s+more\s+than)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,5}(?:results?|ranks?|links?|recommendations?|headings?|h[1-6]s?|configurations?|options?|candidates?|products?|vendors?|sources?|alternatives?|comparisons?)\b"#,
             #"(?is)\b(?:exactly\s+)?ranks?\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:through|to|-)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b"#,
             #"(?is)\bfirst\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:cells?|columns?|rows?|fields?)\b"#,
             #"(?is)\b(?:same|single)\s+<(?:tr|td|th)\b"#,
-            #"(?is)\b(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|section|slide|sheet|column|cell|series)\b.{0,120}\b(?:must|needs?\s+to|has\s+to|include|contain)\b"#,
+            #"(?is)\b(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|section|slide|sheet|column|cell|series|configuration|option|candidate|product|vendor|source|alternative|comparison)\b.{0,120}\b(?:must|needs?\s+to|has\s+to|include|contain)\b"#,
+            #"(?is)\b(?:give|report|list|provide|include)\s+(?:each|every)\s+(?:[\w-]+\s+){0,3}(?:row|record|entry|item|configuration|option|candidate|product|vendor|source|alternative)(?:'s)?\b"#,
             #"(?is)\b(?:restate|convert|calculate|compute|reconcile|transform)\s+(?:each|every)\s+(?:[\w-]+\s+){0,4}(?:rows?|records?|entries?|items?)\b"#,
+            #"(?is)\bdo\s+not\s+use\b.{0,160}\b(?:central|required|comparison)\s+(?:[\w-]+\s+){0,2}fields?\b"#,
             #"(?is)\b(?:deterministic|programmatic|machine[- ]checkable)\s+(?:post[- ]write\s+)?(?:validator|validation|audit)\b"#,
         ]
         let range = NSRange(userMessage.startIndex..., in: userMessage)
