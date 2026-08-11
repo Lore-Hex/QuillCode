@@ -213,6 +213,21 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("native web search and fetch tools", prompt)
         self.assertIn("live public sources", prompt)
 
+    def test_newsletter_fixture_contains_actual_release_notes(self):
+        row = self.rows[128]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            release_notes = (
+                workspace / "inputs" / "release-notes-july.md"
+            ).read_text(encoding="utf-8")
+
+        self.assertIn("Shared views generally available", release_notes)
+        self.assertIn("Resumable export jobs", release_notes)
+        self.assertIn("Role templates", release_notes)
+        self.assertIn("Audit-log streaming", release_notes)
+        self.assertNotIn("Northwind Logistics", release_notes)
+
     def test_fixture_materializes_referenced_rich_documents_and_source_map(self):
         row = self.rows[142]
         with tempfile.TemporaryDirectory() as temporary:

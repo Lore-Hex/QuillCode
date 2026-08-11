@@ -952,6 +952,36 @@ all provisions other than the mileage rate, meal cap, policy version, and effect
 date when issuing the requested update.
 """
 
+    if row["id"] == 129 and reference == "release-notes-july.md":
+        return """# Atlas Labs July 2026 Release Notes
+
+Release owner: Jo Chen, VP Product
+Release window: 2026-07-01 through 2026-07-31
+
+## Shared views generally available - 2026-07-09
+Teams can save filtered table views, share them with workspace members, and designate
+one shared view as the workspace default. Existing private saved views remain private.
+
+## Resumable export jobs - 2026-07-15
+CSV and XLSX exports larger than 100,000 rows now resume from the last completed batch
+after a transient failure. The export center shows progress, retry state, and expiry.
+
+## Role templates - 2026-07-22
+Enterprise administrators can create reusable permission templates and apply them to
+multiple workspace members. Applying a template never removes an existing explicit
+permission without a separate confirmation.
+
+## Audit-log streaming - 2026-07-29
+Enterprise workspaces can stream signed audit events to Amazon S3 or a generic HTTPS
+endpoint. Delivery retries for 24 hours, and administrators can download failed-event
+metadata from the audit settings page.
+
+## Customer-facing caveats
+- Shared views and resumable exports are available on Growth and Enterprise plans.
+- Role templates and audit-log streaming are Enterprise-only.
+- Audit-log streaming is rolling out by region through 2026-08-14.
+"""
+
     if row["id"] == 152:
         return """# Series A Preferred Stock Term Sheet
 Company: Atlas Labs, Inc.
