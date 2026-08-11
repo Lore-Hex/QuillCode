@@ -1463,6 +1463,12 @@ def source_references(task):
     references = []
     for match in matches:
         clean = match.rstrip(".,:;").replace("~/", "").lstrip("/")
+        if re.search(
+            r"(?:^|[_-])(?:lastname|firstname|role|yyyy)(?:[_-]|\.|$)",
+            clean,
+            re.I,
+        ):
+            continue
         if clean and clean not in references:
             references.append(clean)
     return references

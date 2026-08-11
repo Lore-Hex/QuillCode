@@ -975,6 +975,9 @@ Cumulative 2023 to 2025 growth: nominal 42.9%; real 35.2%.
             ["Board/July/deck.pptx", "budget.xlsx", "notes/source.md"],
         )
 
+    def test_source_reference_extraction_ignores_output_filename_templates(self):
+        self.assertEqual(PRIOR.source_references(self.rows[144]["task"]), [])
+
     def test_confidential_grade_requires_real_confidential_route(self):
         row = self.rows[142]
         with tempfile.TemporaryDirectory() as temporary:
