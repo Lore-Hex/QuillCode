@@ -1467,6 +1467,9 @@ def main():
             results.append(result)
             state = "PASS" if result["passed"] else "FAIL"
             print(f"[{state}] {result['id']} ({result['durationMilliseconds']} ms)", flush=True)
+            # A long batch must not lose earlier native evidence if a later case is
+            # interrupted or the app exits unexpectedly.
+            write_summary(root, list(results))
     summary = write_summary(root, results)
     leaked = []
     secret_bytes = key.encode("utf-8")

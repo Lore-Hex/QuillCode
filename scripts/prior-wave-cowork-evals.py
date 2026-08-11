@@ -4107,6 +4107,9 @@ def run_cases_serially(binary, rows, root, key, timeout, keep_homes):
         results.append(result)
         status = "PASS" if result["passed"] else "FAIL"
         print(f"[{len(results)}/{len(rows)}] task {case_id}: {status}", flush=True)
+        # Keep completed native evidence durable when a later long-running case is
+        # interrupted or the app exits unexpectedly.
+        write_summary(root, list(results))
     return results
 
 

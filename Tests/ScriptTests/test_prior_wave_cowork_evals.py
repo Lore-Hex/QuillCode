@@ -154,6 +154,29 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
         self.assertEqual(run_case.call_count, 1)
 
+    def test_serial_runner_checkpoints_after_each_completed_case(self):
+        results = [
+            {"id": 1, "passed": True},
+            {"id": 2, "passed": False},
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with mock.patch.object(PRIOR, "run_case", side_effect=results):
+                with mock.patch.object(PRIOR, "write_summary") as write_summary:
+                    returned = PRIOR.run_cases_serially(
+                        Path("/tmp/quill-cowork"),
+                        self.rows[:2],
+                        root,
+                        "test-key",
+                        900,
+                        False,
+                    )
+
+        self.assertEqual(returned, results)
+        self.assertEqual(write_summary.call_count, 2)
+        self.assertEqual(write_summary.call_args_list[0].args, (root, [results[0]]))
+        self.assertEqual(write_summary.call_args_list[1].args, (root, results))
+
     def test_prompts_preserve_original_task_and_require_native_evidence(self):
         for task_id in (1, 69, 111, 143, 148, 192, 207):
             row = self.rows[task_id - 1]
