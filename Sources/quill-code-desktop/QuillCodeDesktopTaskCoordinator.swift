@@ -9,6 +9,7 @@ final class QuillCodeDesktopTaskCoordinator {
         case terminal
         case browserPreview
         case computerUseBackendResolution
+        case computerUseStatusRefresh
         case computerUseForegroundRefresh
         case automationTicker
         case modelCatalogRefresh

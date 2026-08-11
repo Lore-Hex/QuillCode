@@ -359,8 +359,15 @@ public final class QuillCodeWorkspaceModel {
         changedFilePathsProjectID == root.selectedProjectID ? changedFilePaths : []
     }
 
-    public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
+    /// Installs the executable backend without synchronously querying operating-system permission
+    /// state. Desktop startup uses this boundary so TCC and screen-capture preflights can run in its
+    /// cancellable post-window refresh task while Computer Use actions are available immediately.
+    public func installComputerUseBackend(_ backend: any ComputerUseBackend) {
         computerUseBackend = backend
+    }
+
+    public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
+        installComputerUseBackend(backend)
         setComputerUseStatus(backend.status)
     }
 

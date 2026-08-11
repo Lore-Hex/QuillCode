@@ -5,6 +5,7 @@ import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeTools
+import QuillComputerUseKit
 @testable import quill_code_desktop
 
 @MainActor
@@ -137,6 +138,37 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         XCTAssertTrue(controller.automaticWorkspaceServicesStarted)
         XCTAssertTrue(controller.tasks.isRunning(.automationTicker))
         XCTAssertEqual(try fixture.store.currentRecord()?.phase, .ready)
+    }
+
+    func testRecoveryStartupRefreshesComputerUseStatusAfterWindowWhileBackgroundWorkStaysPaused() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let lifecycle = makeLifecycle(fixture: fixture, processIdentifier: 13_101)
+        XCTAssertNil(lifecycle.startIfNeeded())
+        let controller = makeController(
+            fixture: fixture,
+            lifecycle: lifecycle,
+            startupMode: .recovery,
+            computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator(
+                backend: StubComputerUseBackend()
+            )
+        )
+        defer {
+            controller.tasks.cancelAll()
+            lifecycle.finishCurrentLaunch()
+        }
+
+        XCTAssertFalse(controller.model.root.topBar.computerUseStatus.available)
+        controller.completeStartupIfAllowed()
+
+        for _ in 0..<100 where !controller.model.root.topBar.computerUseStatus.available {
+            await Task.yield()
+        }
+        XCTAssertTrue(controller.model.root.topBar.computerUseStatus.available)
+        XCTAssertTrue(controller.automaticWorkspaceServicesArePaused)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
+        XCTAssertFalse(controller.tasks.isRunning(.computerUseForegroundRefresh))
+        XCTAssertEqual(try fixture.store.currentRecord()?.phase, .starting)
     }
 
     func testProjectBookmarkRestoreWaitsForFirstWindowAndRunsOnceDuringRecovery() throws {
@@ -464,7 +496,9 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
     private func makeController(
         fixture: Fixture,
         lifecycle: QuillCodeDesktopLaunchLifecycleController,
-        startupMode: QuillCodeDesktopStartupMode
+        startupMode: QuillCodeDesktopStartupMode,
+        computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator =
+            QuillCodeDesktopComputerUseCoordinator()
     ) -> QuillCodeDesktopController {
         let paths = QuillCodePaths(home: fixture.root.appendingPathComponent("state"))
         let runtimeFactory = QuillCodeRuntimeFactory(
@@ -473,6 +507,7 @@ final class QuillCodeDesktopLaunchLifecycleTests: XCTestCase {
         )
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            computerUseCoordinator: computerUseCoordinator,
             browserLiveDOMCapturer: nil,
             automationNotifier: LaunchLifecycleNoopNotifier(),
             updateController: QuillCodeDesktopUpdateController(configuration: nil, installResultURL: nil),

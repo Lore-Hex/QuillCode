@@ -77,20 +77,23 @@ extension QuillCodeDesktopController {
                 .map { URL(fileURLWithPath: $0.path) },
             readableProjectRoots: projectAccessCoordinator.activeProjectURLs
         )
+        scheduleComputerUseStatusRefresh()
     }
 
     private func startAutomaticWorkspaceServices() {
         model.startAutomaticStartupWork()
         computerUseCoordinator.startApplicationActivationObservation { [weak self] in
             self?.scheduleComputerUseStatusRefresh()
+            self?.scheduleComputerUseForegroundApplicationRefresh()
         }
-        scheduleComputerUseStatusRefresh()
+        scheduleComputerUseForegroundApplicationRefresh()
         let cuaCoordinator = computerUseCoordinator
         let cuaModel = model
-        tasks.replace(.computerUseBackendResolution) {
-            await cuaCoordinator.resolvePreferredBackend(on: cuaModel)
-        } onFinish: { [weak self] in
+        tasks.replace(.computerUseBackendResolution) { [weak self] in
+            guard await cuaCoordinator.resolvePreferredBackend(on: cuaModel) else { return }
+            guard !Task.isCancelled else { return }
             self?.scheduleComputerUseStatusRefresh()
+            self?.scheduleComputerUseForegroundApplicationRefresh()
         }
         model.scheduleSelectedProjectContextRefresh()
         // Bootstrap may finish a very small scan before its callback is installed. Starting one
