@@ -1,7 +1,11 @@
+import Foundation
+import QuillCodeApp
+
 @MainActor
 struct QuillCodeDesktopStartupState {
     private(set) var automaticWorkspaceServicesArePaused: Bool
     private(set) var automaticWorkspaceServicesStarted = false
+    private(set) var postWindowApplicationServicesStarted = false
 
     init(mode: QuillCodeDesktopStartupMode) {
         self.automaticWorkspaceServicesArePaused = mode.pausesAutomaticWorkspaceServices
@@ -14,6 +18,12 @@ struct QuillCodeDesktopStartupState {
         return true
     }
 
+    mutating func startPostWindowApplicationServicesIfNeeded() -> Bool {
+        guard !postWindowApplicationServicesStarted else { return false }
+        postWindowApplicationServicesStarted = true
+        return true
+    }
+
     mutating func resumeAutomaticWorkspaceServices() -> Bool {
         automaticWorkspaceServicesArePaused = false
         return startAutomaticWorkspaceServicesIfAllowed()
@@ -22,6 +32,10 @@ struct QuillCodeDesktopStartupState {
 
 @MainActor
 extension QuillCodeDesktopController {
+    var postWindowApplicationServicesStarted: Bool {
+        automaticStartupState.postWindowApplicationServicesStarted
+    }
+
     var automaticWorkspaceServicesArePaused: Bool {
         automaticStartupState.automaticWorkspaceServicesArePaused
     }
@@ -33,6 +47,7 @@ extension QuillCodeDesktopController {
     /// Crosses the first-window startup boundary. A recovery launch remains in the `.starting`
     /// phase until the user either keeps automatic work paused or deliberately resumes it.
     func completeStartupIfAllowed() {
+        startPostWindowApplicationServicesIfNeeded()
         guard !automaticWorkspaceServicesArePaused else { return }
         if automaticStartupState.startAutomaticWorkspaceServicesIfAllowed() {
             startAutomaticWorkspaceServices()
@@ -41,14 +56,27 @@ extension QuillCodeDesktopController {
     }
 
     func continueWithAutomaticWorkspaceServicesPaused() {
+        startPostWindowApplicationServicesIfNeeded()
         launchLifecycleController?.markReady()
     }
 
     func resumeAutomaticWorkspaceServices() {
+        startPostWindowApplicationServicesIfNeeded()
         if automaticStartupState.resumeAutomaticWorkspaceServices() {
             startAutomaticWorkspaceServices()
         }
         launchLifecycleController?.markReady()
+    }
+
+    private func startPostWindowApplicationServicesIfNeeded() {
+        guard automaticStartupState.startPostWindowApplicationServicesIfNeeded() else { return }
+        projectAccessCoordinator.restoreAccess(for: model.root.projects)
+        ToolArtifactLocalPreviewAccess.configure(
+            projectRoots: model.root.projects
+                .filter { !$0.isRemote }
+                .map { URL(fileURLWithPath: $0.path) },
+            readableProjectRoots: projectAccessCoordinator.activeProjectURLs
+        )
     }
 
     private func startAutomaticWorkspaceServices() {
