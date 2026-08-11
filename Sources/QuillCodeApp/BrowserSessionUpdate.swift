@@ -15,8 +15,11 @@ public struct BrowserSessionTabUpdate: Sendable, Hashable, Identifiable {
         liveDOMSnapshot: BrowserLiveDOMSnapshot? = nil
     ) {
         self.id = id
-        self.title = title
-        self.url = url
+        self.title = WorkspaceBrowserRetentionPolicy.bounded(
+            title,
+            maximumCharacters: BrowserLiveDOMSnapshot.maximumTitleCharacters
+        )
+        self.url = WorkspaceBrowserRetentionPolicy.boundedURL(url)
         self.isActive = isActive
         self.liveDOMSnapshot = liveDOMSnapshot
     }

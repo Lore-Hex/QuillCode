@@ -16,11 +16,30 @@ public struct BrowserSnapshotState: Sendable, Hashable {
         outline: [String] = [],
         textSnippet: String? = nil
     ) {
-        self.sourceLabel = sourceLabel
+        self.sourceLabel = WorkspaceBrowserRetentionPolicy.bounded(
+            sourceLabel,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumSnapshotLabelCharacters
+        )
         self.inspectionDepth = inspectionDepth
-        self.summary = summary
-        self.details = details
-        self.outline = outline
-        self.textSnippet = textSnippet
+        self.summary = WorkspaceBrowserRetentionPolicy.bounded(
+            summary,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumSnapshotSummaryCharacters
+        )
+        self.details = WorkspaceBrowserRetentionPolicy.boundedLines(
+            details,
+            maximumCount: WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCount,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCharacters
+        )
+        self.outline = WorkspaceBrowserRetentionPolicy.boundedLines(
+            outline,
+            maximumCount: WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCount,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCharacters
+        )
+        self.textSnippet = textSnippet.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumSnapshotTextCharacters
+            )
+        }
     }
 }

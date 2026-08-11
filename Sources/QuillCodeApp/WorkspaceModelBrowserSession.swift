@@ -20,7 +20,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    public func newBrowserTab() -> UUID {
+    public func newBrowserTab() -> UUID? {
         let tabID = mutateBrowserState { browser, _ in
             WorkspaceBrowserWorkflow.newTab(browser: &browser)
         }

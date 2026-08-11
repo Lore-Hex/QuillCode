@@ -47,8 +47,8 @@ enum DesktopBrowserLiveDOMSnapshotExtractor {
       const limit = (value, max) => value.length > max ? value.slice(0, max) : value;
       const outline = [];
       const push = (label) => {
-        const text = compact(label);
-        if (text && outline.length < 48) outline.push(text);
+        const text = limit(compact(label), \#(BrowserLiveDOMSnapshot.maximumOutlineCharacters));
+        if (text && outline.length < \#(BrowserLiveDOMSnapshot.maximumOutlineCount)) outline.push(text);
       };
 
       document.querySelectorAll('h1,h2,h3,h4,h5,h6,a,button,input,textarea,select,form,img').forEach((element) => {
@@ -70,12 +70,18 @@ enum DesktopBrowserLiveDOMSnapshotExtractor {
 
       const html = document.documentElement ? document.documentElement.outerHTML : '';
       return JSON.stringify({
-        url: location.href,
-        title: document.title || '',
-        text: limit(compact(document.body ? document.body.innerText : ''), 12000),
+        url: limit(location.href, \#(BrowserLiveDOMSnapshot.maximumURLCharacters)),
+        title: limit(compact(document.title), \#(BrowserLiveDOMSnapshot.maximumTitleCharacters)),
+        text: limit(
+          compact(document.body ? document.body.innerText : ''),
+          \#(BrowserLiveDOMSnapshot.maximumVisibleTextCharacters)
+        ),
         outline: outline,
-        html: limit(html, 512000),
-        viewport: `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio || 1}x`
+        html: limit(html, \#(BrowserLiveDOMSnapshot.maximumHTMLCharacters)),
+        viewport: limit(
+          `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio || 1}x`,
+          \#(BrowserLiveDOMSnapshot.maximumViewportCharacters)
+        )
       });
     })()
     """#

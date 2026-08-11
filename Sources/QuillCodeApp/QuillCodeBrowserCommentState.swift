@@ -8,8 +8,14 @@ public struct BrowserCommentState: Sendable, Hashable, Identifiable {
 
     public init(id: UUID = UUID(), url: String, text: String, createdAt: Date = Date()) {
         self.id = id
-        self.url = url
-        self.text = text
+        self.url = WorkspaceBrowserRetentionPolicy.bounded(
+            url,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumLocationCharacters
+        )
+        self.text = WorkspaceBrowserRetentionPolicy.bounded(
+            text,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumCommentCharacters
+        )
         self.createdAt = createdAt
     }
 }

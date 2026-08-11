@@ -10,8 +10,8 @@ final class BrowserSessionSyncSnapshotTests: XCTestCase {
             state: &browser,
             updateHistory: true
         )
-        let emptyTabID = WorkspaceBrowserEngine.newTab(state: &browser)
-        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        let emptyTabID = try XCTUnwrap(WorkspaceBrowserEngine.newTab(state: &browser))
+        let secondTabID = try XCTUnwrap(WorkspaceBrowserEngine.newTab(state: &browser))
         WorkspaceBrowserEngine.openPage(
             try XCTUnwrap(URL(string: "http://localhost:5173/dashboard")),
             state: &browser,

@@ -8,8 +8,11 @@ public struct BrowserSessionTabSnapshot: Sendable, Hashable, Identifiable {
 
     public init(id: UUID, title: String, url: URL, isActive: Bool) {
         self.id = id
-        self.title = title
-        self.url = url
+        self.title = WorkspaceBrowserRetentionPolicy.bounded(
+            title,
+            maximumCharacters: BrowserLiveDOMSnapshot.maximumTitleCharacters
+        )
+        self.url = WorkspaceBrowserRetentionPolicy.boundedURL(url)
         self.isActive = isActive
     }
 }

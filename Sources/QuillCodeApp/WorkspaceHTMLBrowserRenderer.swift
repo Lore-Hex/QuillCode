@@ -87,7 +87,8 @@ enum WorkspaceHTMLBrowserRenderer {
               commandID: "browser-tab-new",
               hitTargetKind: .icon,
               classes: ["browser-tab-action"],
-              ariaLabel: "New browser tab"
+              ariaLabel: "New browser tab",
+              disabled: !browser.canCreateNewTab
           ))
           \(WorkspaceHTMLPrimitives.commandButton(
               "×",

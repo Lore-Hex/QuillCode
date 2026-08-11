@@ -33,13 +33,31 @@ public struct BrowserTabState: Sendable, Hashable, Identifiable {
         comments: [BrowserCommentState] = []
     ) {
         self.id = id
-        self.addressDraft = addressDraft
-        self.currentURL = currentURL
-        self.history = history
-        self.historyIndex = historyIndex
-        self.title = title
-        self.status = status
-        self.snapshot = snapshot
-        self.comments = comments
+        self.addressDraft = WorkspaceBrowserRetentionPolicy.bounded(
+            addressDraft,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumLocationCharacters
+        )
+        self.currentURL = currentURL.map {
+            WorkspaceBrowserRetentionPolicy.bounded(
+                $0,
+                maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumLocationCharacters
+            )
+        }
+        let retainedHistory = WorkspaceBrowserRetentionPolicy.normalizedHistory(
+            history,
+            selectedIndex: historyIndex
+        )
+        self.history = retainedHistory.entries
+        self.historyIndex = retainedHistory.selectedIndex
+        self.title = WorkspaceBrowserRetentionPolicy.bounded(
+            title,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumTabTitleCharacters
+        )
+        self.status = WorkspaceBrowserRetentionPolicy.bounded(
+            status,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumStatusCharacters
+        )
+        self.snapshot = snapshot.map(WorkspaceBrowserRetentionPolicy.normalizedSnapshot)
+        self.comments = WorkspaceBrowserRetentionPolicy.normalizedComments(comments)
     }
 }

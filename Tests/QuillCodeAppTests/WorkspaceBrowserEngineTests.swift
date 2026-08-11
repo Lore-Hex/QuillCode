@@ -121,7 +121,7 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         var browser = BrowserState()
         let firstTabID = browser.selectedTabID
         WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com/docs")), state: &browser, updateHistory: true)
-        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        let secondTabID = try XCTUnwrap(WorkspaceBrowserEngine.newTab(state: &browser))
         WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://trustedrouter.com")), state: &browser, updateHistory: true)
 
         let update = BrowserSessionUpdate(
@@ -249,7 +249,7 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertTrue(WorkspaceBrowserEngine.addComment("First tab note", state: &browser))
         let firstTabID = browser.selectedTabID
 
-        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        let secondTabID = try XCTUnwrap(WorkspaceBrowserEngine.newTab(state: &browser))
         XCTAssertEqual(browser.selectedTabID, secondTabID)
         XCTAssertNil(browser.currentURL)
         XCTAssertEqual(browser.status, "New tab")
@@ -273,7 +273,7 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         var browser = BrowserState()
         let firstTabID = browser.selectedTabID
         WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com")), state: &browser, updateHistory: true)
-        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        let secondTabID = try XCTUnwrap(WorkspaceBrowserEngine.newTab(state: &browser))
         WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://trustedrouter.com")), state: &browser, updateHistory: true)
 
         XCTAssertTrue(WorkspaceBrowserEngine.closeTab(id: secondTabID, state: &browser))
@@ -283,4 +283,5 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertFalse(WorkspaceBrowserEngine.closeTab(id: firstTabID, state: &browser))
         XCTAssertEqual(browser.tabs.count, 1)
     }
+
 }
