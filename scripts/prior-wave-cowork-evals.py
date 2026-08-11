@@ -1401,7 +1401,9 @@ automation is visible in Quill Cowork's persisted automation state.
             "draft copy. Do not claim that pricing, documentation, demos, slots, sandboxes, "
             "references, or timelines have already been prepared, reserved, confirmed, or "
             "provisioned unless a supplied source says so. Do not promise unsupported turnaround "
-            "times. Omit unrelated company finance and operating context. "
+            "times. Do not add defensive statements that those items are not prepared; instead, "
+            "use neutral conditional language to ask for context or offer an appropriate next "
+            "step. Omit unrelated company finance and operating context. "
         )
     elif row["id"] == 121:
         task_specific_instruction = (

@@ -288,6 +288,8 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not provide reusable templates", prompt)
         self.assertIn("Treat every email as draft copy", prompt)
         self.assertIn("Do not promise unsupported turnaround times", prompt)
+        self.assertIn("Do not add defensive statements that those items are not prepared", prompt)
+        self.assertIn("use neutral conditional language", prompt)
         self.assertIn("Omit unrelated company finance and operating context", prompt)
 
     def test_prompt_keeps_completion_details_scoped_to_the_original_task(self):
