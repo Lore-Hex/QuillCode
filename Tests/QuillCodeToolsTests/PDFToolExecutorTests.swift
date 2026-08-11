@@ -1,12 +1,16 @@
+import Foundation
+import XCTest
+import QuillCodeCore
+@testable import QuillCodeTools
+#if canImport(AppKit) && canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
 import AppKit
 import CoreGraphics
 import CoreText
 import PDFKit
-import XCTest
-import QuillCodeCore
-@testable import QuillCodeTools
+#endif
 
 final class PDFToolExecutorTests: XCTestCase {
+    #if canImport(AppKit) && canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
     func testMergeCreatesOrderedPagesContentsAndBookmarks() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -96,4 +100,17 @@ final class PDFToolExecutorTests: XCTestCase {
         context.endPDFPage()
         context.closePDF()
     }
+    #else
+    func testUnavailableMergerIsNotPublished() throws {
+        XCTAssertFalse(PDFToolExecutor.isAvailable)
+        XCTAssertFalse(ToolRouter.definitions.map(\.name).contains(ToolDefinition.pdfMerge.name))
+
+        let result = PDFToolExecutor(workspaceRoot: FileManager.default.temporaryDirectory).merge(
+            inputs: ["source.pdf"],
+            output: "merged.pdf"
+        )
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "PDF merging is unavailable on this platform.")
+    }
+    #endif
 }

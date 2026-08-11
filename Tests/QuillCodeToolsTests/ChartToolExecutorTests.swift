@@ -1,8 +1,11 @@
-import CoreGraphics
-import ImageIO
+import Foundation
 import XCTest
 import QuillCodeCore
 @testable import QuillCodeTools
+#if canImport(CoreGraphics) && canImport(ImageIO)
+import CoreGraphics
+import ImageIO
+#endif
 
 final class ChartToolExecutorTests: XCTestCase {
     func testDefinitionHasValidJSONObjectSchema() throws {
@@ -13,6 +16,7 @@ final class ChartToolExecutorTests: XCTestCase {
         XCTAssertNotNil((object["properties"] as? [String: Any])?["path"])
     }
 
+    #if canImport(CoreGraphics) && canImport(ImageIO)
     func testRouterRendersAndReadsBackVerifiedPNG() throws {
         let root = try makeTempDirectory()
         let router = ToolRouter(workspaceRoot: root)
@@ -106,4 +110,18 @@ final class ChartToolExecutorTests: XCTestCase {
         XCTAssertTrue(allowed.ok, allowed.error ?? "")
         XCTAssertEqual(Array(try Data(contentsOf: target).prefix(4)), [0x89, 0x50, 0x4E, 0x47])
     }
+    #else
+    func testUnavailableRendererIsNotPublished() throws {
+        XCTAssertFalse(ChartToolExecutor.isAvailable)
+        XCTAssertFalse(ToolRouter.definitions.map(\.name).contains(ToolDefinition.chartRender.name))
+
+        let result = ChartToolExecutor(workspaceRoot: FileManager.default.temporaryDirectory).render(
+            path: "chart.png",
+            categories: ["Q1"],
+            series: ["East": "10"]
+        )
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "PNG chart rendering is unavailable on this platform.")
+    }
+    #endif
 }

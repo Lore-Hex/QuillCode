@@ -59,8 +59,8 @@ public struct ToolRouter: Sendable {
         .fileList,
         .fileSearch,
         .fileWrite,
-        .chartRender,
-        .pdfMerge,
+    ] + (ChartToolExecutor.isAvailable ? [ToolDefinition.chartRender] : [])
+        + (PDFToolExecutor.isAvailable ? [ToolDefinition.pdfMerge] : []) + [
         .applyPatch,
         .webFetch,
         .webSearch,

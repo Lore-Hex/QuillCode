@@ -1,11 +1,21 @@
+import Foundation
+import QuillCodeCore
+#if canImport(CoreGraphics) && canImport(CoreText) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
 import CoreGraphics
 import CoreText
-import Foundation
 import ImageIO
-import QuillCodeCore
 import UniformTypeIdentifiers
+#endif
 
 public struct ChartToolExecutor: @unchecked Sendable {
+    public static var isAvailable: Bool {
+        #if canImport(CoreGraphics) && canImport(CoreText) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
+        true
+        #else
+        false
+        #endif
+    }
+
     public var workspaceRoot: URL
     public let accessScope: HostToolAccessScope
     public var editGuard: FileEditSessionGuard?
@@ -37,6 +47,7 @@ public struct ChartToolExecutor: @unchecked Sendable {
         width: Int? = nil,
         height: Int? = nil
     ) -> ToolResult {
+        #if canImport(CoreGraphics) && canImport(CoreText) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
         do {
             let specification = try ChartSpecification(
                 title: title,
@@ -91,9 +102,16 @@ public struct ChartToolExecutor: @unchecked Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+        #else
+        return ToolResult(
+            ok: false,
+            error: "PNG chart rendering is unavailable on this platform."
+        )
+        #endif
     }
 }
 
+#if canImport(CoreGraphics) && canImport(CoreText) && canImport(ImageIO) && canImport(UniformTypeIdentifiers)
 private struct ChartSpecification {
     struct Series {
         var name: String
@@ -482,3 +500,4 @@ private enum ChartToolError: Error, CustomStringConvertible {
         }
     }
 }
+#endif

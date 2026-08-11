@@ -1,5 +1,10 @@
 import Foundation
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+#if canImport(PDFKit)
 import PDFKit
+#endif
 
 enum RichDocumentTextExtractor {
     private static let maximumArchiveOutputBytes = 8 * 1_024 * 1_024
@@ -28,6 +33,7 @@ enum RichDocumentTextExtractor {
     }
 
     private static func extractPDF(from url: URL) -> String? {
+        #if canImport(PDFKit)
         guard let document = PDFDocument(url: url), document.pageCount > 0 else { return nil }
         let sections = (0..<document.pageCount).compactMap { index -> String? in
             guard let text = document.page(at: index)?.string?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -36,6 +42,9 @@ enum RichDocumentTextExtractor {
             return "## Page \(index + 1)\n\(text)"
         }
         return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
+        #else
+        return nil
+        #endif
     }
 
     private static func extractOfficeXML(

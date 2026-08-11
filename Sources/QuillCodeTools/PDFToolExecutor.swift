@@ -1,10 +1,20 @@
+import Foundation
+import QuillCodeCore
+#if canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
 import CoreGraphics
 import CoreText
-import Foundation
 import PDFKit
-import QuillCodeCore
+#endif
 
 public struct PDFToolExecutor: @unchecked Sendable {
+    public static var isAvailable: Bool {
+        #if canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
+        true
+        #else
+        false
+        #endif
+    }
+
     public var workspaceRoot: URL
     public let accessScope: HostToolAccessScope
     public var editGuard: FileEditSessionGuard?
@@ -30,6 +40,7 @@ public struct PDFToolExecutor: @unchecked Sendable {
         title: String? = nil,
         includeTableOfContents: Bool = true
     ) -> ToolResult {
+        #if canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
         do {
             guard !inputs.isEmpty else {
                 return ToolResult(ok: false, error: "PDF merge requires at least one input path.")
@@ -88,8 +99,15 @@ public struct PDFToolExecutor: @unchecked Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+        #else
+        return ToolResult(
+            ok: false,
+            error: "PDF merging is unavailable on this platform."
+        )
+        #endif
     }
 
+    #if canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
     private func performMerge(
         inputURLs: [URL],
         outputURL: URL,
@@ -211,8 +229,10 @@ public struct PDFToolExecutor: @unchecked Sendable {
         context.closePDF()
         return PDFDocument(data: data as Data)?.page(at: 0)
     }
+    #endif
 }
 
+#if canImport(CoreGraphics) && canImport(CoreText) && canImport(PDFKit)
 private struct MergeResult {
     var pageCount: Int
 }
@@ -232,3 +252,4 @@ private enum PDFToolError: Error, CustomStringConvertible {
         }
     }
 }
+#endif
