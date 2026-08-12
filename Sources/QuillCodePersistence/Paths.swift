@@ -103,7 +103,7 @@ public struct QuillCodePaths: Sendable, Hashable {
         try PrivateDirectory.ensureExists(at: memoriesDirectory)
         try FileManager.default.createDirectory(at: worktreeSnapshotsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: worktreesDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: secretsDirectory, withIntermediateDirectories: true)
+        try PrivateDirectory.ensureExists(at: secretsDirectory)
         try FileManager.default.createDirectory(at: subagentSessionsDirectory, withIntermediateDirectories: true)
         try PrivateDirectory.ensureExists(at: pluginDataDirectory)
         try PrivateDirectory.ensureExists(at: importsDirectory)

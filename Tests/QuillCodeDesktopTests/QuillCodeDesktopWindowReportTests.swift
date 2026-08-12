@@ -438,13 +438,22 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
     }
 
     func testDesktopWorkspaceRootResolverRejectsLaunchServicesRootAndHome() throws {
+        XCTAssertEqual(
+            QuillCodeDesktopWorkspaceRootResolver.fallbackDirectoryName,
+            "Quill Cowork Workspace"
+        )
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-workspace-root-test-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
         let home = temporaryDirectory.appendingPathComponent("home", isDirectory: true)
         let project = temporaryDirectory.appendingPathComponent("project", isDirectory: true)
+        let legacyHome = temporaryDirectory.appendingPathComponent("legacy-home", isDirectory: true)
+        let legacyFallback = legacyHome
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent("QuillCode Workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: legacyFallback, withIntermediateDirectories: true)
 
         let rootFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
             currentDirectory: URL(fileURLWithPath: "/", isDirectory: true),
@@ -458,6 +467,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             currentDirectory: project,
             userHome: home
         )
+        let preservedLegacyFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: legacyHome,
+            userHome: legacyHome
+        )
         let expectedFallback = home
             .appendingPathComponent("Documents", isDirectory: true)
             .appendingPathComponent(QuillCodeDesktopWorkspaceRootResolver.fallbackDirectoryName, isDirectory: true)
@@ -465,6 +478,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(rootFallback, expectedFallback)
         XCTAssertEqual(homeFallback, expectedFallback)
         XCTAssertEqual(explicitProject, project.standardizedFileURL)
+        XCTAssertEqual(preservedLegacyFallback, legacyFallback)
         XCTAssertTrue(FileManager.default.fileExists(atPath: expectedFallback.path))
     }
 

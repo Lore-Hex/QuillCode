@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-11 Bounded Crash-Consistent Credential Persistence
+
+Overall grade after this slice: **A+ credential resilience, A+ bounded memory, A+ upgrade compatibility**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash consistency | A+ | Secret replacement writes a private exclusive temporary entry, synchronizes its bytes, atomically renames it, and synchronizes the owning directory. |
+| Memory bounds | A+ | Reads reject entries larger than 1 MiB before allocation and stream bounded chunks instead of mapping an attacker-sized credential file. |
+| Link safety | A+ | Descriptor-relative no-follow I/O rejects symbolic and multiple hard links; repair and deletion never mutate an external link target. |
+| Concurrency | A+ | Concurrent readers observe only complete old or new values while 100 writers replace the same canonical entry without leaving temporary files. |
+| Upgrade compatibility | A+ | Existing private plaintext credential entries remain readable, and startup repairs a legacy permissive secrets directory to mode `0700`. |
+| Product polish | A+ | Remaining customer-facing OAuth, usage-limit, and fresh fallback-workspace labels now consistently say Quill Cowork while existing legacy fallback folders remain usable. |
+
+Validation:
+
+- Focused credential, settings rollback, TrustedRouter startup, OAuth, path, and workspace-root
+  boundary: 39 tests, 0 failures.
+- Full Swift suite: 6,228 tests, 5 skipped, 0 failures.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, live-window,
+  Accessibility, native interaction, coworker, browser, computer-use, and 100-chat smokes passed.
+- Dedicated packaged performance gate: 3/3 launches within budget; 296.74 ms median launch-ready,
+  41.09 MiB initial footprint, 86.00 MiB after the first interaction sweep, and 85.45 MiB after the
+  repeated sweep.
+- `python3 scripts/grade-code-quality.py --root .`: changed production modules and every touched
+  production and focused test file grade A+.
+- Supplied live credential absent from source and diff; `git diff --check` passed.
+
 ## 2026-08-11 Stable Candidate Updater Proof Before Promotion
 
 Overall grade after this slice: **A+ release isolation, A+ relaunch resilience, A+ evidence quality**.

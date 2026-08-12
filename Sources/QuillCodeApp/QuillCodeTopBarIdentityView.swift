@@ -203,7 +203,7 @@ struct QuillCodeTopBarIdentityView: View {
                 }
             }
 
-            Text("QuillCode asks before the next paid model call after this task reaches the limit.")
+            Text("\(QuillCodeProduct.displayName) asks before the next paid model call after this task reaches the limit.")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)

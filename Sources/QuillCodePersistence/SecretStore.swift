@@ -10,9 +10,28 @@ public protocol QuillSecretStore: Sendable {
     func delete(_ key: String) throws
 }
 
+public enum FileSecretStoreError: LocalizedError, Equatable, Sendable {
+    case invalidUTF8
+    case unsafeDirectory
+    case unsafeSecretEntry
+    case valueExceedsSizeLimit(maximumBytes: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidUTF8:
+            "The stored secret is not valid UTF-8."
+        case .unsafeDirectory:
+            "The secret-store directory is not a private directory owned by this user."
+        case .unsafeSecretEntry:
+            "The secret-store entry is not a private regular file owned by this user."
+        case .valueExceedsSizeLimit(let maximumBytes):
+            "The secret exceeds the \(maximumBytes)-byte storage limit."
+        }
+    }
+}
+
 public struct FileSecretStore: QuillSecretStore {
-    private static let directoryPermissions = 0o700
-    private static let filePermissions = 0o600
+    public static let maximumValueBytes = 1 * 1_024 * 1_024
 
     public var directory: URL
 
@@ -21,26 +40,41 @@ public struct FileSecretStore: QuillSecretStore {
     }
 
     public func read(_ key: String) throws -> String? {
-        let url = fileURL(for: key)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return try String(contentsOf: url, encoding: .utf8)
+        guard let data = try FileSecretStoreFileSystem.read(
+            directory: directory,
+            filename: filename(for: key),
+            maximumBytes: Self.maximumValueBytes
+        ) else {
+            return nil
+        }
+        guard let value = String(data: data, encoding: .utf8) else {
+            throw FileSecretStoreError.invalidUTF8
+        }
+        return value
     }
 
     public func write(_ value: String, for key: String) throws {
-        try prepareDirectory()
-        let url = fileURL(for: key)
-        try value.write(to: url, atomically: true, encoding: .utf8)
-        try protectFile(url)
+        let data = Data(value.utf8)
+        guard data.count <= Self.maximumValueBytes else {
+            throw FileSecretStoreError.valueExceedsSizeLimit(
+                maximumBytes: Self.maximumValueBytes
+            )
+        }
+        try FileSecretStoreFileSystem.write(
+            data,
+            directory: directory,
+            filename: filename(for: key)
+        )
     }
 
     public func delete(_ key: String) throws {
-        let url = fileURL(for: key)
-        if FileManager.default.fileExists(atPath: url.path) {
-            try FileManager.default.removeItem(at: url)
-        }
+        try FileSecretStoreFileSystem.delete(
+            directory: directory,
+            filename: filename(for: key)
+        )
     }
 
-    private func fileURL(for key: String) -> URL {
+    private func filename(for key: String) -> String {
         let safe = key.unicodeScalars.map { scalar -> Character in
             switch scalar {
             case "a"..."z", "A"..."Z", "0"..."9", ".", "_", "-":
@@ -50,25 +84,6 @@ public struct FileSecretStore: QuillSecretStore {
             }
         }
         let filename = String(safe).trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        return directory.appendingPathComponent(filename.isEmpty ? "secret" : filename)
-    }
-
-    private func prepareDirectory() throws {
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: Self.directoryPermissions]
-        )
-        try FileManager.default.setAttributes(
-            [.posixPermissions: Self.directoryPermissions],
-            ofItemAtPath: directory.path
-        )
-    }
-
-    private func protectFile(_ url: URL) throws {
-        try FileManager.default.setAttributes(
-            [.posixPermissions: Self.filePermissions],
-            ofItemAtPath: url.path
-        )
+        return filename.isEmpty ? "secret" : filename
     }
 }
