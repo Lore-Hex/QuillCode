@@ -8,8 +8,8 @@ import FoundationNetworking
 #endif
 
 /// Executes `host.web.fetch`: SSRF-gate the URL, GET it (following a bounded number of
-/// redirects, re-gating every hop), retry once with browser-like headers when Cloudflare's
-/// bot protection interferes, then decode and convert the body to markdown.
+/// redirects, re-gating every hop), retry once with browser-like headers when bot protection
+/// or a client-specific transport reset interferes, then decode and convert the body to markdown.
 public struct WebFetchToolExecutor: Sendable {
     public var client: any WebFetchHTTPClient
     /// Streaming cap on the response body (~5 MB per the tool contract).
@@ -37,7 +37,7 @@ public struct WebFetchToolExecutor: Sendable {
         self.outputMaxBytes = max(1024, outputMaxBytes)
     }
 
-    public func fetch(urlString: String) -> ToolResult {
+    public func fetch(urlString: String, query: String? = nil) -> ToolResult {
         guard let url = Self.normalizedRequestURL(urlString) else {
             return Self.failure(Self.invalidURLMessage(urlString))
         }
@@ -58,14 +58,26 @@ public struct WebFetchToolExecutor: Sendable {
                         with the same URL.
                         """)
                     }
-                    return buildResult(requestedURL: url, outcome: retried)
+                    return buildResult(requestedURL: url, outcome: retried, query: query)
                 case .failure(let failure):
                     return Self.failure(failure.message)
                 }
             }
-            return buildResult(requestedURL: url, outcome: outcome)
+            return buildResult(requestedURL: url, outcome: outcome, query: query)
         case .failure(let failure):
-            return Self.failure(failure.message)
+            guard failure.retryWithBrowserHeaders else {
+                return Self.failure(failure.message)
+            }
+            let retry = performAttempt(startingAt: url, headers: Self.browserLikeHeaders)
+            switch retry {
+            case .success(let outcome):
+                return buildResult(requestedURL: url, outcome: outcome, query: query)
+            case .failure(let retryFailure):
+                return Self.failure("""
+                \(failure.message) A retry with browser-like headers also failed: \
+                \(retryFailure.message)
+                """)
+            }
         }
     }
 
@@ -79,9 +91,11 @@ public struct WebFetchToolExecutor: Sendable {
 
     private struct AttemptFailure: Error {
         var message: String
+        var retryWithBrowserHeaders: Bool
 
-        init(_ message: String) {
+        init(_ message: String, retryWithBrowserHeaders: Bool = false) {
             self.message = message
+            self.retryWithBrowserHeaders = retryWithBrowserHeaders
         }
     }
 
@@ -107,10 +121,14 @@ public struct WebFetchToolExecutor: Sendable {
                     maxBodyBytes: maxBodyBytes
                 ))
             } catch let error as WebFetchHTTPClientError {
-                return .failure(AttemptFailure("Fetching \(currentURL.absoluteString) failed: \(error.description)."))
+                return .failure(AttemptFailure(
+                    "Fetching \(currentURL.absoluteString) failed: \(error.description).",
+                    retryWithBrowserHeaders: true
+                ))
             } catch {
                 return .failure(AttemptFailure(
-                    "Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)"
+                    "Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)",
+                    retryWithBrowserHeaders: true
                 ))
             }
 
@@ -149,7 +167,11 @@ public struct WebFetchToolExecutor: Sendable {
 
     // MARK: - Result building
 
-    private func buildResult(requestedURL: URL, outcome: AttemptOutcome) -> ToolResult {
+    private func buildResult(
+        requestedURL: URL,
+        outcome: AttemptOutcome,
+        query: String?
+    ) -> ToolResult {
         let response = outcome.response
         let finalURL = outcome.finalURL
 
@@ -182,6 +204,13 @@ public struct WebFetchToolExecutor: Sendable {
             declaredCharset: WebFetchResponseDecoder.charset(of: contentType),
             sniffHTMLMeta: classification == .html
         )
+        if classification != .html,
+           let semanticFailure = WebFetchSemanticFailure.description(in: text) {
+            return Self.failure(
+                "\(finalURL.absoluteString) returned HTTP \(response.statusCode) but the request failed: "
+                    + semanticFailure
+            )
+        }
 
         var content: String
         var converterTruncated = false
@@ -190,7 +219,7 @@ public struct WebFetchToolExecutor: Sendable {
         case .html:
             let converted = HTMLToMarkdown.convert(text, options: HTMLToMarkdownOptions(
                 baseURL: finalURL,
-                maxOutputBytes: outputMaxBytes * 4
+                maxOutputBytes: max(outputMaxBytes * 64, 1_000_000)
             ))
             content = converted.markdown
             converterTruncated = converted.truncated
@@ -210,6 +239,13 @@ public struct WebFetchToolExecutor: Sendable {
         if response.bodyExceededMaxBytes {
             truncationNotes.append(Self.responseCapNote(maxBodyBytes: maxBodyBytes, fetchedBytes: response.body.count))
         }
+        var focusedQuery: String?
+        if let rawQuery = query?.trimmingCharacters(in: .whitespacesAndNewlines), !rawQuery.isEmpty {
+            let query = String(rawQuery.prefix(500))
+            let selection = WebFetchMarkdownFocus.select(content, query: query)
+            content = selection.text
+            focusedQuery = selection.focused ? query : nil
+        }
         let capped = WebFetchMarkdownCapper.cap(content, maxLines: outputMaxLines, maxBytes: outputMaxBytes)
         content = capped.text
         if converterTruncated, !capped.truncated {
@@ -228,6 +264,9 @@ public struct WebFetchToolExecutor: Sendable {
         )
         if outcome.redirectCount > 0 {
             summary += Self.redirectSummary(count: outcome.redirectCount, requestedURL: requestedURL)
+        }
+        if let focusedQuery {
+            summary += " Focused evidence windows for query: \(focusedQuery)."
         }
         for note in truncationNotes {
             summary += " Note: \(note)."

@@ -1,4 +1,4 @@
-"""Validate packaged native launch and resident-memory evidence."""
+"""Validate packaged native launch and physical-footprint evidence."""
 
 from __future__ import annotations
 
@@ -17,8 +17,10 @@ from performance_evidence_contract import (
     DEFAULT_MAX_THREAD_COUNT,
     INITIAL_MEASUREMENT,
     INTERACTION_SWEEP_COUNT,
+    MEMORY_MEASUREMENT,
     PERFORMANCE_PRODUCT,
     PERFORMANCE_SCHEMA_VERSION,
+    PERFORMANCE_WORKLOAD,
     POST_INTERACTION_MEASUREMENT,
     REPEATED_INTERACTION_MEASUREMENT,
 )
@@ -93,8 +95,16 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
         "unsupported performance evidence schema",
     )
     require(
+        performance.get("workload") == PERFORMANCE_WORKLOAD,
+        "unexpected packaged performance workload",
+    )
+    require(
         performance.get("measurement") == INITIAL_MEASUREMENT,
         "unexpected performance measurement boundary",
+    )
+    require(
+        performance.get("memoryMeasurement") == MEMORY_MEASUREMENT,
+        "unexpected performance memory measurement",
     )
 
     launch_ready = _finite_number(
@@ -324,7 +334,9 @@ def write_performance_manifest(
         "schemaVersion": PERFORMANCE_SCHEMA_VERSION,
         "ok": True,
         "product": PERFORMANCE_PRODUCT,
+        "workload": PERFORMANCE_WORKLOAD,
         "measurement": INITIAL_MEASUREMENT,
+        "memoryMeasurement": MEMORY_MEASUREMENT,
         "postInteractionMeasurement": POST_INTERACTION_MEASUREMENT,
         "launchReadyMilliseconds": launch_ready,
         "residentMemoryBytes": resident,

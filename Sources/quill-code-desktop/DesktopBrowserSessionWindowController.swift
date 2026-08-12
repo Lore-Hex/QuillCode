@@ -293,7 +293,10 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             throw DesktopBrowserSessionScriptError.noSelectedTab
         }
-        let value = try await tab.webView.evaluateJavaScript(trimmedSource)
+        // WebKit retains top-level lexical declarations between evaluations. A fresh block keeps
+        // repeated agent inspections from colliding on common names such as `rows` or `links`.
+        let isolatedSource = "{\n\(trimmedSource)\n}"
+        let value = try await tab.webView.evaluateJavaScript(isolatedSource)
         emitSessionUpdate()
         emitRenderedSessionUpdate(for: selectedID, webView: tab.webView)
         return DesktopBrowserSessionScriptResult(

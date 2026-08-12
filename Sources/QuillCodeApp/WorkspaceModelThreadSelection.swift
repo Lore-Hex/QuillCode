@@ -66,11 +66,24 @@ extension QuillCodeWorkspaceModel {
     }
 
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
+        guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        selectThread(
+            id,
+            projectContextID: thread.projectID,
+            recordsNavigation: recordsNavigation
+        )
+    }
+
+    func selectThread(
+        _ id: UUID,
+        projectContextID: UUID?,
+        recordsNavigation: Bool
+    ) {
         if id != root.selectedThreadID {
             _ = returnFromSideConversation()
             _ = discardConfidentialThreadOnExit()
         }
-        guard let thread = root.threads.first(where: { $0.id == id }) else { return }
+        guard hydrateThreadPayload(id) else { return }
         let previousLocation = currentNavigationLocation
         // The user is leaving the current thread: persist its morning-triage return watermark to its
         // current tail so background growth on it surfaces as "unseen" on return (cross-session).
@@ -79,7 +92,7 @@ extension QuillCodeWorkspaceModel {
             persistOutgoingReturnWatermark()
         }
         restoreComposerDraft(from: root.selectedThreadID, to: id)
-        selectThreadRecord(id, projectID: thread.projectID)
+        selectThreadRecord(id, projectID: projectContextID)
         if recordsNavigation {
             recordNavigationTransition(from: previousLocation)
         }
@@ -120,6 +133,7 @@ extension QuillCodeWorkspaceModel {
             _ = discardConfidentialThreadOnExit()
         }
         let previousLocation = currentNavigationLocation
+        let isClaimingPendingComposer = root.selectedThreadID == nil
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
         // return watermark, mirroring the harness's newChat() → markTranscriptSeen.
         if let outgoing = root.selectedThreadID, outgoing != thread.id {
@@ -127,6 +141,9 @@ extension QuillCodeWorkspaceModel {
         }
         clearSidebarSelection()
         restoreComposerDraft(from: root.selectedThreadID, to: thread.id)
+        if isClaimingPendingComposer {
+            threadPersistence.deletePendingComposerDraft()
+        }
         root.threads.insert(thread, at: 0)
         sessionStartHookCoordinator.registerCreatedThread(thread.id, source: sessionStartSource)
         selectThreadRecord(thread.id, projectID: selectedProjectID)

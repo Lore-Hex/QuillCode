@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import QuillCodeApp
 import QuillComputerUseKit
@@ -10,24 +11,50 @@ protocol QuillCodeDesktopComputerUseSettingsOpening {
 extension MacSystemSettingsOpener: QuillCodeDesktopComputerUseSettingsOpening {}
 
 @MainActor
-final class QuillCodeDesktopComputerUseCoordinator {
+final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     private var backend: any ComputerUseBackend
     private let systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening
-    /// Monotonic token so an in-flight foreground-app lookup that resolves late (e.g. the native
-    /// lookup spawned at install time) can't overwrite a newer one (the cua lookup after the swap).
+    private let applicationActivationNotificationCenter: NotificationCenter
+    private let applicationActivationNotification: Notification.Name
+    private var applicationActivationHandler: (@MainActor () -> Void)?
+    /// Invalidates a permission preflight when a newer refresh or backend replacement wins.
+    private var statusRefreshGeneration = 0
+    /// Monotonic token so an in-flight foreground-app lookup cannot overwrite a newer one after a
+    /// backend swap or rapid application activation sequence.
     private var foregroundRefreshGeneration = 0
 
     init(
         backend: any ComputerUseBackend = ComputerUseBackendFactory.platformDefault().backend(),
-        systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening = MacSystemSettingsOpener()
+        systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening = MacSystemSettingsOpener(),
+        applicationActivationNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        applicationActivationNotification: Notification.Name = NSWorkspace.didActivateApplicationNotification
     ) {
         self.backend = backend
         self.systemSettingsOpener = systemSettingsOpener
+        self.applicationActivationNotificationCenter = applicationActivationNotificationCenter
+        self.applicationActivationNotification = applicationActivationNotification
+        super.init()
+    }
+
+    deinit {
+        applicationActivationNotificationCenter.removeObserver(self)
     }
 
     func install(on model: QuillCodeWorkspaceModel) {
-        model.setComputerUseBackend(backend)
-        refreshForegroundApplication(on: model)
+        model.installComputerUseBackend(backend)
+    }
+
+    func startApplicationActivationObservation(
+        onActivation: @escaping @MainActor () -> Void
+    ) {
+        guard applicationActivationHandler == nil else { return }
+        applicationActivationHandler = onActivation
+        applicationActivationNotificationCenter.addObserver(
+            self,
+            selector: #selector(applicationDidActivate),
+            name: applicationActivationNotification,
+            object: nil
+        )
     }
 
     /// Opt-in upgrade to the cua-driver backend (background computer use — no focus/cursor steal).
@@ -38,23 +65,52 @@ final class QuillCodeDesktopComputerUseCoordinator {
         on model: QuillCodeWorkspaceModel,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         locator: CuaDriverLocator = CuaDriverLocator()
-    ) async {
-        guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return }
-        guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return }
+    ) async -> Bool {
+        guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return false }
+        guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return false }
+        statusRefreshGeneration &+= 1
+        foregroundRefreshGeneration &+= 1
         backend = cua
-        model.setComputerUseBackend(cua) // also sets status
-        refreshForegroundApplication(on: model)
+        model.installComputerUseBackend(cua)
+        return true
     }
 
-    func refreshStatus(on model: QuillCodeWorkspaceModel) {
-        model.setComputerUseStatus(backend.status)
-        refreshForegroundApplication(on: model)
+    @discardableResult
+    func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        foregroundRefreshGeneration &+= 1
+        let generation = foregroundRefreshGeneration
+        guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
+            guard model.root.topBar.computerUseForegroundApplication != nil else { return false }
+            model.setComputerUseForegroundApplication(nil)
+            return true
+        }
+        let application = await provider.foregroundApplication()
+        guard !Task.isCancelled, foregroundRefreshGeneration == generation else { return false }
+        guard model.root.topBar.computerUseForegroundApplication != application else { return false }
+        model.setComputerUseForegroundApplication(application)
+        return true
+    }
+
+    @discardableResult
+    func refreshStatus(on model: QuillCodeWorkspaceModel) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        statusRefreshGeneration &+= 1
+        let generation = statusRefreshGeneration
+        let backend = backend
+        let statusTask = Task.detached(priority: .utility) {
+            backend.status
+        }
+        let status = await statusTask.value
+        guard !Task.isCancelled, statusRefreshGeneration == generation else { return false }
+        guard model.root.topBar.computerUseStatus != status else { return false }
+        model.setComputerUseStatus(status)
+        return true
     }
 
     @discardableResult
     func openSystemSettings(
-        _ destination: MacSystemSettingsOpener.Destination,
-        model: QuillCodeWorkspaceModel
+        _ destination: MacSystemSettingsOpener.Destination
     ) -> Bool {
         if let permissionRequester = backend as? any ComputerUsePermissionRequesting {
             switch destination {
@@ -65,25 +121,10 @@ final class QuillCodeDesktopComputerUseCoordinator {
             }
         }
         let didOpen = systemSettingsOpener.open(destination)
-        refreshStatus(on: model)
         return didOpen
     }
 
-    private func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) {
-        foregroundRefreshGeneration += 1
-        let generation = foregroundRefreshGeneration
-        guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
-            model.setComputerUseForegroundApplication(nil)
-            return
-        }
-        Task { [weak self] in
-            let application = await provider.foregroundApplication()
-            await MainActor.run {
-                // Drop the result if a newer refresh has since started (e.g. a backend swap), so a
-                // slow native lookup can't overwrite the live cua backend's foreground app.
-                guard let self, self.foregroundRefreshGeneration == generation else { return }
-                model.setComputerUseForegroundApplication(application)
-            }
-        }
+    @objc private func applicationDidActivate(_ notification: Notification) {
+        applicationActivationHandler?()
     }
 }

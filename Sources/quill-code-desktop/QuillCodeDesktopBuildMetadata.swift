@@ -1,6 +1,6 @@
 import Foundation
 
-struct QuillCodeDesktopBuildMetadata: Equatable, Sendable {
+struct QuillCodeDesktopBuildMetadata: Codable, Equatable, Sendable {
     static let commitInfoKey = "QuillCodeBuildCommit"
 
     var version: String
@@ -49,9 +49,28 @@ struct QuillCodeDesktopBuildMetadata: Equatable, Sendable {
         }
     }
 
+    var isSafeForIncidentReporting: Bool {
+        Self.isSafeBuildField(version, allowedPunctuation: ".-+")
+            && Self.isSafeBuildField(build, allowedPunctuation: ".-+")
+            && (Self.isCanonicalCommit(commit) || commit == "development")
+            && ["stable", "tester", "development"].contains(channel)
+            && ["arm64", "x86_64", "unknown", "development"].contains(architecture)
+            && operatingSystem.hasPrefix("macOS ")
+            && Self.isSafeBuildField(String(operatingSystem.dropFirst(6)), allowedPunctuation: ".-() ")
+    }
+
     private static func infoString(_ key: String, bundle: Bundle) -> String? {
         guard let value = bundle.object(forInfoDictionaryKey: key) as? String else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func isSafeBuildField(_ value: String, allowedPunctuation: String) -> Bool {
+        !value.isEmpty
+            && value.utf8.count <= 96
+            && value.unicodeScalars.allSatisfy { scalar in
+                CharacterSet.alphanumerics.contains(scalar)
+                    || allowedPunctuation.unicodeScalars.contains(scalar)
+            }
     }
 }

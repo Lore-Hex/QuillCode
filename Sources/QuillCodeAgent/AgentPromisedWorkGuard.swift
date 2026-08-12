@@ -106,6 +106,8 @@ enum AgentPromisedWorkGuard {
         Return exactly one QuillCode JSON action now. If you intended to perform the promised work,
         return the appropriate {"type":"tool",...} action with complete arguments. If no tool is
         needed, return {"type":"say","text":"..."} with a direct final answer and no future-tense promise.
+        If the evidence is already collected, immediately update and verify the final deliverable
+        instead of merely announcing that the data is ready.
         """
     }
 
@@ -135,8 +137,30 @@ enum AgentPromisedWorkGuard {
 
         return containsFutureWorkPhrase(in: normalized)
             || declaresReadinessToProceed(in: normalized)
+            || declaresEvidenceReadyWithoutResult(in: normalized)
             || declaresImmediateWorkInProgress(in: normalized)
+            || declaresUnfinishedNextStep(in: normalized)
     }
+
+    /// Collecting the inputs is not completion when the run still owes synthesis or an artifact.
+    /// Keep this exact and short so a real completion statement that goes on to name the verified
+    /// deliverable is allowed through.
+    private static func declaresEvidenceReadyWithoutResult(in normalizedText: String) -> Bool {
+        let bareStatus = normalizedText.trimmingCharacters(
+            in: CharacterSet.whitespacesAndNewlines.union(
+                CharacterSet(charactersIn: "[](){}*_`#:.!-")
+            )
+        )
+        return evidenceReadyStatuses.contains(bareStatus)
+    }
+
+    private static let evidenceReadyStatuses = [
+        "i have all the data needed",
+        "i have all the evidence needed",
+        "i have all the information needed",
+        "all required data is collected",
+        "all required evidence is collected",
+    ]
 
     /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
     /// verbose-planner stall a fast orchestrator falls into: after exploring the repo it wrote
@@ -175,6 +199,14 @@ enum AgentPromisedWorkGuard {
     /// the clause must start with a concrete work gerund and end on the token "now", so completed
     /// observations such as "Reading the report now shows three gaps" remain valid final answers.
     private static func declaresImmediateWorkInProgress(in normalizedText: String) -> Bool {
+        let bareStatus = normalizedText.trimmingCharacters(
+            in: CharacterSet.whitespacesAndNewlines.union(
+                CharacterSet(charactersIn: "[](){}*_`#:-")
+            )
+        )
+        if bareInProgressStatuses.contains(bareStatus) {
+            return true
+        }
         let terminalClause = normalizedText
             .replacingOccurrences(
                 of: #"[.!?]\s+"#,
@@ -184,6 +216,9 @@ enum AgentPromisedWorkGuard {
             .split(whereSeparator: \.isNewline)
             .last?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if declaresShortTerminalProgress(terminalClause) {
+            return true
+        }
         let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
         guard words.last.map(String.init) == "now" else { return false }
         return immediateWorkGerunds.contains { gerund in
@@ -193,10 +228,80 @@ enum AgentPromisedWorkGuard {
         }
     }
 
+    /// Delegated workers sometimes end on a short status such as "Starting research on X" or
+    /// "Continuing research". These are unambiguously progress reports, not completed findings.
+    private static func declaresShortTerminalProgress(_ terminalClause: String) -> Bool {
+        let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
+        guard words.count <= 12 else { return false }
+        guard terminalProgressGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) else {
+            return false
+        }
+        return containsWorkVerb(in: Substring(terminalClause))
+    }
+
+    private static let bareInProgressStatuses = [
+        "analysis in progress",
+        "research in progress",
+        "task in progress",
+        "work in progress",
+    ]
+
     private static let immediateWorkGerunds = [
         "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
         "running", "fetching", "searching", "updating", "editing", "building", "testing",
-        "starting", "continuing",
+        "starting", "continuing", "trying",
+    ]
+
+    private static let terminalProgressGerunds = ["starting", "continuing"]
+
+    /// A terminal answer can describe unfinished work without future tense. Delegated research
+    /// workers produced both of these live shapes and were incorrectly reported as complete:
+    /// "Now I need Q2 ... to complete" and "Next: re-fetch the filing". Require both a narrow
+    /// unfinished-work marker and a concrete work verb so completed handoff notes such as
+    /// "the parent can merge these findings" remain valid.
+    private static func declaresUnfinishedNextStep(in normalizedText: String) -> Bool {
+        if normalizedText.ranges(of: "i need ").contains(where: { range in
+            let remainder = normalizedText[range.upperBound...].prefix(120)
+            return containsWorkVerb(in: remainder)
+                && (remainder.contains(" to finish") || remainder.contains(" to complete"))
+        }) {
+            return true
+        }
+
+        if let terminalClause = normalizedText
+            .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0.isNewline })
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           terminalClause.contains(" next"),
+           immediateWorkGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) {
+            return true
+        }
+
+        if remainingWorkStarters.contains(where: { starter in
+            guard let range = normalizedText.range(of: starter) else { return false }
+            return containsWorkVerb(in: normalizedText[range.upperBound...].prefix(96))
+        }) {
+            return true
+        }
+
+        return nextStepLabels.contains { label in
+            ranges(of: label, in: normalizedText).contains { range in
+                containsWorkVerb(in: normalizedText[range.upperBound...].prefix(96))
+            }
+        }
+    }
+
+    private static let remainingWorkStarters = [
+        "now i need ",
+        "i still need to ",
+        "we still need to ",
+        "still need to ",
+    ]
+
+    private static let nextStepLabels = [
+        "next:",
+        "next step:",
+        "next steps:",
     ]
 
     // MARK: - Trailing-off narration (structural, no first-person phrase required)
@@ -349,12 +454,13 @@ enum AgentPromisedWorkGuard {
     private static let unresolvedStarterPreviewCharacterLimit = 8
 
     private static let workVerbs: Set<String> = [
-        "add", "analyze", "apply", "archive", "build", "chart", "check", "clean",
+        "access", "add", "analyze", "apply", "archive", "browse", "build", "chart", "check", "clean",
         "commit", "complete", "condense", "conduct", "convert", "create", "dedupe",
+        "continue",
         "delete", "document", "download", "draft", "edit", "execute", "extract", "fetch",
         "finish", "fix", "flag", "highlight", "inspect", "install", "inventory",
-        "investigate", "list", "maintain", "mark", "merge", "normalize", "open", "pull",
+        "investigate", "list", "maintain", "mark", "merge", "navigate", "normalize", "open", "pull",
         "push", "read", "research", "review", "run", "save", "search", "standardize",
-        "summarize", "sync", "test", "triage", "update", "validate", "verify", "write"
+        "summarize", "sync", "test", "triage", "try", "update", "validate", "verify", "write"
     ]
 }

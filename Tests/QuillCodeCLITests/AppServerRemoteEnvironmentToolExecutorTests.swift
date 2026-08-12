@@ -149,6 +149,7 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
                     sandboxDenied: false
                 )
             ],
+            processFileWrites: [[readme: Data("new\n".utf8)]],
             files: [
                 readme: Data("old\n".utf8)
             ],
@@ -181,8 +182,40 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
             request.argv.last?.contains("git apply --check 'C:\\workspace\\.quillcode\\tmp\\") == true,
             request.argv.last ?? ""
         )
+        XCTAssertEqual(request.environment["GIT_CEILING_DIRECTORIES"], "C:\\")
         XCTAssertEqual(snapshot.removedURIs.count, 1)
         XCTAssertTrue(snapshot.removedURIs[0].hasPrefix("file:///C:/workspace/.quillcode/tmp/"))
+        let updatedReadme = await client.file(at: readme)
+        XCTAssertEqual(updatedReadme, Data("new\n".utf8))
+    }
+
+    func testApplyPatchRejectsSuccessfulRemoteProcessThatChangesNoTargetBytes() async throws {
+        let readme = "file:///workspace/README.md"
+        let client = AppServerFakeExecServerClient(files: [readme: Data("old\n".utf8)])
+        let executor = try makeExecutor(client: client)
+        let read = await executor.execute(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: #"{"path":"README.md"}"#
+        ))
+        XCTAssertTrue(read.ok)
+        let patch = """
+        diff --git a/README.md b/README.md
+        --- a/README.md
+        +++ b/README.md
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        let result = await executor.execute(ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: #"{"patch":\#(try Self.jsonStringLiteral(patch))}"#
+        ))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("changed no workspace bytes") == true, result.error ?? "")
+        let unchangedReadme = await client.file(at: readme)
+        XCTAssertEqual(unchangedReadme, Data("old\n".utf8))
     }
 
     func testExistingRemoteFileMustBeReadBeforeWrite() async throws {

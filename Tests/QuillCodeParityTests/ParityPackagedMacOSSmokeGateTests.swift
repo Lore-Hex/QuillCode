@@ -40,10 +40,23 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopSmokePixelStats"))
         XCTAssertTrue(windowSmokeText.contains("window.title == QuillCodeProduct.displayName"))
         XCTAssertTrue(packagedSmoke.contains("wait_for_smoke_process"))
+        XCTAssertTrue(
+            packagedSmoke.contains(
+                #"APP_CONFIGURATION="${QUILLCODE_PACKAGED_MACOS_SMOKE_CONFIGURATION:-release}""#
+            )
+        )
+        XCTAssertTrue(packagedSmoke.contains(#"--configuration "$APP_CONFIGURATION""#))
         XCTAssertTrue(packagedSmoke.contains("--native-window-smoke"))
         XCTAssertTrue(packagedSmoke.contains("--window-smoke-report \"$WINDOW_REPORT_PATH\""))
         XCTAssertTrue(packagedSmoke.contains("--window-smoke-screenshot \"$WINDOW_SCREENSHOT_PATH\""))
         XCTAssertTrue(packagedSmoke.contains("--window-smoke-state-root \"$WINDOW_STATE_ROOT\""))
+        XCTAssertTrue(packagedSmoke.contains("--seed-daily-driver-window-smoke"))
+        XCTAssertTrue(
+            packagedSmoke.contains(#"--window-smoke-performance-workload "daily-driver-100-chats""#)
+        )
+        XCTAssertTrue(packagedSmoke.contains("performance-window-report.json"))
+        XCTAssertTrue(packagedSmoke.contains("performance-window.png"))
+        XCTAssertTrue(packagedSmoke.contains("\"$PERFORMANCE_WINDOW_REPORT_PATH\""))
         XCTAssertFalse(packagedSmoke.contains("HOME=\"$SMOKE_ROOT/home\""))
         XCTAssertTrue(packagedSmoke.contains("window-report.json"))
         XCTAssertTrue(packagedSmoke.contains("window.png"))
@@ -79,6 +92,8 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(packagedSmoke.contains("browser_workflow_manifest=packaged-browser-workflow.json"))
         XCTAssertTrue(packagedSmoke.contains("computer_use_manifest=packaged-computer-use.json"))
         XCTAssertTrue(packagedSmoke.contains("computer_use_action_manifest=packaged-computer-use-action.json"))
+        XCTAssertTrue(packagedSmoke.contains("performance_window_report=performance-window-report.json"))
+        XCTAssertTrue(packagedSmoke.contains("performance_window_screenshot=performance-window.png"))
         XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" multi-file-artifact \\"))
         XCTAssertTrue(packagedSmoke.contains(" one-turn-coworker \\"))

@@ -6,6 +6,8 @@ public struct ToolRouter: Sendable {
     public let accessScope: HostToolAccessScope
     public var shell: ShellToolExecutor
     public var files: FileToolExecutor
+    public var chart: ChartToolExecutor
+    public var pdf: PDFToolExecutor
     public var git: GitToolExecutor
     public var patch: PatchToolExecutor
     public var web: WebFetchToolExecutor
@@ -34,6 +36,16 @@ public struct ToolRouter: Sendable {
             accessScope: accessScope,
             editGuard: editGuard
         )
+        self.chart = ChartToolExecutor(
+            workspaceRoot: workspaceRoot,
+            accessScope: accessScope,
+            editGuard: editGuard
+        )
+        self.pdf = PDFToolExecutor(
+            workspaceRoot: workspaceRoot,
+            accessScope: accessScope,
+            editGuard: editGuard
+        )
         self.git = git ?? GitToolExecutor(managedWorktreeRoot: managedWorktreeRoot)
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
         self.web = web
@@ -43,9 +55,12 @@ public struct ToolRouter: Sendable {
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [
         .fileRead,
+        .fileReadMany,
         .fileList,
         .fileSearch,
         .fileWrite,
+    ] + (ChartToolExecutor.isAvailable ? [ToolDefinition.chartRender] : [])
+        + (PDFToolExecutor.isAvailable ? [ToolDefinition.pdfMerge] : []) + [
         .applyPatch,
         .webFetch,
         .webSearch,
@@ -82,6 +97,15 @@ public struct ToolRouter: Sendable {
                     offset: args.int("offset"),
                     limit: args.int("limit")
                 )
+            case ToolDefinition.fileReadMany.name:
+                guard let paths = args.stringArray("paths") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: paths")
+                }
+                return files.readMany(
+                    paths: paths,
+                    perFileLimit: args.int("perFileLimit"),
+                    maxOutputCharacters: args.int("maxOutputCharacters")
+                )
             case ToolDefinition.fileList.name:
                 return files.list(
                     path: args.string("path") ?? ".",
@@ -101,13 +125,47 @@ public struct ToolRouter: Sendable {
                     content: try args.requiredString("content", allowingEmpty: true)
                 )
                 return withLSPFeedback(result, writtenPaths: [path])
+            case ToolDefinition.chartRender.name:
+                guard let categories = args.stringArray("categories") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: categories")
+                }
+                guard let series = args.stringDictionary("series") else {
+                    return ToolResult(ok: false, error: "Missing required string object argument: series")
+                }
+                return chart.render(
+                    path: try args.requiredString("path"),
+                    title: args.string("title"),
+                    categories: categories,
+                    series: series,
+                    seriesOrder: args.stringArray("seriesOrder"),
+                    stacked: args.bool("stacked") ?? true,
+                    colors: args.stringDictionary("colors"),
+                    xAxisLabel: args.string("xAxisLabel"),
+                    yAxisLabel: args.string("yAxisLabel"),
+                    width: args.int("width"),
+                    height: args.int("height")
+                )
+            case ToolDefinition.pdfMerge.name:
+                guard let inputs = args.stringArray("inputs") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: inputs")
+                }
+                return pdf.merge(
+                    inputs: inputs,
+                    output: try args.requiredString("output"),
+                    labels: args.stringArray("labels"),
+                    title: args.string("title"),
+                    includeTableOfContents: args.bool("includeTableOfContents") ?? true
+                )
             case ToolDefinition.applyPatch.name:
                 let patchText = try args.requiredString("patch")
                 let result = patch.apply(unifiedDiff: patchText)
                 let touched = PatchToolExecutor.targetPaths(in: patchText)
                 return withLSPFeedback(result, writtenPaths: touched)
             case ToolDefinition.webFetch.name:
-                return web.fetch(urlString: try args.requiredString("url"))
+                return web.fetch(
+                    urlString: try args.requiredString("url"),
+                    query: args.string("query")
+                )
             case ToolDefinition.webSearch.name:
                 // `host.web.search` is async and routes through TrustedRouter, so the live agent
                 // loop dispatches it directly to a `WebSearchToolExecutor` (see AgentToolStepRunner)

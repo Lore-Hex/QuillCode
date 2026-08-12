@@ -35,6 +35,11 @@ struct WorkspaceThreadLifecycleEngine {
         var didSelectUpdatedThread: Bool
     }
 
+    struct AgentRunProgressThreadUpdateResult: Sendable, Hashable {
+        var lifecycle: AgentRunThreadUpdateResult
+        var mutation: WorkspaceAgentProgressThreadMutation
+    }
+
     static func renameThread(
         _ id: UUID,
         to title: String,
@@ -218,6 +223,53 @@ struct WorkspaceThreadLifecycleEngine {
         selectedProjectID: UUID?
     ) -> AgentRunThreadUpdateResult {
         upsertThread(thread, threads: &threads)
+        return agentRunThreadUpdateResult(
+            for: thread,
+            threads: threads,
+            projects: projects,
+            selectedThreadID: selectedThreadID,
+            selectedProjectID: selectedProjectID
+        )
+    }
+
+    static func applyAgentRunProgressThreadUpdate(
+        _ thread: ChatThread,
+        threads: inout [ChatThread],
+        projects: [ProjectRef],
+        selectedThreadID: UUID?,
+        selectedProjectID: UUID?
+    ) -> AgentRunProgressThreadUpdateResult {
+        let mutation: WorkspaceAgentProgressThreadMutation
+        if let index = threads.firstIndex(where: { $0.id == thread.id }) {
+            mutation = WorkspaceAgentProgressThreadReconciler.reconcile(thread, into: &threads[index])
+        } else {
+            threads.insert(thread, at: 0)
+            mutation = WorkspaceAgentProgressThreadMutation(
+                threadID: thread.id,
+                messageMutation: .rebuild,
+                eventsAffectTranscript: true,
+                contextAffectsTranscript: true
+            )
+        }
+        return AgentRunProgressThreadUpdateResult(
+            lifecycle: agentRunThreadUpdateResult(
+                for: thread,
+                threads: threads,
+                projects: projects,
+                selectedThreadID: selectedThreadID,
+                selectedProjectID: selectedProjectID
+            ),
+            mutation: mutation
+        )
+    }
+
+    private static func agentRunThreadUpdateResult(
+        for thread: ChatThread,
+        threads: [ChatThread],
+        projects: [ProjectRef],
+        selectedThreadID: UUID?,
+        selectedProjectID: UUID?
+    ) -> AgentRunThreadUpdateResult {
         if let selectedThreadID,
            threads.contains(where: { $0.id == selectedThreadID }) {
             return AgentRunThreadUpdateResult(

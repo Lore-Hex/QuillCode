@@ -65,7 +65,7 @@ extension QuillCodeDesktopController {
     }
 
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
-        computerUseCoordinator.openSystemSettings(destination, model: model)
-        refresh()
+        computerUseCoordinator.openSystemSettings(destination)
+        scheduleComputerUseStatusRefresh()
     }
 }

@@ -13,21 +13,26 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     public var runtimeFactory: QuillCodeRuntimeFactory
     public var modelCatalogFetcher: ModelCatalogFetcher?
     public var accountCreditsFetcher: AccountCreditsFetcher?
+    public var now: @Sendable () -> Date
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
         runtimeFactory: QuillCodeRuntimeFactory? = nil,
         modelCatalogFetcher: ModelCatalogFetcher? = nil,
-        accountCreditsFetcher: AccountCreditsFetcher? = nil
+        accountCreditsFetcher: AccountCreditsFetcher? = nil,
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.paths = paths
         self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(paths: paths)
         self.modelCatalogFetcher = modelCatalogFetcher
         self.accountCreditsFetcher = accountCreditsFetcher
+        self.now = now
     }
 
     @MainActor
-    public func makeModel() throws -> QuillCodeWorkspaceModel {
+    public func makeModel(
+        automaticStartupPolicy: WorkspaceAutomaticStartupPolicy = .startImmediately
+    ) throws -> QuillCodeWorkspaceModel {
         var unreadableDataKinds: [WorkspaceStartupDataKind] = []
         do {
             try paths.ensure()
@@ -42,6 +47,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             unreadableDataKinds.append(.configuration)
         }
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let composerDraftStore = ComposerDraftCheckpointStore(directory: paths.composerDraftsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
@@ -54,7 +60,14 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         }
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
-        let threadListing = threadStore.listing()
+        let currentDate = now()
+        let archiveDeferralCutoff = Calendar.current.dateInterval(
+            of: .month,
+            for: currentDate
+        )?.start ?? currentDate
+        let threadListing = threadStore.bootstrapListing(
+            deferArchivedBefore: archiveDeferralCutoff
+        )
         let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
             threadListing.threads,
             childStore: childStore,
@@ -135,6 +148,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
+            composerDraftStore: composerDraftStore,
             startupLoadIssue: WorkspaceStartupLoadIssue(
                 loadedThreadCount: threads.count,
                 threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
@@ -166,8 +180,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )
         )
-        model.enforceManagedWorktreeRetention()
-        model.scheduleSelectedPullRequestReconciliation()
+        if automaticStartupPolicy == .startImmediately {
+            model.startAutomaticStartupWork()
+        }
         return model
     }
 

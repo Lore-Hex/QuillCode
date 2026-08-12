@@ -4,36 +4,6 @@ import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopUpdateController: ObservableObject {
-    enum State: Equatable {
-        case idle
-        case checking
-        case updateAvailable(QuillCodeDesktopUpdateRelease)
-        case downloading(QuillCodeDesktopUpdateRelease)
-        case installing(QuillCodeDesktopUpdateRelease)
-        case upToDate(latestVersion: String, latestBuild: String)
-        case failed(message: String, release: QuillCodeDesktopUpdateRelease?)
-
-        var release: QuillCodeDesktopUpdateRelease? {
-            switch self {
-            case .updateAvailable(let release), .downloading(let release), .installing(let release):
-                return release
-            case .failed(_, let release):
-                return release
-            case .idle, .checking, .upToDate:
-                return nil
-            }
-        }
-
-        var isBusy: Bool {
-            switch self {
-            case .checking, .downloading, .installing:
-                return true
-            case .idle, .updateAvailable, .upToDate, .failed:
-                return false
-            }
-        }
-    }
-
     @Published private(set) var state: State = .idle
     @Published private(set) var preparationProgress: QuillCodeDesktopUpdatePreparationProgress?
     @Published var isPresented = false
@@ -47,6 +17,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let defaults: UserDefaults
     private let now: () -> Date
     private let automaticSchedule: QuillCodeDesktopUpdateSchedule
+    private let reminderStore: QuillCodeDesktopUpdateReminderStore
     private let installResultURL: URL?
     private let terminateApplication: @MainActor () -> Void
     private var operationTask: Task<Void, Never>?
@@ -56,7 +27,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private var didStartAutomaticChecks = false
 
     private enum AutomaticCheckOutcome {
-        case success
+        case success(nextCheckDelay: TimeInterval?)
         case failure
         case deferred
         case rescheduled(TimeInterval)
@@ -73,6 +44,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
         automaticSchedule: QuillCodeDesktopUpdateSchedule = .production,
+        reminderInterval: TimeInterval = QuillCodeDesktopUpdateReminderStore.productionInterval,
         installResultURL: URL? = try? QuillCodeDesktopUpdatePaths.installResultURL(),
         terminateApplication: @escaping @MainActor () -> Void =
             QuillCodeDesktopSystemApplication.terminateForUpdate
@@ -86,6 +58,10 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         self.defaults = defaults
         self.now = now
         self.automaticSchedule = automaticSchedule
+        self.reminderStore = QuillCodeDesktopUpdateReminderStore(
+            defaults: defaults,
+            reminderInterval: reminderInterval
+        )
         self.installResultURL = installResultURL
         self.terminateApplication = terminateApplication
     }
@@ -125,8 +101,8 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
                     return
                 }
                 switch outcome {
-                case .success:
-                    delay = schedule.interval(for: configuration.channel)
+                case .success(let nextCheckDelay):
+                    delay = nextCheckDelay ?? schedule.interval(for: configuration.channel)
                 case .failure:
                     delay = schedule.failureRetryInterval
                 case .deferred:
@@ -141,6 +117,9 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     func checkForUpdates() {
         isPresented = true
         guard !state.isBusy else { return }
+        if let configuration {
+            reminderStore.clear(configuration: configuration)
+        }
         let generation = beginNewOperation()
         state = .checking
         operationTask = Task { [weak self] in
@@ -163,6 +142,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             )
             return
         }
+        reminderStore.clear(configuration: configuration)
         guard installationInspector.availability(for: configuration) == .available else {
             state = .failed(
                 message: QuillCodeDesktopUpdateError.installationUnavailable.localizedDescription,
@@ -171,6 +151,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             isPresented = true
             return
         }
+        let recoveryTask = cancelRecoveryAndTakeTask()
         let generation = beginNewOperation()
         state = .downloading(release)
         preparationProgress = .downloading(receivedBytes: 0, totalBytes: release.asset.sizeBytes)
@@ -178,6 +159,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             guard let self else { return }
             defer { self.finishOperation(generation: generation) }
             do {
+                if let recoveryTask {
+                    await recoveryTask.value
+                }
+                try Task.checkCancellation()
+                guard self.generation == generation else { return }
                 let prepared = try await self.prepareUpdate(
                     release: release,
                     configuration: configuration,
@@ -214,6 +200,10 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
 
     func dismiss() {
         guard !state.isBusy else { return }
+        if case .updateAvailable(let release) = state,
+           let configuration {
+            reminderStore.recordDeferral(release, configuration: configuration, now: now())
+        }
         isPresented = false
     }
 
@@ -250,7 +240,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             let result = try await checker.check(configuration: configuration)
             try Task.checkCancellation()
             guard self.generation == generation else { return }
-            applySuccessfulCheck(result, userInitiated: true, configuration: configuration)
+            _ = applySuccessfulCheck(result, userInitiated: true, configuration: configuration)
         } catch is CancellationError {
             return
         } catch {
@@ -267,6 +257,18 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             now: now(),
             channel: configuration.channel
         )
+        if remaining > 0,
+           case .updateAvailable(let release) = state,
+           !isPresented {
+            if let reminderRemaining = reminderStore.remainingDeferral(
+                for: release,
+                configuration: configuration,
+                now: now()
+            ) {
+                return .rescheduled(min(remaining, reminderRemaining))
+            }
+            isPresented = true
+        }
         guard remaining == 0 else { return .rescheduled(remaining) }
         guard !state.isBusy, !isPresented else { return .deferred }
         let startingGeneration = generation
@@ -276,8 +278,12 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             guard generation == startingGeneration, !state.isBusy, !isPresented else {
                 return .deferred
             }
-            applySuccessfulCheck(result, userInitiated: false, configuration: configuration)
-            return .success
+            let nextCheckDelay = applySuccessfulCheck(
+                result,
+                userInitiated: false,
+                configuration: configuration
+            )
+            return .success(nextCheckDelay: nextCheckDelay)
         } catch is CancellationError {
             return .deferred
         } catch {
@@ -289,16 +295,30 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         _ result: QuillCodeDesktopUpdateCheckResult,
         userInitiated: Bool,
         configuration: QuillCodeDesktopUpdateConfiguration
-    ) {
+    ) -> TimeInterval? {
         defaults.set(now(), forKey: lastCheckKey(configuration: configuration))
         switch result {
         case .updateAvailable(let release):
             state = .updateAvailable(release)
-            isPresented = true
+            guard !userInitiated else {
+                isPresented = true
+                return nil
+            }
+            let remainingDeferral = reminderStore.remainingDeferral(
+                for: release,
+                configuration: configuration,
+                now: now()
+            )
+            isPresented = remainingDeferral == nil
+            return remainingDeferral.map {
+                min($0, automaticSchedule.interval(for: configuration.channel))
+            }
         case .upToDate(let latestVersion, let latestBuild):
+            reminderStore.clear(configuration: configuration)
             state = userInitiated
                 ? .upToDate(latestVersion: latestVersion, latestBuild: latestBuild)
                 : .idle
+            return nil
         }
     }
 
@@ -308,6 +328,13 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         preparationProgress = nil
         generation = UUID()
         return generation
+    }
+
+    private func cancelRecoveryAndTakeTask() -> Task<Void, Never>? {
+        let task = recoveryTask
+        recoveryTask = nil
+        task?.cancel()
+        return task
     }
 
     private func prepareUpdate(

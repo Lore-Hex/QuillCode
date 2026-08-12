@@ -87,4 +87,50 @@ final class AgentExplicitSourceReadRecoveryTests: XCTestCase {
             successfullyReadPaths: []
         ))
     }
+
+    func testAdvancesExistingFilesFromAffirmativeRequiredInputInventory() throws {
+        let root = try makeWorkspace()
+        let prompt = """
+        All local files for this task are mapped in `inputs/source-map.md`.
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/context.md`, `inputs`, `inputs/data.csv`.
+        Write the deliverable to `outputs/report.md`.
+        """
+
+        let first = AgentExplicitSourceReadRecovery.nextAction(
+            userMessage: prompt,
+            workspaceRoot: root,
+            tools: [ToolDefinition.fileRead],
+            successfullyReadPaths: []
+        )
+        guard case .tool(let firstCall)? = first else {
+            return XCTFail("expected the first required regular file")
+        }
+        XCTAssertEqual(firstCall.argumentsJSON, ToolArguments.json(["path": "inputs/context.md"]))
+
+        let second = AgentExplicitSourceReadRecovery.nextAction(
+            userMessage: prompt,
+            workspaceRoot: root,
+            tools: [ToolDefinition.fileRead],
+            successfullyReadPaths: ["inputs/context.md"]
+        )
+        guard case .tool(let secondCall)? = second else {
+            return XCTFail("expected the required file after skipping the directory")
+        }
+        XCTAssertEqual(secondCall.argumentsJSON, ToolArguments.json(["path": "inputs/data.csv"]))
+    }
+
+    func testExtractsOnlySafeNondeliverableRequiredInputPaths() {
+        let prompt = """
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/context.md`, `../secret.md`, \
+        `inputs/data.csv`, `outputs/report.md`, `inputs/data.csv`.
+        Save the complete result to `outputs/report.md`.
+        """
+
+        XCTAssertEqual(
+            AgentExplicitSourceReadRecovery.requiredInputPaths(in: prompt),
+            ["inputs/context.md", "inputs/data.csv"]
+        )
+    }
 }

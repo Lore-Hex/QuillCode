@@ -68,6 +68,27 @@ final class QuillCodeDesktopProjectAccessCoordinatorTests: XCTestCase {
         XCTAssertEqual(stored, [:])
     }
 
+    func testRestoreDoesNotRewriteUnchangedBookmarks() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let path = fixture.projectURL.path
+        let bookmark = Data(path.utf8)
+        let persistence = ProjectBookmarkPersistenceSpy(bookmarks: [path: bookmark])
+        let spy = ProjectBookmarkServiceSpy()
+        let coordinator = QuillCodeDesktopProjectAccessCoordinator(
+            defaults: persistence,
+            storageKey: fixture.storageKey,
+            service: spy.service
+        )
+
+        coordinator.restoreAccess(for: [ProjectRef(name: "Project", path: path)])
+
+        XCTAssertEqual(spy.resolvedPaths, [path])
+        XCTAssertEqual(spy.madeBookmarkPaths, [])
+        XCTAssertEqual(persistence.bookmarks, [path: bookmark])
+        XCTAssertEqual(persistence.writeCount, 0)
+    }
+
     private func makeFixture() throws -> ProjectAccessFixture {
         let suiteName = "QuillCodeDesktopProjectAccessCoordinatorTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -86,10 +107,30 @@ final class QuillCodeDesktopProjectAccessCoordinatorTests: XCTestCase {
 }
 
 @MainActor
+private final class ProjectBookmarkPersistenceSpy: QuillCodeDesktopProjectBookmarkPersisting {
+    var bookmarks: [String: Data]
+    private(set) var writeCount = 0
+
+    init(bookmarks: [String: Data]) {
+        self.bookmarks = bookmarks
+    }
+
+    func dictionary(forKey defaultName: String) -> [String: Any]? {
+        bookmarks
+    }
+
+    func set(_ value: Any?, forKey defaultName: String) {
+        writeCount += 1
+        bookmarks = value as? [String: Data] ?? [:]
+    }
+}
+
+@MainActor
 private final class ProjectBookmarkServiceSpy {
     var startedPaths: [String] = []
     var stoppedPaths: [String] = []
     var resolvedPaths: [String] = []
+    var madeBookmarkPaths: [String] = []
     private let isStale: Bool
     private let resolvedURLOverride: URL?
 
@@ -100,7 +141,10 @@ private final class ProjectBookmarkServiceSpy {
 
     var service: QuillCodeDesktopProjectBookmarkService {
         QuillCodeDesktopProjectBookmarkService(
-            makeBookmark: { Data($0.path.utf8) },
+            makeBookmark: { [weak self] url in
+                self?.madeBookmarkPaths.append(url.path)
+                return Data(url.path.utf8)
+            },
             resolveBookmark: { [weak self] data in
                 let path = String(decoding: data, as: UTF8.self)
                 self?.resolvedPaths.append(path)

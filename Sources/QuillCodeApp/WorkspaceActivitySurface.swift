@@ -161,6 +161,12 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         )
     }
 
+    public func settingVisibility(_ isVisible: Bool) -> Self {
+        var copy = self
+        copy.isVisible = isVisible
+        return copy
+    }
+
     private enum CodingKeys: String, CodingKey {
         case isVisible
         case title

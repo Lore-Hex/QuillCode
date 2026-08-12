@@ -21,7 +21,11 @@ extension QuillCodeBrowserPaneView {
                     browserTabButton(tab)
                 }
 
-                browserNavigationButton(systemName: "plus", label: "New browser tab", isEnabled: true) {
+                browserNavigationButton(
+                    systemName: "plus",
+                    label: "New browser tab",
+                    isEnabled: browser.canCreateNewTab
+                ) {
                     onCommand("browser-tab-new")
                 }
 

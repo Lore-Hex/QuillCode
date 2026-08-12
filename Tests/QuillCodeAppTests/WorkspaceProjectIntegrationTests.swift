@@ -233,6 +233,55 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(didPublish)
     }
 
+    func testRestoredProjectWorktreeEnvironmentsLoadOffMainAndRemainCached() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let configurationDirectory = root.appendingPathComponent(".quillcode")
+        let configurationURL = configurationDirectory.appendingPathComponent("config.toml")
+        try FileManager.default.createDirectory(
+            at: configurationDirectory,
+            withIntermediateDirectories: true
+        )
+        try """
+        [worktree_setup]
+        default_environment = "development"
+
+        [local_environments.development]
+        title = "Development"
+        """.write(to: configurationURL, atomically: true, encoding: .utf8)
+        let projectID = UUID()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [ProjectRef(id: projectID, name: "Restored", path: root.path)],
+            selectedProjectID: projectID
+        ))
+
+        XCTAssertTrue(model.surface().worktreeEnvironments.options.isEmpty)
+
+        model.scheduleSelectedProjectContextRefresh()
+        await model.waitForScheduledProjectContextRefresh()
+
+        XCTAssertEqual(
+            model.surface().worktreeEnvironments.options.map(\.title),
+            ["Development"]
+        )
+
+        try """
+        [worktree_setup]
+        default_environment = "release"
+
+        [local_environments.release]
+        title = "Release"
+        """.write(to: configurationURL, atomically: true, encoding: .utf8)
+        XCTAssertEqual(
+            model.surface().worktreeEnvironments.options.map(\.title),
+            ["Development"]
+        )
+
+        model.scheduleSelectedProjectContextRefresh()
+        await model.waitForScheduledProjectContextRefresh()
+
+        XCTAssertEqual(model.surface().worktreeEnvironments.options.map(\.title), ["Release"])
+    }
+
     func testRepeatedScheduledProjectContextRefreshCoalescesAnInFlightScan() async throws {
         let root = try makeQuillCodeTestDirectory()
         let projectID = UUID()

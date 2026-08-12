@@ -43,6 +43,12 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.scheduleWorkspaceScheduleCommands = scheduleWorkspaceScheduleCommands
     }
 
+    public func settingVisibility(_ isVisible: Bool) -> Self {
+        var copy = self
+        copy.isVisible = isVisible
+        return copy
+    }
+
     private static func statusLabel(
         for automations: [QuillAutomation],
         configuredCount: Int,

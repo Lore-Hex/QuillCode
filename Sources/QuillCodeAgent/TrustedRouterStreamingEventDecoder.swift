@@ -1,6 +1,9 @@
 import Foundation
 import QuillCodeCore
 import TrustedRouter
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 enum TrustedRouterStreamingEventDecoder {
     static func eventStream(
@@ -21,19 +24,105 @@ enum TrustedRouterStreamingEventDecoder {
         }
     }
 
+    #if !os(Linux)
+    /// Decodes URLSession bytes directly so a reasoning-budget cancellation can tear down the
+    /// network task. The SDK's byte-stream adapter is intentionally not used here: its unbounded
+    /// producer can drain a multi-megabyte response before downstream budget guards are scheduled.
+    static func eventStream<Bytes>(
+        from bytes: Bytes,
+        onTermination: @escaping @Sendable () -> Void
+    ) -> AsyncThrowingStream<AgentTextStreamEvent, Error>
+    where Bytes: AsyncSequence & Sendable, Bytes.Element == UInt8 {
+        AsyncThrowingStream(bufferingPolicy: .bufferingOldest(1)) { continuation in
+            let producer = Task {
+                do {
+                    var frame = Data()
+                    for try await byte in bytes {
+                        try Task.checkCancellation()
+                        frame.append(byte)
+                        guard isFrameBoundary(frame) else { continue }
+                        if let chunk = decodeFrame(frame) {
+                            for event in events(from: chunk) {
+                                try await yieldWithBackpressure(event, to: continuation)
+                            }
+                        }
+                        frame.removeAll(keepingCapacity: true)
+                    }
+                    if !frame.isEmpty, let chunk = decodeFrame(frame) {
+                        for event in events(from: chunk) {
+                            try await yieldWithBackpressure(event, to: continuation)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in
+                producer.cancel()
+                onTermination()
+            }
+        }
+    }
+
+    private static func yieldWithBackpressure(
+        _ event: AgentTextStreamEvent,
+        to continuation: AsyncThrowingStream<AgentTextStreamEvent, Error>.Continuation
+    ) async throws {
+        while true {
+            try Task.checkCancellation()
+            switch continuation.yield(event) {
+            case .enqueued:
+                return
+            case .dropped:
+                await Task.yield()
+            case .terminated:
+                throw CancellationError()
+            @unknown default:
+                throw CancellationError()
+            }
+        }
+    }
+
+    private static func isFrameBoundary(_ data: Data) -> Bool {
+        (data.count >= 2 && data.suffix(2) == Data([10, 10]))
+            || (data.count >= 4 && data.suffix(4) == Data([13, 10, 13, 10]))
+    }
+
+    private static func decodeFrame(_ data: Data) -> UsageChatCompletionChunk? {
+        guard let frame = String(data: data, encoding: .utf8) else { return nil }
+        let payload = frame.components(separatedBy: .newlines).compactMap { line -> String? in
+            guard line.hasPrefix("data:") else { return nil }
+            return line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+        }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !payload.isEmpty, payload != "[DONE]", let encoded = payload.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(UsageChatCompletionChunk.self, from: encoded)
+    }
+    #endif
+
     private static func yieldEvents(
         from chunk: UsageChatCompletionChunk,
         to continuation: AsyncThrowingStream<AgentTextStreamEvent, Error>.Continuation
     ) {
+        for event in events(from: chunk) {
+            continuation.yield(event)
+        }
+    }
+
+    private static func events(from chunk: UsageChatCompletionChunk) -> [AgentTextStreamEvent] {
+        var events: [AgentTextStreamEvent] = []
         if let reasoning = chunk.choices.first?.delta?.reasoning, !reasoning.isEmpty {
-            continuation.yield(.reasoning(reasoning))
+            events.append(.reasoning(reasoning))
         }
         if let content = chunk.choices.first?.delta?.content, !content.isEmpty {
-            continuation.yield(.text(content))
+            events.append(.text(content))
         }
         if let usage = chunk.usage {
-            continuation.yield(.usage(usage))
+            events.append(.usage(usage))
         }
+        return events
     }
 }
 

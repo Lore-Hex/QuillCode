@@ -98,28 +98,249 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     }
 }
 
+/// Identifies the model regions that can change during a coalesced progress update.
+/// Full refreshes remain authoritative; these scopes only avoid rebuilding unrelated,
+/// potentially filesystem-backed presentation state between progress callbacks.
+public struct WorkspaceProgressSurfaceScope: OptionSet, Sendable, Hashable {
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    public static let agent = WorkspaceProgressSurfaceScope(rawValue: 1 << 0)
+    public static let terminal = WorkspaceProgressSurfaceScope(rawValue: 1 << 1)
+}
+
+/// Identifies pane-only presentation changes that can reuse the current workspace projection.
+/// Opening or closing one of these panes must not rebuild the transcript, sidebar, or model catalog.
+public struct WorkspacePanePresentationScope: OptionSet, Sendable, Hashable {
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
+
+    public static let extensions = WorkspacePanePresentationScope(rawValue: 1 << 0)
+    public static let memories = WorkspacePanePresentationScope(rawValue: 1 << 1)
+    public static let activity = WorkspacePanePresentationScope(rawValue: 1 << 2)
+    public static let automations = WorkspacePanePresentationScope(rawValue: 1 << 3)
+}
+
+private struct WorkspaceAgentProgressSurface {
+    var chrome: WorkspaceChromeSurface
+    var topBar: TopBarSurface
+    var projects: ProjectListSurface
+    var sidebar: SidebarSurface
+    var transcript: TranscriptSurface
+    var contextBanner: ContextBannerSurface?
+    var sideConversation: SideConversationSurface?
+    var isConfidential: Bool
+    var codeReviewRequest: WorkspaceCodeReviewRequest?
+    var autoReviewDenials: AutoReviewDenialsSurface?
+    var review: WorkspaceReviewSurface
+    var browser: BrowserSurface
+    var extensions: WorkspaceExtensionsSurface
+    var memories: WorkspaceMemoriesSurface
+    var activity: WorkspaceActivitySurface
+    var composer: ComposerSurface
+    var fileMentionIndex: WorkspaceFileIndex
+    var changedFilePaths: Set<String>
+    var commands: [WorkspaceCommandSurface]
+    var runtimeIssue: RuntimeIssueSurface?
+    var lastError: String?
+    var attentionDigest: AttentionDigestSurface?
+
+    func apply(to surface: inout WorkspaceSurface) {
+        surface.chrome = chrome
+        surface.topBar = topBar
+        surface.projects = projects
+        surface.sidebar = sidebar
+        surface.transcript = transcript
+        surface.contextBanner = contextBanner
+        surface.sideConversation = sideConversation
+        surface.isConfidential = isConfidential
+        surface.codeReviewRequest = codeReviewRequest
+        surface.autoReviewDenials = autoReviewDenials
+        surface.review = review
+        surface.browser = browser
+        surface.extensions = extensions
+        surface.memories = memories
+        surface.activity = activity
+        surface.composer = composer
+        surface.fileMentionIndex = fileMentionIndex
+        surface.changedFilePaths = changedFilePaths
+        surface.commands = commands
+        surface.runtimeIssue = runtimeIssue
+        surface.lastError = lastError
+        surface.attentionDigest = attentionDigest
+    }
+}
+
 @MainActor
 public extension QuillCodeWorkspaceModel {
     func surface() -> WorkspaceSurface {
+        let progress = agentProgressSurface()
+        let surface = WorkspaceSurface(
+            chrome: progress.chrome,
+            topBar: progress.topBar,
+            projects: progress.projects,
+            sidebar: progress.sidebar,
+            transcript: progress.transcript,
+            contextBanner: progress.contextBanner,
+            sideConversation: progress.sideConversation,
+            isConfidential: progress.isConfidential,
+            codeReviewRequest: progress.codeReviewRequest,
+            autoReviewDenials: progress.autoReviewDenials,
+            review: progress.review,
+            terminal: terminalSurface(),
+            browser: progress.browser,
+            extensions: progress.extensions,
+            memories: progress.memories,
+            activity: progress.activity,
+            automations: WorkspaceAutomationsSurfaceBuilder(
+                isVisible: automations.isVisible,
+                automations: automations.items,
+                hasSelectedThread: selectedThread != nil,
+                hasSelectedProject: selectedProject != nil
+            ).surface(),
+            composer: progress.composer,
+            fileMentionIndex: progress.fileMentionIndex,
+            changedFilePaths: progress.changedFilePaths,
+            commands: progress.commands,
+            settings: WorkspaceSettingsSurface(
+                config: root.config,
+                hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
+                runtimeIssue: progress.runtimeIssue,
+                computerUseRuntime: ComputerUseSettingsRuntime(topBarState: root.topBar),
+                modelCatalogStatus: root.modelCatalogStatus,
+                modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog),
+                trustedRouterCredits: root.trustedRouterCredits,
+                managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
+            ),
+            worktreeEnvironments: selectedProject.flatMap {
+                worktreeEnvironmentSurfacesByProjectID[$0.id]
+            } ?? WorkspaceWorktreeEnvironmentSurface(),
+            runtimeIssue: progress.runtimeIssue,
+            lastError: progress.lastError,
+            attentionDigest: progress.attentionDigest
+        )
+        agentTranscriptRefreshTracker.didPublishAuthoritativeSurface(
+            selectedThreadID: root.selectedThreadID
+        )
+        return surface
+    }
+
+    /// Reprojects only state that the named progress producers are allowed to mutate.
+    /// The returned value preserves all other value-semantic storage from `surface`.
+    func progressSurface(
+        reusing surface: WorkspaceSurface,
+        scope: WorkspaceProgressSurfaceScope
+    ) -> WorkspaceSurface {
+        guard !scope.isEmpty else { return surface }
+        var next = surface
+        if scope.contains(.agent) {
+            let transcriptRefresh = agentTranscriptRefreshTracker.consume(
+                selectedThreadID: root.selectedThreadID
+            )
+            agentProgressSurface(
+                reusing: surface.transcript,
+                transcriptRefresh: transcriptRefresh
+            ).apply(to: &next)
+        }
+        if scope.contains(.terminal) {
+            next.terminal = terminalSurface()
+            if !scope.contains(.agent) {
+                next.commands = commandSurfaceBuilder().commands
+                applyTerminalStatus(to: &next)
+            }
+        }
+        return next
+    }
+
+    /// Reprojects only pane presentation state after a visibility toggle. Pane contents are already
+    /// refreshed by their owning model mutations; Extensions is rebuilt because toggling it also
+    /// clears its focused kind and therefore changes its filtered item set.
+    func panePresentationSurface(
+        reusing surface: WorkspaceSurface,
+        scope: WorkspacePanePresentationScope
+    ) -> WorkspaceSurface {
+        guard !scope.isEmpty else { return surface }
+        var next = surface
+        if scope.contains(.extensions) {
+            next.extensions = extensionsSurface()
+        }
+        if scope.contains(.memories) {
+            next.memories = surface.memories.settingVisibility(memories.isVisible)
+        }
+        if scope.contains(.activity) {
+            next.activity = surface.activity.settingVisibility(activity.isVisible)
+        }
+        if scope.contains(.automations) {
+            next.automations = surface.automations.settingVisibility(automations.isVisible)
+        }
+        return next
+    }
+
+    private func extensionsSurface() -> WorkspaceExtensionsSurface {
+        WorkspaceExtensionsSurface(
+            isVisible: extensions.isVisible,
+            focusedKind: extensions.focusedKind,
+            manifests: selectedProject?.extensionManifests ?? [],
+            hooks: effectiveHookDefinitions(for: selectedProject),
+            mcpServerStatuses: extensions.mcpServerStatuses,
+            mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
+            workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
+                .workflowRecordingStatusSnapshot
+        )
+    }
+
+    private func agentProgressSurface(
+        reusing previousTranscript: TranscriptSurface? = nil,
+        transcriptRefresh: WorkspaceAgentTranscriptRefreshPlan = .rebuild
+    ) -> WorkspaceAgentProgressSurface {
         let thread = selectedThread
         let topBarState = root.topBar
         let runtimeIssue = runtimeIssueSurface()
-        let transcriptProjection = thread.map {
-            WorkspaceTranscriptSurfaceBuilder(
-                thread: $0,
-                allowsRevert: selectedProject?.isRemote != true
-            ).projection()
-        } ?? .empty
         let executionContextBuilder = WorkspaceExecutionContextSurfaceBuilder(
             selectedProject: selectedProject,
             projects: root.projects
         )
-        let toolCards = thread.map {
-            executionContextBuilder.enrichToolCards(transcriptProjection.toolCards, for: $0)
-        } ?? []
-        let timelineItems = thread.map {
-            executionContextBuilder.enrichTimelineItems(transcriptProjection.timelineItems, for: $0)
-        } ?? []
+        let transcript: TranscriptSurface
+        if var incrementalTranscript = previousTranscript.flatMap({
+            transcriptRefresh.updatingTranscript($0, for: thread)
+        }) {
+            incrementalTranscript.thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
+                thread: thread,
+                composer: composer,
+                agentStatus: topBarState.agentStatus
+            ).surface()
+            transcript = incrementalTranscript
+        } else {
+            let transcriptProjection = thread.map {
+                WorkspaceTranscriptSurfaceBuilder(
+                    thread: $0,
+                    allowsRevert: selectedProject?.isRemote != true
+                ).projection()
+            } ?? .empty
+            let toolCards = thread.map {
+                executionContextBuilder.enrichToolCards(transcriptProjection.toolCards, for: $0)
+            } ?? []
+            let timelineItems = thread.map {
+                executionContextBuilder.enrichTimelineItems(transcriptProjection.timelineItems, for: $0)
+            } ?? []
+            transcript = TranscriptSurface(
+                messages: transcriptProjection.messages,
+                toolCards: toolCards,
+                timelineItems: thread == nil ? nil : timelineItems,
+                thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
+                    thread: thread,
+                    composer: composer,
+                    agentStatus: topBarState.agentStatus
+                ).surface()
+            )
+        }
+        let toolCards = transcript.toolCards
         let activeSources = WorkspaceContextResolver(
             projects: root.projects,
             globalMemories: root.globalMemories,
@@ -183,21 +404,12 @@ public extension QuillCodeWorkspaceModel {
             pullRequestReviewDraft: pullRequestReviewDraft
         ).surface()
         review.isPresented = chrome.reviewPresentation.resolves(hasContent: review.hasContent)
-        return WorkspaceSurface(
+        return WorkspaceAgentProgressSurface(
             chrome: WorkspaceChromeSurface(state: chrome, reviewHasContent: review.hasContent),
             topBar: topBar,
             projects: navigation.projects,
             sidebar: navigation.sidebar,
-            transcript: TranscriptSurface(
-                messages: transcriptProjection.messages,
-                toolCards: toolCards,
-                timelineItems: thread == nil ? nil : timelineItems,
-                thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
-                    thread: thread,
-                    composer: composer,
-                    agentStatus: topBarState.agentStatus
-                ).surface()
-            ),
+            transcript: transcript,
             contextBanner: WorkspaceContextBannerBuilder(
                 thread: thread,
                 selectedModelID: topBarState.model,
@@ -214,21 +426,8 @@ public extension QuillCodeWorkspaceModel {
                 )
                 : nil,
             review: review,
-            terminal: TerminalSurface(
-                terminal: terminal,
-                cwd: terminalCurrentDirectoryURL
-            ),
             browser: BrowserSurface(browser: browser),
-            extensions: WorkspaceExtensionsSurface(
-                isVisible: extensions.isVisible,
-                focusedKind: extensions.focusedKind,
-                manifests: selectedProject?.extensionManifests ?? [],
-                hooks: effectiveHookDefinitions(for: selectedProject),
-                mcpServerStatuses: extensions.mcpServerStatuses,
-                mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
-                workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
-                    .workflowRecordingStatusSnapshot
-            ),
+            extensions: extensionsSurface(),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
                 notes: activeSources.memories,
@@ -248,12 +447,6 @@ public extension QuillCodeWorkspaceModel {
                 collapsedSectionIDs: activity.collapsedSectionIDs,
                 dismissedInstructionDiagnosticIDs: dismissedInstructionDiagnosticIDs
             ),
-            automations: WorkspaceAutomationsSurfaceBuilder(
-                isVisible: automations.isVisible,
-                automations: automations.items,
-                hasSelectedThread: thread != nil,
-                hasSelectedProject: selectedProject != nil
-            ).surface(),
             composer: ComposerSurface(
                 composer: composer,
                 fileMentionIndex: fileMentionIndex,
@@ -269,26 +462,26 @@ public extension QuillCodeWorkspaceModel {
             fileMentionIndex: fileMentionIndex,
             changedFilePaths: activeChangedFilePaths,
             commands: commandSurfaceBuilder().commands,
-            settings: WorkspaceSettingsSurface(
-                config: root.config,
-                hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
-                runtimeIssue: runtimeIssue,
-                computerUseRuntime: ComputerUseSettingsRuntime(topBarState: topBarState),
-                modelCatalogStatus: root.modelCatalogStatus,
-                modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog),
-                trustedRouterCredits: root.trustedRouterCredits,
-                managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
-            ),
-            worktreeEnvironments: selectedProject.flatMap { project in
-                guard !project.isRemote else { return nil }
-                return WorkspaceProjectConfigurationLoader
-                    .load(from: URL(fileURLWithPath: project.path))
-                    .worktreeEnvironmentSurface
-            } ?? WorkspaceWorktreeEnvironmentSurface(),
             runtimeIssue: runtimeIssue,
             lastError: lastError,
             attentionDigest: attentionDigestSurface()
         )
+    }
+
+    private func terminalSurface() -> TerminalSurface {
+        TerminalSurface(terminal: terminal, cwd: terminalCurrentDirectoryURL)
+    }
+
+    private func applyTerminalStatus(to surface: inout WorkspaceSurface) {
+        let runtimeIssue = runtimeIssueSurface()
+        surface.topBar.agentStatus = root.topBar.agentStatus
+        surface.topBar.runtimeIssueLabel = runtimeIssue?.title
+        surface.topBar.runtimeIssueSeverity = runtimeIssue?.severity
+        surface.topBar.branchStatusLabel = WorkspaceTopBarSurfaceBuilder.branchStatusLabel(
+            for: root.topBar.branchStatus
+        )
+        surface.runtimeIssue = runtimeIssue
+        surface.lastError = lastError
     }
 
     /// The morning-triage return digest for the currently opened digest thread (issue #877), or nil when

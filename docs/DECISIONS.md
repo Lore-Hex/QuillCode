@@ -1,5 +1,308 @@
 # QuillCode Decisions
 
+## 2026-08-11: updater success waits for first-window readiness
+
+- **Decision:** Parsing the updater or relocation launch-handshake argument remains the first normal
+  process step, but parsing performs no filesystem mutation. The desktop controller writes the
+  acknowledgement only from the same first-window-ready transition that marks launch lifecycle
+  state ready.
+- **Why:** Process entry proves only that dyld reached the executable. An app can still hang while
+  loading persistence or constructing its first SwiftUI workspace and remain alive beyond the
+  helper's stability interval. A process-entry acknowledgement could therefore discard the
+  known-good rollback bundle before the replacement was usable.
+- **Recovery behavior:** A normal launch acknowledges after post-window services are installed. A
+  recovery-mode launch keeps both the crash marker and update acknowledgement pending until the user
+  explicitly keeps background work paused or resumes it. Failed acknowledgement writes remain
+  retryable and never clear the controller's one-shot request.
+- **Evidence:** Lifecycle tests prove normal readiness creates the acknowledgement and recovery
+  startup does not create it prematurely. The packaged updater parity gate requires parsing to stay
+  mutation-free in the app entry point and requires acknowledgement to remain owned by the shared
+  ready transition. Native public updater smoke then exercises that boundary on both architectures.
+
+## 2026-08-11: updater relaunches serialize cleanup and durable exit work
+
+- **Decision:** A foreground update cancels and joins the one-shot interrupted-update recovery task
+  before downloading or staging a fresh app. Relaunch termination synchronously broadcasts a private
+  lifecycle boundary before asking AppKit to quit or using its bounded forced-exit fallback.
+- **Why:** Startup recovery removes orphaned `.update-<uuid>.app` bundles beside the installed app. If
+  its delayed scan overlapped a new install, it could delete that installer's live staging bundle.
+  AppKit may also defer sheet-driven termination long enough to reach the fallback, which otherwise
+  bypasses the normal launch-marker and pending-draft cleanup notifications.
+- **Correctness boundary:** Cancellation alone is insufficient because recovery may already be in a
+  detached filesystem scan. The update awaits complete recovery termination, then rechecks operation
+  cancellation and generation before preparation. Relaunch cleanup is synchronous and idempotent;
+  the later AppKit notification may safely repeat it.
+- **Evidence:** Controller coverage blocks recovery behind a deterministic gate and proves neither
+  preparation nor installation begins until cancelled recovery exits. Lifecycle and composer tests
+  prove the relaunch boundary removes the active-launch marker and flushes pending draft text.
+
+## 2026-08-11: packaged launches require graceful termination
+
+- **Decision:** Packaged Quill Cowork apps explicitly disable macOS sudden termination. Automatic
+  termination support remains unchanged, but every operating-system termination must cross AppKit's
+  normal `willTerminate` boundary before the process exits.
+- **Why:** The active-launch record is intentionally removed only at that graceful boundary. Apple
+  documents that sudden termination skips `willTerminate`; advertising it made an ordinary fast
+  logout or shutdown indistinguishable from a crash and could show a false unexpected-exit warning or
+  pause automatic workspace services on the next launch.
+- **Release boundary:** Packaged smoke reads the built `Info.plist` and fails unless
+  `NSSupportsSuddenTermination` is false. Source parity separately pins both the generated plist entry
+  and the artifact assertion so future packaging changes cannot silently reintroduce the mismatch.
+
+## 2026-08-11: pane visibility changes reuse the current workspace projection
+
+- **Decision:** Opening or closing Automations, Extensions, Memories, or Activity updates only that
+  pane's presentation surface. The desktop no longer rebuilds the transcript, 100-chat navigation
+  projection, composer, model catalog, or filesystem-backed settings for a visibility-only change.
+  Extensions still reprojects its own contents because a normal toggle clears any focused extension
+  kind; the other panes retain their already-current content and change only visibility.
+- **Correctness boundary:** Model state remains authoritative. Each narrow projection is compared with
+  the corresponding field from a fresh full surface, while unrelated sentinel fields prove the
+  projection did not silently fall back to a full rebuild. Content-changing mutations continue to use
+  authoritative refreshes.
+- **Evidence:** The release-configured three-process `daily-driver-100-chats` gate passed 3/3 with a
+  354 ms median launch, 103.45 MiB initial RSS, 176.30 MiB after the first interaction sweep, and
+  182.11 MiB after the repeated sweep. The like-for-like single-process trace fell from 191.2 MB to
+  178.3 MB after the first sweep and from 198.7 MB to 187.3 MB after the repeated sweep.
+
+## 2026-08-10: public performance measures a verified daily-driver workspace
+
+- **Decision:** Every packaged performance attempt first invokes the app's own fixture helper to
+  atomically create one project, 100 saved chats, and a 200-message selected transcript. The timed
+  process loads that state normally and validates the marker, project binding, chat count, selected
+  chat, and message counts before capturing launch or resource evidence.
+- **Evidence contract:** Version-4 performance evidence identifies the workload as
+  `daily-driver-100-chats`. Raw window reports and the public architecture-specific manifests must
+  agree on that exact identity; an empty, malformed, mislabeled, or partially seeded workspace fails
+  closed. Seeding runs in a separate process so fixture creation is outside launch timing.
+- **Coverage boundary:** The full packaged smoke keeps its first-run empty-state window for onboarding,
+  Accessibility frames, and Computer Use proof, then starts a second, separately seeded daily-driver
+  window for its performance manifest. It packages an optimized release executable by default (with
+  an explicit diagnostic override), so production budgets never judge debug-code memory behavior.
+  Published speed and memory numbers therefore represent a returning user's restored workspace
+  without surrendering first-run coverage.
+- **Why:** Empty-state launch evidence could remain green while persistence loading, transcript
+  restoration, navigation context, or reconnect UX regressed for established users. Distribution
+  claims should measure the state people keep after adopting the product.
+
+## 2026-08-10: process-owned application services begin after the first window
+
+- **Decision:** Normal desktop launch no longer registers notification categories, inspects the
+  installed app location, recovers an interrupted update, or schedules automatic update checks from
+  `App.init`. The yielded first-window startup gate starts that same idempotent service bundle once,
+  before optional workspace automation begins.
+- **Availability boundary:** Draft lifecycle flushes, approval notifications, installation recovery,
+  and updates still start in both normal and recovery launches. Recovery mode pauses only automatic
+  workspace services; it does not withhold distribution or durability services after the saved
+  workspace is visible.
+- **Evidence:** Application-service tests prove controller construction performs none of this work,
+  the first-window boundary starts it once, and repeated boundary completion cannot duplicate updater
+  recovery. Desktop parity rejects an application-services call from `App.init` and pins ownership to
+  the post-window gate.
+
+## 2026-08-10: Computer Use permission probes begin after the first window
+
+- **Decision:** Installing the native Computer Use backend no longer reads its status. The desktop
+  keeps the backend available immediately, then queries Screen Recording and Accessibility trust in
+  the existing cancellable post-window refresh task. The synchronous operating-system preflights
+  run at utility priority instead of occupying the main actor during first-window construction.
+- **Lifecycle boundary:** Status refreshes are generation-bound. Cancellation or a later backend
+  replacement prevents an obsolete preflight result from mutating the model. Permission and
+  foreground-app refreshes use distinct replaceable task slots: recovery startup refreshes
+  permission state while automatic foreground observation remains paused, and rapid application
+  activations retain only the latest result of each kind. Optional CUA discovery requests another
+  pair of refreshes only when it actually replaces the backend.
+- **Evidence:** Coordinator tests prove controller construction and repeated surface projection read
+  no backend status, an explicit refresh does not spawn foreground lookup work, and a cancelled
+  preflight cannot update the model. Launch coverage proves recovery mode refreshes permission state
+  without starting automatic workspace or foreground work. Desktop parity pins side-effect-free
+  installation, explicit command routing, and the utility-priority refresh boundary.
+
+## 2026-08-10: project bookmark restoration begins after the first window
+
+- **Decision:** Security-scoped project bookmarks are no longer read, resolved, activated, or
+  rewritten while the desktop controller is constructing its initial surface. The yielded
+  first-window startup boundary restores them once, then configures local artifact-preview access
+  before automatic project services begin.
+- **Persistence boundary:** Bookmark reconciliation writes `UserDefaults` only when it removes an
+  obsolete or invalid record or renews a stale bookmark. A healthy launch with unchanged bookmarks,
+  including the common empty-bookmark case, performs no preferences write.
+- **Recovery boundary:** Recovery startup restores explicit project access while leaving automatic
+  workspace work paused. All normal, paused, and resumed paths share one idempotent post-window gate.
+- **Evidence:** Focused coordinator tests inject bookmark persistence and prove unchanged state has
+  zero writes. Launch lifecycle coverage proves controller construction performs no bookmark
+  resolution and repeated first-window completion restores and activates access exactly once.
+
+## 2026-08-10: Computer Use status refresh is event-driven and task-owned
+
+- **Decision:** Workspace surface projection no longer polls Computer Use permissions or launches a
+  foreground-application query. Automatic startup performs one explicit refresh, and macOS
+  application-activation notifications request later refreshes only when the foreground app can
+  actually change. Returning from Computer Use system settings uses the same path.
+- **Bounded work:** Foreground queries occupy one replaceable desktop task slot. A newer activation
+  cancels the prior owner, generation checks reject late backend results, and cancellation is checked
+  before model mutation. Repeated surface refreshes therefore retain no lookup tasks or provider
+  subprocesses. Status and foreground values publish only when they changed.
+- **Recovery boundary:** Activation observation begins with automatic workspace services, so startup
+  recovery keeps this optional work paused. Native Computer Use remains installed for explicit user
+  actions, and resolving the optional CUA driver schedules a fresh status query after the backend swap.
+- **Evidence:** Coordinator tests prove 1,000 real controller surface projections perform zero
+  permission reads and foreground lookups beyond installation, activation observation installs once,
+  late results cannot replace newer applications, and canceled work cannot mutate the model. Desktop
+  task and progress-projection parity gates require cancellable ownership and reject Computer Use work
+  from the presentation path.
+
+## 2026-08-10: startup failures reopen with automatic workspace work paused
+
+- **Decision:** Controller construction now loads and projects the usable workspace without starting
+  managed-worktree retention, pull-request reconciliation, project context and mention indexing,
+  due automations, refresh tickers, account requests, or optional Computer Use driver discovery.
+  A yielded first-window task starts that work once and then marks the launch ready.
+- **Crash-loop boundary:** An active launch record left in the `starting` phase selects recovery
+  startup on the next process. The workspace opens, but automatic background work remains paused and
+  the launch remains classified as starting until the user chooses either **Keep Background Work
+  Paused** or **Resume Background Work**. The first choice marks the usable paused session ready; the
+  second starts the same idempotent normal service set before marking it ready. Ready-state exits keep
+  the existing warning because they are not evidence that startup work caused the failure.
+- **Availability boundary:** Draft lifecycle flushes, update recovery and automatic update checks,
+  issue reporting, the installed-location recovery path, native Computer Use capability, and all
+  explicit workspace actions remain available. The optional foreground-app lookup and CUA driver
+  resolution are deferred and owned by a cancellable task slot instead of escaping controller
+  lifecycle ownership.
+- **Evidence:** `QuillCodeDesktopLaunchLifecycleTests` covers first-window deferral, both recovery
+  choices, phase transitions, and normal ready incidents. `QuillCodeDesktopComputerUseCoordinatorTests`
+  proves the startup lookup can remain dormant. Packaged launch-recovery smoke and desktop parity
+  gates pin the executable and release architecture paths.
+
+## 2026-08-10: agent transcript progress projects only proven tail changes
+
+- **Decision:** Reconciliation classifies each presentation-cadence snapshot as transcript
+  unchanged, one assistant-tail replacement, one assistant-tail append, or full rebuild. It also
+  marks message/tool/approval events and execution-context changes as projection-relevant. The next
+  coalesced agent refresh may reuse the selected transcript or patch that one tail only when the
+  model has an authoritative published baseline and every accumulated mutation remains compatible.
+- **Correctness boundary:** Hints are consumed once. A missing or changed baseline, changed message
+  identity or role, persisted message-event ambiguity, tool lifecycle mutation, structural history
+  change, project-context change, or incompatible coalesced sequence falls back to the complete
+  transcript projector. The incremental result is regression-tested against the authoritative
+  surface, including 50,000-event selected histories and 10,000-message background histories.
+- **Memory boundary:** The tracker retains only enum cases and UUIDs, never messages, events, tool
+  cards, timelines, or producer snapshots. Assistant streaming therefore reuses the already-reduced
+  tool-card buffer, and background progress reuses every selected transcript buffer, without
+  reintroducing copy-on-write coupling between the producer and workspace model.
+- **Evidence:** `WorkspaceAgentTranscriptRefreshTrackerTests`, `WorkspaceProgressSurfaceTests`,
+  `ParityDesktopTaskCoordinationGateTests`, the complete 5,831-test Swift suite, and release-packaged
+  native smoke with launch, resident-memory, repeated-interaction, and Accessibility budgets.
+
+## 2026-08-10: agent progress keeps producer and model histories independently owned
+
+- **Decision:** Presentation-cadence progress reconciles identified message, context, event, and
+  subagent histories into the model's existing arrays. Matching records update in place, new tails
+  append, truncated tails are removed, and identity changes trigger a detached structural rebuild.
+- **Memory and CPU boundary:** The model never retains the agent producer's large array storage.
+  After a callback returns, the producer can mutate its next streamed tail without a transcript-sized
+  copy-on-write clone, while the model also retains and reuses its own capacity. Reconciliation scans
+  the overlapping history without allocating; persistence still repairs legacy reasoning bursts and
+  returns healthy arrays unchanged.
+- **State ownership:** Instructions, memories, goals, composer drafts and attachments, and queued
+  follow-ups stay model-owned because they can change after the agent captures its send-start copy.
+  Completion remains the authoritative full-snapshot boundary, and destroyed ephemeral chats retain
+  their existing non-resurrection guard.
+- **Evidence:**
+  `WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent`
+  proves two independent 50,000-event buffers survive successive ticks; the structural-history test,
+  `ThreadEventLogCompactorTests`, `JSONThreadStoreTests`, `ParityAgentStreamingGateTests`, and
+  `ParityWorkspaceThreadMutationModelGateTests` cover exact replacement, durable repair, and ownership.
+
+## 2026-08-10: model streams publish at presentation cadence
+
+- **Decision:** Provider token cadence is no longer desktop presentation cadence. Visible assistant
+  drafts and reasoning summaries publish at most every 50 milliseconds while preserving an immediate
+  first update and an exact final flush on both successful and failed streams.
+- **Memory and CPU boundary:** A streamed action is limited to 16 MiB of UTF-8. The collector stops
+  before appending an over-limit chunk, and non-`say` actions stop repeated preview parsing as soon as
+  their action type is known. This bounds retained response data and removes provider-token-driven
+  parsing and full-thread copying that cannot become visible.
+- **Recovery:** An over-limit response becomes a focused warning with narrower-request guidance and a
+  direct model-picker action. Usage and the latest bounded reasoning summary remain committed on
+  failure, and the newest safe visible draft is not discarded when a provider disconnects.
+- **Evidence:** `TrustedRouterStreamingActionTests` deterministically reduces a 4,096-fragment answer
+  to two draft publications under one cadence window, verifies success and failure final flushes, and
+  rejects UTF-8 overflow. `WorkspaceRuntimeIssueBuilderTests` and `ParityAgentStreamingGateTests`
+  protect the recovery surface, shared cadence, final-flush ownership, and response limit.
+
+## 2026-08-10: live composer drafts checkpoint outside large transcripts
+
+- **Decision:** The desktop synchronizes its live composer binding into model memory immediately, then
+  debounces durable writes for 350 milliseconds. App deactivation and termination flush pending work.
+  Every delayed request retains its original optional thread identity and is ignored if selection has
+  changed before it runs.
+- **Persistence:** Standard drafts use private `0600` per-thread records beneath a `0700` directory.
+  Records are schema-checked, owner-checked, symlink-safe on read, and bounded to one MiB of draft text.
+  A nil draft is a tombstone, so a stale full-thread snapshot cannot resurrect sent or cleared text.
+  The first checkpoint makes an unsaved new chat durable; later typing does not serialize its transcript.
+- **Recovery:** A pending first message without a thread owner has a separate checkpoint and transfers
+  to the created chat. Oversized or unavailable sidecar storage removes stale checkpoint authority and
+  falls back to the established atomic full-thread save. Deleting a chat removes both stores.
+- **Privacy:** Confidential and side-conversation drafts remain memory-only. The same runtime-context
+  guard that excludes their transcripts also excludes checkpoint files.
+- **Evidence:** `ComposerDraftCheckpointStoreTests`,
+  `WorkspaceComposerDraftIntegrationTests`,
+  `QuillCodeDesktopComposerDraftCheckpointCoordinatorTests`, and
+  `ParityDesktopGateTests/testDesktopCrashRecoveryCheckpointsLiveComposerDrafts` cover storage bounds,
+  permissions, malformed/symlink rejection, burst coalescing, lifecycle flushes, relaunch, tombstones,
+  fallback, cleanup, selection races, and confidential-session exclusion.
+
+## 2026-08-09: releases update from the untouched previous public app
+
+- **Decision:** Download Builds captures the current public manifest and matching arm64 and x86_64
+  updater archives before publication begins. GitHub upload state, bounded size, release digest,
+  manifest identity, commit, architecture, URL, and SHA-256 must agree before the snapshot is kept.
+- **Release ordering:** Tester or stable publication depends on the capture job, while release-asset
+  assembly downloads only packaging artifacts. The prior binaries therefore cannot be mistaken for
+  new release assets and cannot be captured after a moving release changes.
+- **Compatibility proof:** Native post-publication jobs update the untouched captured app through its
+  real embedded channel feed to the newly published build, then require exact source/target metadata,
+  activation, signature, relaunch, process liveness, and staging cleanup.
+- **First release:** A missing channel release is recorded explicitly and permits the existing
+  synthetic one-build-behind smoke. Once a public source is available, the workflow cannot rewrite or
+  re-sign it to manufacture the upgrade path.
+- **Evidence:** Transactional capture modules, stateful fake-GitHub tests for success, absence,
+  corruption, and preflight rejection, workflow ordering assertions, and both native updater runners.
+
+## 2026-08-09: moving tester publication retains a verified rollback snapshot
+
+- **Decision:** Tester assets upload under run-scoped candidate names and must match GitHub's
+  recorded size, upload state, and SHA-256 digest before canonical names change. Existing assets
+  move to rollback aliases; they are not clobbered or deleted in place.
+- **Commit order:** Candidates take canonical names with the updater manifest last, then release
+  metadata moves to the new commit, then the `tester-latest` Git ref moves last. Prior assets are
+  deleted only after the new metadata and remote tag have both been read back and verified.
+- **Failure recovery:** Upload, rename, metadata, and tag failures delete every known candidate,
+  restore prior asset names by immutable GitHub asset ID, restore the complete metadata snapshot,
+  force the old tag back, and compare the recovered inventory, digests, metadata, and ref with the
+  snapshot before returning failure. Cleanup deletions receive bounded retries.
+- **Scope:** Immutable stable releases retain their draft, consumer-verification, and promotion
+  transaction. This publisher owns only the deliberately moving tester release.
+- **Evidence:** `scripts/tester_publication`, the thin `publish-tester-release.py` entry point,
+  workflow ordering assertions, and deterministic injected failures at upload, asset rename,
+  release metadata, tag push, and post-commit cleanup.
+
+## 2026-08-09: superseded tester builds never mutate the moving release
+
+- **Decision:** The Download Builds publisher re-fetches `origin/main` after all architecture
+  artifacts are ready and immediately before any `tester-latest` mutation. A tester run whose
+  commit is no longer current records `publish-required=false` and completes without moving the
+  tag, editing release notes, or replacing assets.
+- **Serialization:** Download builds remain serialized with cancellation disabled. An in-flight
+  publisher cannot be interrupted halfway through replacing a release, while a completed but
+  superseded build yields cleanly to the already queued newer run.
+- **Stable releases:** Canonical immutable version tags remain publishable even when `main` advances,
+  but the planner rechecks that the tag still resolves to the workflow commit and otherwise fails
+  closed.
+- **Evidence:** `scripts/plan-download-publication.sh`, the publish/verification job conditions in
+  `download-builds.yml`, deterministic fresh/stale/tag planner tests, and the workflow parity gate.
+
 ## 2026-08-09: process services start at application entry
 
 - **Decision:** The ordinary `QuillCodeDesktopApp` entry path calls

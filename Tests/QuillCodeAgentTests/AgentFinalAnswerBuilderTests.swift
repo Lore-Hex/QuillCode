@@ -501,6 +501,25 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertTrue(answer.contains("Result: Ready"))
     }
 
+    func testBrowserScriptFinalAnswerPreservesLongExtractedEvidence() throws {
+        let tail = "2026|325.252|326.785|330.213|333.020|335.123|333.952"
+        let output = BrowserScriptToolOutput(
+            title: "Official data",
+            url: "https://example.gov/series",
+            value: String(repeating: "x", count: 600) + "\n" + tail
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.browserScript.name,
+                argumentsJSON: ToolArguments.json(["source": "extractTable()"])
+            ),
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains(tail))
+    }
+
     func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
         let call = ToolCall(
             name: ToolDefinition.applyPatch.name,

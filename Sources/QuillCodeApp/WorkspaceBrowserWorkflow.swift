@@ -208,7 +208,7 @@ enum WorkspaceBrowserWorkflow {
     }
 
     @discardableResult
-    static func newTab(browser: inout BrowserState) -> UUID {
+    static func newTab(browser: inout BrowserState) -> UUID? {
         WorkspaceBrowserEngine.newTab(state: &browser)
     }
 

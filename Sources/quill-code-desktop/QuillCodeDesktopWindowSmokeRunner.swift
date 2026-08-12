@@ -57,7 +57,13 @@ enum QuillCodeDesktopWindowSmokeRunner {
         guard bounds.width >= 900, bounds.height >= 620 else {
             throw QuillCodeDesktopSmokeFailure.windowContentTooSmall(bounds.width, bounds.height)
         }
+        let workload = try QuillCodeDesktopDailyDriverSmokeFixture.validate(
+            workloadID: request.performanceWorkloadID,
+            controller: controller,
+            workspaceRoot: workspaceRoot
+        )
         let initialPerformance = try QuillCodeDesktopInitialPerformanceSnapshot.capture(
+            workload: workload,
             launchStartedAtUptime: QuillCodeDesktopLaunchClock.appEntryUptime
         )
         markStage("launch-window-ready")
@@ -213,8 +219,10 @@ enum QuillCodeDesktopWindowSmokeRunner {
             window.displayIfNeeded()
             contentView.layoutSubtreeIfNeeded()
 
-            let image = try capture(contentView: contentView, bounds: bounds, to: url)
-            let stats = try QuillCodeDesktopSmokePixelStats(image: image)
+            let stats = try autoreleasepool {
+                let image = try capture(contentView: contentView, bounds: bounds, to: url)
+                return try QuillCodeDesktopSmokePixelStats(image: image)
+            }
 
             do {
                 try validateImageStats(stats)

@@ -1,6 +1,14 @@
 import Foundation
 import QuillCodeCore
 
+@MainActor
+protocol QuillCodeDesktopProjectBookmarkPersisting: AnyObject {
+    func dictionary(forKey defaultName: String) -> [String: Any]?
+    func set(_ value: Any?, forKey defaultName: String)
+}
+
+extension UserDefaults: QuillCodeDesktopProjectBookmarkPersisting {}
+
 struct QuillCodeDesktopResolvedProjectBookmark {
     let url: URL
     let isStale: Bool
@@ -40,7 +48,7 @@ struct QuillCodeDesktopProjectBookmarkService {
 final class QuillCodeDesktopProjectAccessCoordinator {
     static let defaultStorageKey = "projectSecurityScopedBookmarks.v1"
 
-    private let defaults: UserDefaults
+    private let defaults: any QuillCodeDesktopProjectBookmarkPersisting
     private let storageKey: String
     private let service: QuillCodeDesktopProjectBookmarkService
     private var activeURLs: [String: URL] = [:]
@@ -50,7 +58,7 @@ final class QuillCodeDesktopProjectAccessCoordinator {
     }
 
     init(
-        defaults: UserDefaults = .standard,
+        defaults: any QuillCodeDesktopProjectBookmarkPersisting = UserDefaults.standard,
         storageKey: String = defaultStorageKey,
         service: QuillCodeDesktopProjectBookmarkService = .live
     ) {
@@ -81,6 +89,7 @@ final class QuillCodeDesktopProjectAccessCoordinator {
             URL(fileURLWithPath: project.path).standardizedFileURL.path
         })
         var bookmarks = storedBookmarks()
+        let originalBookmarks = bookmarks
 
         for path in activeURLs.keys where !localPaths.contains(path) {
             deactivate(path)
@@ -104,7 +113,9 @@ final class QuillCodeDesktopProjectAccessCoordinator {
                 bookmarks.removeValue(forKey: path)
             }
         }
-        saveBookmarks(bookmarks)
+        if bookmarks != originalBookmarks {
+            saveBookmarks(bookmarks)
+        }
     }
 
     func reconcileProjects(_ projects: [ProjectRef]) {

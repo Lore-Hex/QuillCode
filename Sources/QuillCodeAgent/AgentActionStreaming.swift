@@ -8,10 +8,20 @@ public enum AgentTextStreamEvent: Sendable, Hashable {
 }
 
 public enum AgentActionStreamCollector {
+    /// A model action is one JSON object, not an artifact transport. Keep enough room for large
+    /// patches while preventing an unbounded or malformed provider stream from exhausting the app.
+    public static let maximumActionUTF8Bytes = 16 * 1_024 * 1_024
+
     public static func collectText(from stream: AsyncThrowingStream<String, Error>) async throws -> String {
         var text = ""
+        var receivedBytes = 0
         for try await chunk in stream {
             try Task.checkCancellation()
+            receivedBytes = try checkedByteCount(
+                current: receivedBytes,
+                adding: chunk.utf8.count,
+                maximum: maximumActionUTF8Bytes
+            )
             text.append(chunk)
         }
         return text
@@ -45,37 +55,89 @@ public enum AgentActionStreamCollector {
         onUsage: ((ModelTokenUsage) async -> Void)?,
         onReasoning: ((String) async -> Void)? = nil
     ) async throws -> AgentAction {
+        try await collect(
+            from: stream,
+            emptyError: emptyError(),
+            onVisibleAssistantText: onVisibleAssistantText,
+            onUsage: onUsage,
+            onReasoning: onReasoning,
+            maximumActionUTF8Bytes: maximumActionUTF8Bytes,
+            previewIntervalNanoseconds: AgentStreamingProgressCadence.minimumIntervalNanoseconds,
+            nowNanoseconds: { DispatchTime.now().uptimeNanoseconds }
+        )
+    }
+
+    /// Internal deterministic seam for limit/cadence coverage. Production callers use the public
+    /// overload above so every provider shares one response budget and one presentation cadence.
+    static func collect(
+        from stream: AsyncThrowingStream<AgentTextStreamEvent, Error>,
+        emptyError: @autoclosure () -> any Error,
+        onVisibleAssistantText: ((String) async -> Void)?,
+        onUsage: ((ModelTokenUsage) async -> Void)?,
+        onReasoning: ((String) async -> Void)?,
+        maximumActionUTF8Bytes: Int,
+        previewIntervalNanoseconds: UInt64,
+        nowNanoseconds: @escaping () -> UInt64
+    ) async throws -> AgentAction {
+        precondition(maximumActionUTF8Bytes > 0)
         var rawActionText = ""
-        var lastVisibleText = ""
+        var receivedBytes = 0
+        var preview = AgentVisibleAssistantPreviewCadence(
+            minimumIntervalNanoseconds: previewIntervalNanoseconds
+        )
         var lastReasoningText = ""
-        for try await event in stream {
-            try Task.checkCancellation()
-            switch event {
-            case .text(let chunk):
-                rawActionText.append(chunk)
-                guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
-                      !visibleText.isEmpty,
-                      !AgentPromisedWorkGuard.shouldSuppressStreamingPreview(for: visibleText),
-                      visibleText != lastVisibleText
-                else {
-                    continue
+
+        do {
+            for try await event in stream {
+                try Task.checkCancellation()
+                switch event {
+                case .text(let chunk):
+                    receivedBytes = try checkedByteCount(
+                        current: receivedBytes,
+                        adding: chunk.utf8.count,
+                        maximum: maximumActionUTF8Bytes
+                    )
+                    rawActionText.append(chunk)
+                    if let visibleText = preview.nextPreview(
+                        from: rawActionText,
+                        nowNanoseconds: nowNanoseconds()
+                    ) {
+                        await onVisibleAssistantText?(visibleText)
+                    }
+                case .reasoning(let fragment):
+                    // Preserve boundary whitespace: several providers emit reasoning one token at a
+                    // time, and trimming here would join words in the accumulated presentation.
+                    guard !fragment.isEmpty, fragment != lastReasoningText else {
+                        continue
+                    }
+                    lastReasoningText = fragment
+                    await onReasoning?(fragment)
+                case .usage(let usage):
+                    await onUsage?(usage)
                 }
-                lastVisibleText = visibleText
-                await onVisibleAssistantText?(visibleText)
-            case .reasoning(let fragment):
-                // Preserve boundary whitespace: several providers emit reasoning one token at a
-                // time, and trimming here would join words in the accumulated presentation.
-                guard !fragment.isEmpty, fragment != lastReasoningText else {
-                    continue
-                }
-                lastReasoningText = fragment
-                await onReasoning?(fragment)
-            case .usage(let usage):
-                await onUsage?(usage)
             }
+        } catch {
+            if let visibleText = preview.finalPreview(from: rawActionText) {
+                await onVisibleAssistantText?(visibleText)
+            }
+            throw error
         }
 
+        if let visibleText = preview.finalPreview(from: rawActionText) {
+            await onVisibleAssistantText?(visibleText)
+        }
         return try parseAction(from: rawActionText, emptyError: emptyError())
+    }
+
+    private static func checkedByteCount(
+        current: Int,
+        adding additional: Int,
+        maximum: Int
+    ) throws -> Int {
+        guard additional <= maximum - current else {
+            throw AgentError.streamingActionTooLarge(maximumBytes: maximum)
+        }
+        return current + additional
     }
 
     static func parseAction(from text: String, emptyError: @autoclosure () -> any Error) throws -> AgentAction {
@@ -107,10 +169,18 @@ extension AsyncThrowingStream where Element == String, Failure == Error {
 
 public enum AgentActionStreamPreview {
     public static func visibleAssistantText(from rawActionText: String) -> String? {
-        guard partialJSONStringValue(for: "type", in: rawActionText) == "say" else {
+        guard streamedActionType(from: rawActionText) == "say" else {
             return nil
         }
-        return partialJSONStringValue(for: "text", in: rawActionText)
+        return visibleAssistantTextForKnownSayAction(from: rawActionText)
+    }
+
+    static func streamedActionType(from rawActionText: String) -> String? {
+        partialJSONStringValue(for: "type", in: rawActionText)
+    }
+
+    static func visibleAssistantTextForKnownSayAction(from rawActionText: String) -> String? {
+        partialJSONStringValue(for: "text", in: rawActionText)
     }
 
     private static func partialJSONStringValue(for key: String, in text: String) -> String? {

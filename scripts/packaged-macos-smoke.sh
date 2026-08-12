@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-packaged-macos-smoke.XXXXXX")"
 APP_OUTPUT_DIR="$SMOKE_ROOT/app"
+APP_CONFIGURATION="${QUILLCODE_PACKAGED_MACOS_SMOKE_CONFIGURATION:-release}"
 DIRECT_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/direct-executable"
 LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/launch-services"
 CLICK_PROBE_MANIFEST="$SMOKE_ROOT/packaged-click-probes.json"
@@ -16,6 +17,12 @@ BROWSER_WORKFLOW_MANIFEST="$SMOKE_ROOT/packaged-browser-workflow.json"
 COMPUTER_USE_MANIFEST="$SMOKE_ROOT/packaged-computer-use.json"
 COMPUTER_USE_ACTION_MANIFEST="$SMOKE_ROOT/packaged-computer-use-action.json"
 PERFORMANCE_MANIFEST="$SMOKE_ROOT/packaged-performance.json"
+PERFORMANCE_WINDOW_REPORT_PATH="$SMOKE_ROOT/performance-window-report.json"
+PERFORMANCE_WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/performance-window.png"
+PERFORMANCE_WINDOW_STATE_ROOT="$SMOKE_ROOT/performance-window-state"
+COMPOSER_DRAFT_CRASH_STATE_ROOT="$SMOKE_ROOT/composer-draft-crash-state"
+COMPOSER_DRAFT_CRASH_WRITE_LOG="$SMOKE_ROOT/composer-draft-crash-write.log"
+COMPOSER_DRAFT_CRASH_VERIFY_LOG="$SMOKE_ROOT/composer-draft-crash-verify.log"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
@@ -69,6 +76,18 @@ cleanup() {
     if [[ -e "$PERFORMANCE_MANIFEST" ]]; then
       cp "$PERFORMANCE_MANIFEST" "$ARTIFACT_DIR/packaged-performance.json"
     fi
+    if [[ -e "$PERFORMANCE_WINDOW_REPORT_PATH" ]]; then
+      cp "$PERFORMANCE_WINDOW_REPORT_PATH" "$ARTIFACT_DIR/performance-window-report.json"
+    fi
+    if [[ -e "$PERFORMANCE_WINDOW_SCREENSHOT_PATH" ]]; then
+      cp "$PERFORMANCE_WINDOW_SCREENSHOT_PATH" "$ARTIFACT_DIR/performance-window.png"
+    fi
+    if [[ -e "$COMPOSER_DRAFT_CRASH_WRITE_LOG" ]]; then
+      cp "$COMPOSER_DRAFT_CRASH_WRITE_LOG" "$ARTIFACT_DIR/composer-draft-crash-write.log"
+    fi
+    if [[ -e "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" ]]; then
+      cp "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" "$ARTIFACT_DIR/composer-draft-crash-verify.log"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -94,6 +113,10 @@ cleanup() {
       printf 'computer_use_manifest=packaged-computer-use.json\n'
       printf 'computer_use_action_manifest=packaged-computer-use-action.json\n'
       printf 'performance_manifest=packaged-performance.json\n'
+      printf 'performance_window_report=performance-window-report.json\n'
+      printf 'performance_window_screenshot=performance-window.png\n'
+      printf 'composer_draft_crash_write=composer-draft-crash-write.log\n'
+      printf 'composer_draft_crash_verify=composer-draft-crash-verify.log\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -117,7 +140,11 @@ fi
 cd "$ROOT_DIR"
 
 echo "==> Building packaged macOS app"
-APP_BUNDLE="$("$ROOT_DIR/scripts/build-macos-app.sh" --output "$APP_OUTPUT_DIR")"
+APP_BUNDLE="$(
+  "$ROOT_DIR/scripts/build-macos-app.sh" \
+    --output "$APP_OUTPUT_DIR" \
+    --configuration "$APP_CONFIGURATION"
+)"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/Quill Cowork"
 EXPECTED_BUILD_COMMIT="$(git rev-parse HEAD)"
@@ -171,10 +198,48 @@ assert_plist_value CFBundlePackageType APPL
 assert_plist_value QuillCodeBuildCommit "$EXPECTED_BUILD_COMMIT"
 assert_plist_value LSApplicationCategoryType public.app-category.developer-tools
 assert_plist_value NSPrincipalClass NSApplication
+assert_plist_value NSSupportsSuddenTermination false
 assert_plist_value QuillCodeUpdateChannel tester
 assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
 assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
 assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+
+echo "==> Running packaged composer draft SIGKILL recovery smoke"
+"$APP_EXECUTABLE" \
+  --composer-draft-crash-smoke \
+  --composer-draft-crash-phase write \
+  --composer-draft-crash-state-root "$COMPOSER_DRAFT_CRASH_STATE_ROOT" \
+  >"$COMPOSER_DRAFT_CRASH_WRITE_LOG" 2>&1 &
+COMPOSER_DRAFT_CRASH_PID="$!"
+set +e
+wait_for_smoke_process \
+  "$COMPOSER_DRAFT_CRASH_PID" \
+  15 \
+  "Packaged composer draft SIGKILL writer"
+COMPOSER_DRAFT_CRASH_STATUS="$?"
+set -e
+if [[ "$COMPOSER_DRAFT_CRASH_STATUS" -ne 137 ]]; then
+  echo "Packaged composer draft writer expected SIGKILL status 137 but found $COMPOSER_DRAFT_CRASH_STATUS." >&2
+  cat "$COMPOSER_DRAFT_CRASH_WRITE_LOG" >&2
+  exit 1
+fi
+
+(
+  "$APP_EXECUTABLE" \
+    --composer-draft-crash-smoke \
+    --composer-draft-crash-phase verify \
+    --composer-draft-crash-state-root "$COMPOSER_DRAFT_CRASH_STATE_ROOT" \
+    >"$COMPOSER_DRAFT_CRASH_VERIFY_LOG" 2>&1
+) &
+COMPOSER_DRAFT_VERIFY_PID="$!"
+if ! wait_for_smoke_process \
+  "$COMPOSER_DRAFT_VERIFY_PID" \
+  15 \
+  "Packaged composer draft recovery verifier"
+then
+  cat "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" >&2
+  exit 1
+fi
 
 QUILLCODE_DESKTOP_EXECUTABLE="$APP_EXECUTABLE" \
 QUILLCODE_NATIVE_DESKTOP_SMOKE_LABEL="packaged macOS app" \
@@ -249,8 +314,42 @@ fi
   --click-probe-manifest "$CLICK_PROBE_MANIFEST" \
   --manifest "$ACCESSIBILITY_FRAMES_MANIFEST"
 
+echo "==> Running packaged macOS app daily-driver performance window smoke"
+"$APP_EXECUTABLE" \
+  --seed-daily-driver-window-smoke \
+  --window-smoke-state-root "$PERFORMANCE_WINDOW_STATE_ROOT" \
+  >/dev/null
+(
+  "$APP_EXECUTABLE" \
+    --native-window-smoke \
+    --window-smoke-report "$PERFORMANCE_WINDOW_REPORT_PATH" \
+    --window-smoke-screenshot "$PERFORMANCE_WINDOW_SCREENSHOT_PATH" \
+    --window-smoke-state-root "$PERFORMANCE_WINDOW_STATE_ROOT" \
+    --window-smoke-performance-workload "daily-driver-100-chats" \
+    >/dev/null
+) &
+PERFORMANCE_WINDOW_SMOKE_PID="$!"
+if ! wait_for_smoke_process \
+  "$PERFORMANCE_WINDOW_SMOKE_PID" \
+  "$WINDOW_SMOKE_TIMEOUT_SECONDS" \
+  "Packaged app daily-driver performance window smoke"
+then
+  cat "$PERFORMANCE_WINDOW_REPORT_PATH" >&2 2>/dev/null || true
+  exit 1
+fi
+
+if [[ ! -s "$PERFORMANCE_WINDOW_REPORT_PATH" ]]; then
+  echo "Packaged app daily-driver performance smoke did not write a JSON report" >&2
+  exit 1
+fi
+if [[ ! -s "$PERFORMANCE_WINDOW_SCREENSHOT_PATH" ]]; then
+  echo "Packaged app daily-driver performance smoke did not write a screenshot" >&2
+  cat "$PERFORMANCE_WINDOW_REPORT_PATH" >&2 || true
+  exit 1
+fi
+
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" performance \
-  "$WINDOW_REPORT_PATH" \
+  "$PERFORMANCE_WINDOW_REPORT_PATH" \
   --manifest "$PERFORMANCE_MANIFEST"
 
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" computer-use \

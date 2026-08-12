@@ -34,6 +34,7 @@ final class WorkspaceToolDisplayNameBuilderTests: XCTestCase {
     func testCardTitleUsesCrispImperativeVerbs() {
         XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.shellRun.name), "Run")
         XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.fileRead.name), "Read")
+        XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.fileReadMany.name), "Read")
         XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.fileWrite.name), "Write")
         XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.fileSearch.name), "Search")
         XCTAssertEqual(WorkspaceToolDisplayNameBuilder.cardTitle(for: ToolDefinition.applyPatch.name), "Edit")
@@ -61,6 +62,10 @@ final class WorkspaceToolDisplayNameBuilderTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceToolDisplayNameBuilder.displayName(for: ToolDefinition.fileRead.name),
             "Read file"
+        )
+        XCTAssertEqual(
+            WorkspaceToolDisplayNameBuilder.displayName(for: ToolDefinition.fileReadMany.name),
+            "Read files"
         )
     }
 }

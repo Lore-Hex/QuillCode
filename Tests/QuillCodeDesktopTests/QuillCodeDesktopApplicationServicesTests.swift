@@ -7,7 +7,49 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopApplicationServicesTests: XCTestCase {
-    func testApplicationServicesStartWithoutAWindowAndRemainIdempotent() async throws {
+    func testNotificationOwnershipRequiresCanonicalPackagedApplicationLayout() {
+        let applicationURL = URL(
+            fileURLWithPath: "/Applications/Quill Cowork.app",
+            isDirectory: true
+        )
+        let executableURL = applicationURL
+            .appendingPathComponent("Contents/MacOS/Quill Cowork")
+
+        XCTAssertTrue(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: applicationURL,
+            executableURL: executableURL,
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: URL(fileURLWithPath: "/tmp/.build/debug", isDirectory: true),
+            executableURL: URL(fileURLWithPath: "/tmp/.build/debug/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+    }
+
+    func testNotificationOwnershipRejectsMismatchedIdentityAndEscapedExecutable() {
+        let applicationURL = URL(
+            fileURLWithPath: "/Applications/Quill Cowork.app",
+            isDirectory: true
+        )
+
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.example.Lookalike",
+            bundleURL: applicationURL,
+            executableURL: applicationURL.appendingPathComponent("Contents/MacOS/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+        XCTAssertFalse(QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            bundleURL: applicationURL,
+            executableURL: URL(fileURLWithPath: "/tmp/Quill Cowork"),
+            expectedBundleIdentifier: "co.lorehex.QuillCowork"
+        ))
+    }
+
+    func testApplicationServicesStartAtFirstWindowBoundaryAndRemainIdempotent() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = QuillCodePaths(home: root.appendingPathComponent("state", isDirectory: true))
@@ -47,13 +89,21 @@ final class QuillCodeDesktopApplicationServicesTests: XCTestCase {
             automationNotifier: ApplicationServiceNoopNotifier(),
             updateController: updateController,
             installationLocationController: installationController,
+            startupMode: .recovery,
             workspaceRoot: root
         )
 
-        controller.startApplicationServices()
-        controller.startApplicationServices()
+        XCTAssertFalse(installationController.isPresented)
+        XCTAssertFalse(controller.postWindowApplicationServicesStarted)
+        let preWindowRecoveryCallCount = await recovery.callCount
+        XCTAssertEqual(preWindowRecoveryCallCount, 0)
+
+        controller.completeStartupIfAllowed()
+        controller.completeStartupIfAllowed()
 
         XCTAssertTrue(installationController.isPresented)
+        XCTAssertTrue(controller.postWindowApplicationServicesStarted)
+        XCTAssertFalse(controller.automaticWorkspaceServicesStarted)
         try await waitUntil { await recovery.callCount == 1 }
         let checkerCallCount = await checker.callCount
         XCTAssertEqual(checkerCallCount, 0)

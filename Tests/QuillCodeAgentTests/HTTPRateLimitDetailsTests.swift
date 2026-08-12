@@ -69,6 +69,18 @@ final class HTTPRateLimitDetailsTests: XCTestCase {
         XCTAssertTrue(error.description.contains("x-ratelimit-reset: 120s"))
     }
 
+    func testLocalizedDescriptionPreservesStreamingHTTPFailureForUIAndSubagents() {
+        let error = TrustedRouterAgentError.streamingHTTPError(
+            statusCode: 402,
+            body: #"{"error":{"message":"API key spend limit exceeded"}}"#,
+            rateLimit: nil
+        )
+
+        XCTAssertTrue(error.localizedDescription.contains("HTTP 402"))
+        XCTAssertTrue(error.localizedDescription.contains("API key spend limit exceeded"))
+        XCTAssertFalse(error.localizedDescription.contains("TrustedRouterAgentError error"))
+    }
+
     func testHeaderWhitespaceAndNewlinesAreTrimmed() throws {
         let details = try XCTUnwrap(HTTPRateLimitDetails.parse(
             headers: [" Retry-After\n": "\t42\n"],

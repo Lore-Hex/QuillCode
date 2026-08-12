@@ -294,6 +294,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "if: needs.release-policy.outputs.build-required == 'true'",
             "persist-credentials: false",
             "needs: release-policy",
+            "capture-updater-source:",
+            "scripts/capture-public-updater-source.py",
+            "--output-dir \"$RUNNER_TEMP/prior-updater/$architecture\"",
+            "--allow-missing",
+            "name: quillcode-prior-updater-sources",
             "group: download-builds-${{ github.ref }}",
             "cancel-in-progress: false",
             "QUILLCODE_UPDATE_CHANNEL=stable",
@@ -315,9 +320,17 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--channel \"$RELEASE_CHANNEL\"",
             "--commit \"$GITHUB_SHA\"",
             "--output \"$RUNNER_TEMP/release-notes.md\"",
-            "current-release-assets.txt",
-            "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
-            "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber",
+            "scripts/plan-download-publication.sh",
+            "needs: [macos, linux, capture-updater-source]",
+            "pattern: quillcode-*-downloads*",
+            "published: ${{ steps.publication.outputs.publish-required }}",
+            "if: steps.publication.outputs.publish-required == 'true'",
+            "if: needs.publish.outputs.published == 'true'",
+            "scripts/publish-tester-release.py",
+            "--assets-dir \"$RUNNER_TEMP/release-assets\"",
+            "--notes-file \"$RUNNER_TEMP/release-notes.md\"",
+            "--repo \"$GITHUB_REPOSITORY\"",
+            "--run-id \"$GITHUB_RUN_ID\"",
             "--verify-tag",
             "--draft",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/*",
@@ -336,7 +349,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "promote-stable:",
             "Promote verified stable candidate",
             "--prerelease=false",
-            "needs: [publish, verify-published, promote-stable]",
+            "needs: [publish, verify-published, promote-stable, capture-updater-source]",
+            "needs.capture-updater-source.result == 'success'",
+            "Download previous public updater source",
+            "sourceAvailable raw",
+            "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
             "verify-stable-promotion:",
             "needs: [promote-stable, verify-updater]",
             "Verify promoted stable release",
@@ -356,17 +373,24 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
         XCTAssertFalse(workflow.contains("cat > \"$RUNNER_TEMP/release-notes.md\""))
         XCTAssertFalse(workflow.contains("MACOS_DISTRIBUTION_NOTE"))
+        XCTAssertFalse(workflow.contains("--clobber"))
+        XCTAssertFalse(workflow.contains("gh release delete-asset"))
         let validationIndex = try XCTUnwrap(workflow.range(of: "scripts/validate-download-build-ref.sh"))
         let ciGateIndex = try XCTUnwrap(workflow.range(of: "scripts/wait-for-successful-ci.sh"))
         let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))
         XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
         let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
+        let sourceCaptureIndex = try XCTUnwrap(workflow.range(of: "  capture-updater-source:"))
+        let freshnessIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-publication.sh"))
+        let releaseMutationIndex = try XCTUnwrap(workflow.range(of: "scripts/publish-tester-release.py"))
         let publicVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-published:"))
         let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
         let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))
         let finalVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-stable-promotion:"))
+        XCTAssertLessThan(sourceCaptureIndex.lowerBound, publishIndex.lowerBound)
         XCTAssertLessThan(publishIndex.lowerBound, publicVerificationIndex.lowerBound)
+        XCTAssertLessThan(freshnessIndex.lowerBound, releaseMutationIndex.lowerBound)
         XCTAssertLessThan(publicVerificationIndex.lowerBound, promotionIndex.lowerBound)
         XCTAssertLessThan(promotionIndex.lowerBound, updaterIndex.lowerBound)
         XCTAssertLessThan(updaterIndex.lowerBound, finalVerificationIndex.lowerBound)
@@ -396,6 +420,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "returns the new release to draft",
             "previous stable feed",
             "avoids no-op build-number updates and unnecessary",
+            "untouched previous public app",
+            "synthetic one-build-behind fallback",
             "channel is `tester`",
             "channel is `stable`"
         ])
@@ -434,6 +460,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeSigningTeamIdentifier",
             #"${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}"#
         ])
+        Self.assertSource(buildScript, contains: """
+          <key>NSSupportsSuddenTermination</key>
+          <false/>
+        """)
         Self.assertSource(packageScript, containsAll: [
             "bundleIdentifier=$BUNDLE_ID",
             "minimumSystemVersion=$MINIMUM_SYSTEM_VERSION",
@@ -472,6 +502,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
             "assert_plist_value QuillCodeBuildCommit \"$EXPECTED_BUILD_COMMIT\"",
+            "assert_plist_value NSSupportsSuddenTermination false",
             "assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json",
             "assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json",
             "assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"

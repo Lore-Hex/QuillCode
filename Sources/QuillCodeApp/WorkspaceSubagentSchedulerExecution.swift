@@ -24,6 +24,9 @@ extension WorkspaceSubagentScheduler {
         var jobs = initialJobs
         var items = initialItems
         var pendingApprovals = initialPendingApprovals
+        var workerResults = Dictionary(uniqueKeysWithValues: zip(jobs, items).compactMap { job, item in
+            item.summary.map { (job.id, $0) }
+        })
         var dependencies = Self.resolvedDependencies(for: jobs)
         var usedNames = Set(jobs.map { $0.name.lowercased() })
 
@@ -116,6 +119,7 @@ extension WorkspaceSubagentScheduler {
                 jobs: jobs,
                 dependencies: dependencies,
                 items: &items,
+                workerResults: &workerResults,
                 pendingApprovals: &pendingApprovals,
                 maxDepth: effectiveMaxDepth,
                 maxTotalJobs: effectiveMaxTotalJobs,
@@ -164,7 +168,12 @@ extension WorkspaceSubagentScheduler {
             createdAt: createdAt
         )
         await state?(record)
-        return WorkspaceSubagentRunResult(update: update, summary: summary, record: record)
+        return WorkspaceSubagentRunResult(
+            update: update,
+            summary: summary,
+            record: record,
+            workerResults: workerResults
+        )
     }
 
     private func runWave(
@@ -174,6 +183,7 @@ extension WorkspaceSubagentScheduler {
         jobs: [WorkspaceSubagentJob],
         dependencies: [[Int]],
         items: inout [SubagentProgressItem],
+        workerResults: inout [String: String],
         pendingApprovals: inout [String: SubagentPendingApproval],
         maxDepth: Int,
         maxTotalJobs: Int,
@@ -197,14 +207,19 @@ extension WorkspaceSubagentScheduler {
                     else { return nil }
                     return WorkspaceSubagentPriorResult(
                         name: items[dependencyIndex].name,
-                        summary: summary
+                        summary: workerResults[jobs[dependencyIndex].id] ?? summary
                     )
                 }
                 group.addTask {
                     do {
                         try Task.checkCancellation()
                         let result = try await worker(job)
-                        try Task.checkCancellation()
+                        // Production workers convert cancellation into a detailed terminal result
+                        // with their captured transcript. Preserve it; only a worker that ignores
+                        // cancellation and claims completion is reduced to generic cancellation.
+                        if Task.isCancelled, result.status == .completed {
+                            return (index, .cancelled)
+                        }
                         return (index, .finished(result))
                     } catch is CancellationError {
                         return (index, .cancelled)
@@ -224,6 +239,7 @@ extension WorkspaceSubagentScheduler {
                 case .finished(let result):
                     items[index].status = result.status
                     items[index].summary = Self.boundedSummary(result.summary)
+                    workerResults[jobs[index].id] = result.summary
                     items[index].transcript = result.transcript
                     pendingApprovals[jobs[index].id] = result.pendingApproval
                     if result.status == .completed, let spawn {

@@ -114,7 +114,9 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         contentView: NSView,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     ) throws -> QuillCodeDesktopAccessibilityFrameSampleReport {
-        let report = sample(contentView: contentView, nativeHitTargets: nativeHitTargets)
+        let report = autoreleasepool {
+            sample(contentView: contentView, nativeHitTargets: nativeHitTargets)
+        }
         guard report.ok else {
             throw QuillCodeDesktopSmokeFailure.nativeAccessibilityFrameSamplingFailed(report.validationIssues)
         }
@@ -125,7 +127,13 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         contentView: NSView,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     ) -> QuillCodeDesktopAccessibilityFrameSampleReport {
-        let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        let targetIdentifiers = Set(
+            nativeHitTargets.clickProbes.flatMap { candidateIdentifiers(for: $0) }
+        )
+        let elements = QuillCodeDesktopAccessibilityTree(
+            root: contentView,
+            matchingIdentifiers: targetIdentifiers
+        ).elements
         let samples = nativeHitTargets.clickProbes.compactMap { probe -> QuillCodeDesktopAccessibilityFrameSample? in
             guard let element = resolveElement(for: probe, in: elements),
                   let frame = element.frame
@@ -190,7 +198,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         _ probe: QuillCodeNativeHitTargetProbe,
         in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        if let primaryElement = largestElement(matching: identifiers(for: probe), in: elements) {
+        if let primaryElement = largestElement(matching: candidateIdentifiers(for: probe), in: elements) {
             return primaryElement
         }
         guard probe.selectorKind == .commandID else { return nil }
@@ -255,7 +263,7 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         return [baseTitle, "\(baseTitle)...", "\(baseTitle)…"]
     }
 
-    private static func identifiers(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {
+    static func candidateIdentifiers(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {
         switch probe.selectorKind {
         case .testID:
             return [probe.selector]

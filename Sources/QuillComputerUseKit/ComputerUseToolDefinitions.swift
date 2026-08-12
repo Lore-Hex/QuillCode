@@ -63,6 +63,14 @@ public extension ToolDefinition {
         risk: .destructive
     )
 
+    static let computerActivate = ToolDefinition(
+        name: "host.computer.activate",
+        description: "Bring an already-running desktop application to the foreground by exact app name or bundle identifier.",
+        parametersJSON: #"{"type":"object","properties":{"application":{"type":"string"}},"required":["application"]}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
     static let workflowRecordStart = ToolDefinition(
         name: "host.workflow.record.start",
         description: "Start a consented Computer Use recording of screenshots and typed text across apps. "

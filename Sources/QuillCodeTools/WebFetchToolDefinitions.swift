@@ -5,7 +5,8 @@ public extension ToolDefinition {
         name: "host.web.fetch",
         description: """
         Fetch a public http(s) URL with GET and return its content as markdown. Use this to pull a docs \
-        page, RFC, changelog, or error-report link into context. HTML is converted to markdown (headings, \
+        page, RFC, changelog, or error-report link into context. For long pages or targeted research, \
+        provide a focused query so only relevant evidence windows enter context. HTML is converted to markdown (headings, \
         links, lists, code blocks, tables); markdown and plain-text responses pass through; binary content \
         is refused. Responses are capped at 5 MB and long pages are truncated with a marker. Requests to \
         private, loopback, or link-local hosts are refused; redirects are re-checked against the same rules. \
@@ -14,7 +15,7 @@ public extension ToolDefinition {
         instead of guessing at its content.
         """,
         parametersJSON: """
-        {"type":"object","properties":{"url":{"type":"string","description":"Absolute http or https URL to fetch."}},"required":["url"]}
+        {"type":"object","properties":{"url":{"type":"string","description":"Absolute http or https URL to fetch."},"query":{"type":"string","description":"Optional focused evidence query for selecting relevant windows from long pages."}},"required":["url"]}
         """,
         host: .local,
         risk: .read

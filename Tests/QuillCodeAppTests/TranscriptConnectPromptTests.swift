@@ -25,4 +25,42 @@ final class TranscriptConnectPromptTests: XCTestCase {
         XCTAssertFalse(TranscriptConnectPrompt.browserSignInCaption.contains("localhost"))
         XCTAssertEqual(TranscriptConnectPrompt.steps, ["Connect", "Choose a model", "Start a task"])
     }
+
+    func testConnectionPlacementUsesHeroOnlyForTheVisibleEmptyState() {
+        XCTAssertEqual(
+            TranscriptConnectPlacement.resolve(
+                hasPrompt: true,
+                requiresProjectSelection: false,
+                emptyStateVisible: true
+            ),
+            .hero
+        )
+        XCTAssertEqual(
+            TranscriptConnectPlacement.resolve(
+                hasPrompt: true,
+                requiresProjectSelection: false,
+                emptyStateVisible: false
+            ),
+            .banner
+        )
+    }
+
+    func testConnectionPlacementDefersToProjectSetupAndHidesWhenConnected() {
+        XCTAssertEqual(
+            TranscriptConnectPlacement.resolve(
+                hasPrompt: true,
+                requiresProjectSelection: true,
+                emptyStateVisible: true
+            ),
+            .hidden
+        )
+        XCTAssertEqual(
+            TranscriptConnectPlacement.resolve(
+                hasPrompt: false,
+                requiresProjectSelection: false,
+                emptyStateVisible: false
+            ),
+            .hidden
+        )
+    }
 }

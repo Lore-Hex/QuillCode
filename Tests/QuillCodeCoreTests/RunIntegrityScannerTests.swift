@@ -825,6 +825,7 @@ final class RunIntegrityScannerTests: XCTestCase {
     /// live in different modules and are duplicated on purpose to keep Core dependency-free).
     func testFileToolNameParity() {
         XCTAssertEqual(RunIntegrityScanner.fileWriteToolName, "host.file.write")
+        XCTAssertEqual(RunIntegrityScanner.chartRenderToolName, "host.chart.render")
         XCTAssertEqual(RunIntegrityScanner.applyPatchToolName, "host.apply_patch")
     }
 

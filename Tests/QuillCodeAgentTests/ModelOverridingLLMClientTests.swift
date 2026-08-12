@@ -32,4 +32,12 @@ final class ModelOverridingLLMClientTests: XCTestCase {
         XCTAssertEqual(overridden.policy.maxAttempts, policy.maxAttempts)
         XCTAssertEqual(client.base.model, "acme/flagship")
     }
+
+    func testServingRouteIsExposedThroughTrustedRouterAndRetryWrapper() {
+        let base = TrustedRouterLLMClient(model: "acme/recovery")
+        let retrying = RetryingLLMClient(base: base)
+
+        XCTAssertEqual(routedModelIDIfSupported(base, fallback: "selected/model"), "acme/recovery")
+        XCTAssertEqual(routedModelIDIfSupported(retrying, fallback: "selected/model"), "acme/recovery")
+    }
 }

@@ -1,7 +1,9 @@
 import ApplicationServices
+import AppKit
 import Foundation
 import XCTest
 import QuillCodeApp
+import QuillCodeCore
 import QuillCodePersistence
 import QuillComputerUseKit
 @testable import quill_code_desktop
@@ -78,6 +80,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "initial-live-window"
         )
         XCTAssertEqual(
+            snapshot.dictionary["memoryMeasurement"] as? String,
+            "physical-footprint"
+        )
+        XCTAssertEqual(
             snapshot.dictionary["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
         )
@@ -110,6 +116,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--cowork-eval-workspace", "/tmp/quill-eval-workspace",
             "--cowork-eval-prompt-file", "/tmp/quill-eval-prompt.txt",
             "--cowork-eval-report", "/tmp/quill-eval-report.json",
+            "--cowork-eval-screenshot", "/tmp/quill-eval-window.png",
             "--cowork-eval-browser-path", "inputs/browser.html",
             "--cowork-eval-timeout-seconds", "3600",
             "--cowork-eval-model", "z-ai/glm-5.2",
@@ -121,12 +128,26 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.workspacePath, "/tmp/quill-eval-workspace")
         XCTAssertEqual(request.promptPath, "/tmp/quill-eval-prompt.txt")
         XCTAssertEqual(request.reportPath, "/tmp/quill-eval-report.json")
+        XCTAssertEqual(request.screenshotPath, "/tmp/quill-eval-window.png")
         XCTAssertEqual(request.browserPath, "inputs/browser.html")
         XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
+        XCTAssertFalse(request.isConfidential)
         XCTAssertEqual(request.timeoutSeconds, 3_600)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(2_400))
         XCTAssertEqual(request.maxToolSteps, 512)
         XCTAssertNil(request.runSpendFuseUSD)
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
+    }
+
+    func testCoworkEvalReservesFinalThirdOfRunForSynthesisAndRepair() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-timeout-seconds", "900",
+        ]))
+
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(600))
+        XCTAssertEqual(request.boundedRunFinalizationAfterSeconds, 600)
     }
 
     func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
@@ -140,7 +161,20 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
         XCTAssertEqual(request.timeoutSeconds, QuillCodeDesktopCoworkEvalRequest.maximumTimeoutSeconds)
         XCTAssertEqual(request.maxToolSteps, QuillCodeDesktopCoworkEvalRequest.maximumToolSteps)
+        XCTAssertEqual(request.subagentDelegationBudget, .seconds(7_200))
         XCTAssertEqual(request.runSpendFuseUSD, 1.0)
+    }
+
+    func testCoworkEvalConfidentialRequestPinsE2ERoute() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-confidential",
+            "--cowork-eval-model", "deepseek/deepseek-v4-flash-0731",
+        ]))
+
+        XCTAssertTrue(request.isConfidential)
+        XCTAssertEqual(request.modelID, TrustedRouterDefaults.e2eModel)
     }
 
     func testCoworkEvalControllerUsesExplicitStateAndWorkspace() throws {
@@ -160,10 +194,62 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(controller.workspaceRoot.path, request.workspacePath)
         XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == request.workspacePath })
         XCTAssertTrue(controller.automationNotifier is QuillCodeDesktopCoworkEvalNotifier)
+        XCTAssertNil(controller.updateController.configuration)
+        controller.updateController.startAutomaticChecks()
+        XCTAssertEqual(controller.updateController.state, .idle)
+        XCTAssertFalse(controller.updateController.isPresented)
         let config = try ConfigStore(fileURL: controller.bootstrap.paths.configFile).load()
         XCTAssertEqual(config.defaultModel, request.modelID)
         XCTAssertEqual(config.maxToolSteps, request.maxToolSteps)
         XCTAssertEqual(config.runSpendFuseUSD, request.runSpendFuseUSD)
+        XCTAssertEqual(
+            controller.model.subagentDelegationBudgetOverride,
+            request.subagentDelegationBudget
+        )
+        XCTAssertEqual(
+            controller.model.boundedRunFinalizationAfterSecondsOverride,
+            request.boundedRunFinalizationAfterSeconds
+        )
+    }
+
+    func testCoworkEvalWindowRetainsOnePhysicalFallbackWindow() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-cowork-eval-window-test-\(UUID().uuidString)")
+        defer {
+            QuillCodeDesktopCoworkEvalWindow.releaseFallbackForTesting()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", root.appendingPathComponent("home").path,
+            "--cowork-eval-workspace", root.appendingPathComponent("workspace").path,
+            "--cowork-eval-prompt-file", root.appendingPathComponent("prompt.txt").path,
+        ]))
+        let controller = request.makeController(environment: ["QUILLCODE_USE_MOCK_LLM": "1"])
+
+        let first = QuillCodeDesktopCoworkEvalWindow.retainFallbackForTesting(
+            contentView: NSView(frame: NSRect(x: 0, y: 0, width: 1_280, height: 900))
+        )
+        let second = try await QuillCodeDesktopCoworkEvalWindow.acquire(
+            controller: controller,
+            sceneSettleAttempts: 1
+        )
+
+        XCTAssertEqual(first.source, .evalFallback)
+        XCTAssertEqual(second.source, .evalFallback)
+        XCTAssertTrue(first.window === second.window)
+        XCTAssertTrue(first.window.isVisible)
+        let contentBounds = try XCTUnwrap(first.window.contentView?.bounds)
+        XCTAssertGreaterThanOrEqual(
+            contentBounds.width,
+            QuillCodeDesktopCoworkEvalWindow.minimumContentSize.width
+        )
+        XCTAssertGreaterThanOrEqual(
+            contentBounds.height,
+            QuillCodeDesktopCoworkEvalWindow.minimumContentSize.height
+        )
+        XCTAssertEqual(QuillCodeDesktopCoworkEvalWindow.visibleWindowCount, 1)
     }
 
     func testCoworkEvalReportDistinguishesRecoveredToolFailures() {
@@ -201,6 +287,37 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
         XCTAssertEqual(ceiling.name, "tool-step-ceiling-exhausted")
         XCTAssertTrue(ceiling.detail?.contains("64-step") == true)
+    }
+
+    func testCoworkEvalScheduledAutomationCapturesPersistedContract() throws {
+        let nextRun = Date(timeIntervalSince1970: 1_800_000_000)
+        let automation = QuillAutomation(
+            title: "Scheduled task: check competitor pricing",
+            detail: "Check competitor pricing and notify me with a diff.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Every Monday at 8:00 AM",
+            nextRunAt: nextRun,
+            recurrence: QuillAutomationRecurrence(
+                interval: 1,
+                unit: .weeks,
+                weekdays: [2],
+                hour: 8,
+                minute: 0
+            )
+        )
+
+        let report = QuillCodeDesktopCoworkEvalReport.ScheduledAutomation(automation)
+
+        XCTAssertEqual(report.title, automation.title)
+        XCTAssertEqual(report.kind, "workspace_schedule")
+        XCTAssertEqual(report.status, "active")
+        XCTAssertEqual(report.scheduleKind, "cron")
+        XCTAssertEqual(report.scheduleDescription, "Every Monday at 8:00 AM")
+        XCTAssertEqual(report.nextRunAt, nextRun)
+        XCTAssertEqual(report.recurrence?.unit, "weeks")
+        XCTAssertEqual(report.recurrence?.weekdays, [2])
+        XCTAssertEqual(report.recurrence?.hour, 8)
     }
 
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
@@ -255,12 +372,15 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--window-smoke-screenshot",
             "/tmp/quillcode-window.png",
             "--window-smoke-state-root",
-            "/tmp/quillcode-window-state"
+            "/tmp/quillcode-window-state",
+            "--window-smoke-performance-workload",
+            "daily-driver-100-chats"
         ])
 
         XCTAssertEqual(request?.reportPath, "/tmp/quillcode-window-report.json")
         XCTAssertEqual(request?.screenshotPath, "/tmp/quillcode-window.png")
         XCTAssertEqual(request?.stateRootPath, "/tmp/quillcode-window-state")
+        XCTAssertEqual(request?.performanceWorkloadID, "daily-driver-100-chats")
         XCTAssertNil(QuillCodeDesktopWindowSmokeRequest(arguments: ["QuillCode"]))
     }
 
@@ -507,6 +627,8 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
         XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
+        XCTAssertTrue(json.contains(#""memoryMeasurement" : "physical-footprint""#))
+        XCTAssertTrue(json.contains(#""workload" : "first-run-empty""#))
         XCTAssertTrue(json.contains(#""postInteractionMeasurement" : "settled-after-native-interaction-sweep""#))
         XCTAssertTrue(json.contains(
             #""repeatedInteractionMeasurement" : "settled-after-repeated-native-interaction-sweep""#
@@ -541,7 +663,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
-    func testComputerUseCoordinatorRefreshesForegroundApplication() async throws {
+    func testComputerUseCoordinatorRefreshesForegroundApplicationWhenRequested() async {
         let application = ComputerUseApplication(
             name: "Terminal",
             bundleIdentifier: "com.apple.Terminal"
@@ -551,10 +673,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         let coordinator = QuillCodeDesktopComputerUseCoordinator(backend: backend)
 
         coordinator.install(on: model)
+        await coordinator.refreshForegroundApplication(on: model)
 
-        try await waitUntil(timeoutSeconds: 1) {
-            model.surface().settings.computerUseForegroundApplication == application
-        }
+        XCTAssertEqual(model.surface().settings.computerUseForegroundApplication, application)
     }
 
     func testWindowAccessibilityFrameSamplerRequiresPrimarySidebarActions() {

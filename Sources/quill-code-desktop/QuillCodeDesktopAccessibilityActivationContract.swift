@@ -3,6 +3,7 @@ import Foundation
 
 struct QuillCodeDesktopWorkspaceThreadActivationState: Equatable {
     var selectedThreadID: UUID?
+    var selectedProjectID: UUID? = nil
     var threadIDs: Set<UUID>
 }
 
@@ -15,7 +16,9 @@ enum QuillCodeDesktopAccessibilityActivationState: Equatable, CustomStringConver
         case .flag(let value):
             return value.description
         case .workspaceThreads(let state):
-            return "selected=\(state.selectedThreadID?.uuidString ?? "none");count=\(state.threadIDs.count)"
+            return "selected=\(state.selectedThreadID?.uuidString ?? "none");"
+                + "project=\(state.selectedProjectID?.uuidString ?? "none");"
+                + "count=\(state.threadIDs.count)"
         }
     }
 }
@@ -42,6 +45,7 @@ enum QuillCodeDesktopAccessibilityActivationPhase: Int, Comparable {
 
 struct QuillCodeDesktopAccessibilityActivationContract {
     typealias Prepare = @MainActor (QuillCodeDesktopController) -> Void
+    typealias IsApplicable = @MainActor (QuillCodeDesktopController) -> Bool
     typealias Observe = @MainActor (QuillCodeDesktopController) -> QuillCodeDesktopAccessibilityActivationState
     typealias Reset = @MainActor (
         QuillCodeDesktopAccessibilityActivationState,
@@ -57,6 +61,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
     var contractID: String
     var phase: QuillCodeDesktopAccessibilityActivationPhase
     var expectedOutcome: String
+    var isApplicable: IsApplicable = { _ in true }
     var prepare: Prepare? = nil
     var observe: Observe
     var reset: Reset
@@ -67,6 +72,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
         _ contractID: String,
         phase: QuillCodeDesktopAccessibilityActivationPhase = .transientSurface,
         expectedOutcome: String,
+        isApplicable: @escaping IsApplicable = { _ in true },
         observe: @escaping @MainActor (QuillCodeDesktopController) -> Bool,
         resetToBaseline: @escaping @MainActor (Bool, QuillCodeDesktopController) -> Void,
         verify: Verify? = nil
@@ -75,6 +81,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
             contractID: contractID,
             phase: phase,
             expectedOutcome: expectedOutcome,
+            isApplicable: isApplicable,
             prepare: { controller in
                 if observe(controller) {
                     resetToBaseline(false, controller)

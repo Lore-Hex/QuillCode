@@ -9,6 +9,7 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertFalse(browser.canGoForward)
         XCTAssertFalse(browser.canReload)
         XCTAssertFalse(browser.canCloseSelectedTab)
+        XCTAssertTrue(browser.canCreateNewTab)
         XCTAssertEqual(browser.tabs.count, 1)
         XCTAssertEqual(browser.tabs.first?.id, browser.selectedTabID)
         XCTAssertEqual(browser.title, "Browser preview")
@@ -105,6 +106,7 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.tabs.first?.title, "Docs")
         XCTAssertEqual(surface.tabs.first?.urlLabel, "example.com")
         XCTAssertFalse(surface.canCloseActiveTab)
+        XCTAssertTrue(surface.canCreateNewTab)
     }
 
     func testBrowserSurfaceMapsMultipleTabsIntoPresentationContract() {
@@ -134,5 +136,79 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.canCloseActiveTab)
         XCTAssertEqual(surface.tabs[0].selectCommandID, "browser-tab-select:\(firstID.uuidString)")
         XCTAssertEqual(surface.tabs[1].closeCommandID, "browser-tab-close:\(secondID.uuidString)")
+    }
+
+    func testBrowserStateAndSurfaceRetainSelectedTabAtCapacity() throws {
+        let selectedID = UUID()
+        let tabs = (0..<(WorkspaceBrowserRetentionPolicy.maximumTabCount + 4)).map { index in
+            BrowserTabState(
+                id: index == WorkspaceBrowserRetentionPolicy.maximumTabCount + 3
+                    ? selectedID
+                    : UUID(),
+                title: "Tab \(index)"
+            )
+        }
+
+        let browser = BrowserState(tabs: tabs, selectedTabID: selectedID)
+        let surface = BrowserSurface(browser: browser)
+
+        XCTAssertEqual(browser.tabs.count, WorkspaceBrowserRetentionPolicy.maximumTabCount)
+        XCTAssertTrue(browser.tabs.contains { $0.id == selectedID })
+        XCTAssertEqual(browser.selectedTabID, selectedID)
+        XCTAssertFalse(browser.canCreateNewTab)
+        XCTAssertFalse(surface.canCreateNewTab)
+
+        let html = WorkspaceHTMLBrowserRenderer.render(
+            BrowserSurface(browser: BrowserState(isVisible: true, tabs: browser.tabs, selectedTabID: selectedID))
+        )
+        let buttonStart = try XCTUnwrap(
+            html.range(of: #"data-testid="browser-new-tab""#)?.lowerBound
+        )
+        let buttonEnd = try XCTUnwrap(html[buttonStart...].range(of: "</button>")?.upperBound)
+        XCTAssertTrue(html[buttonStart..<buttonEnd].contains(" disabled"))
+    }
+
+    func testSnapshotStateBoundsExternallyConstructedPresentationText() {
+        let snapshot = BrowserSnapshotState(
+            sourceLabel: String(
+                repeating: "s",
+                count: WorkspaceBrowserRetentionPolicy.maximumSnapshotLabelCharacters + 10
+            ),
+            summary: String(
+                repeating: "m",
+                count: WorkspaceBrowserRetentionPolicy.maximumSnapshotSummaryCharacters + 10
+            ),
+            details: (0..<(WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCount + 4)).map { _ in
+                String(
+                    repeating: "d",
+                    count: WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCharacters + 10
+                )
+            },
+            outline: (0..<(WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCount + 4)).map { _ in
+                String(
+                    repeating: "o",
+                    count: WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCharacters + 10
+                )
+            },
+            textSnippet: String(
+                repeating: "t",
+                count: WorkspaceBrowserRetentionPolicy.maximumSnapshotTextCharacters + 10
+            )
+        )
+
+        XCTAssertEqual(snapshot.sourceLabel.count, WorkspaceBrowserRetentionPolicy.maximumSnapshotLabelCharacters)
+        XCTAssertEqual(snapshot.summary.count, WorkspaceBrowserRetentionPolicy.maximumSnapshotSummaryCharacters)
+        XCTAssertEqual(snapshot.details.count, WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCount)
+        XCTAssertTrue(snapshot.details.allSatisfy {
+            $0.count == WorkspaceBrowserRetentionPolicy.maximumSnapshotDetailCharacters
+        })
+        XCTAssertEqual(snapshot.outline.count, WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCount)
+        XCTAssertTrue(snapshot.outline.allSatisfy {
+            $0.count == WorkspaceBrowserRetentionPolicy.maximumSnapshotOutlineCharacters
+        })
+        XCTAssertEqual(
+            snapshot.textSnippet?.count,
+            WorkspaceBrowserRetentionPolicy.maximumSnapshotTextCharacters
+        )
     }
 }

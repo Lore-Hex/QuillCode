@@ -421,6 +421,38 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
         XCTAssertEqual(subject.resource, PermissionRuleSubject.caseFoldedIfNeeded(root.appendingPathComponent("b.txt").path))
     }
 
+    func testSubjectForPDFMergeScopesTheOutputPath() throws {
+        let root = try makeWorkspace()
+        let subject = PermissionRuleSubject.make(
+            toolCall: ToolCall(
+                name: "host.pdf.merge",
+                argumentsJSON: ToolArguments.json(["output": "reports/../board-packet.pdf"])
+            ),
+            workspaceRoot: root
+        )
+        XCTAssertEqual(subject.action, "host.pdf.merge")
+        XCTAssertEqual(
+            subject.resource,
+            PermissionRuleSubject.caseFoldedIfNeeded(root.appendingPathComponent("board-packet.pdf").path)
+        )
+    }
+
+    func testSubjectForChartRenderScopesTheOutputPath() throws {
+        let root = try makeWorkspace()
+        let subject = PermissionRuleSubject.make(
+            toolCall: ToolCall(
+                name: "host.chart.render",
+                argumentsJSON: ToolArguments.json(["path": "charts/../regional.png"])
+            ),
+            workspaceRoot: root
+        )
+        XCTAssertEqual(subject.action, "host.chart.render")
+        XCTAssertEqual(
+            subject.resource,
+            PermissionRuleSubject.caseFoldedIfNeeded(root.appendingPathComponent("regional.png").path)
+        )
+    }
+
     func testSubjectForMCPCallScopesServerAndTool() {
         let subject = PermissionRuleSubject.make(
             toolCall: ToolCall(

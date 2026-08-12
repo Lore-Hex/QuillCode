@@ -37,6 +37,34 @@ final class AgentDeliverableGateTests: XCTestCase {
         )
     }
 
+    func testDeclaredRequiredInputAliasIsNotDeliverable() {
+        let prompt = """
+        Write a three-email follow-up sequence for the prospects in conference-leads.csv.
+        Read every applicable source directly before acting.
+        For this task the required inputs are: `inputs/source-map.md`, \
+        `inputs/conference-leads.csv`.
+        Save the complete result to `outputs/task-33-deliverable.md`.
+        """
+
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(in: prompt),
+            ["outputs/task-33-deliverable.md"]
+        )
+    }
+
+    func testQualifiedOutputWithDeclaredInputBasenameRemainsDeliverable() {
+        let prompt = """
+        Read every required input before acting.
+        For this task the required inputs are: `inputs/report.csv`.
+        Create `outputs/report.csv` with the transformed rows.
+        """
+
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(in: prompt),
+            ["outputs/report.csv"]
+        )
+    }
+
     func testNegatedCreateVerbsAreNotDeliverables() {
         // The CI catch: "Do not write `forbidden.txt` with content `nope`." — the gate must never
         // force into existence a file the user explicitly forbade.

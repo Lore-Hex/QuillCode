@@ -70,16 +70,19 @@ public enum CLIRuntimeFactory {
                 apiKeyOverride: key,
                 baseURL: baseURL
             )
-            // Grounded search first (a real index over the SSRF-safe fetch transport); the
-            // LLM-guess client survives only as a fallback whose URLs the downstream liveness
-            // filter still vets (F18: guessed URLs 404 and get cited).
+            // Grounded engines first over the SSRF-safe fetch transport. Brave is primary;
+            // DuckDuckGo is secondary because its HTML endpoint can return a bot challenge. The
+            // model-based client is the final fallback and still passes through liveness checks.
             let webSearch = FallbackWebSearchClient(
-                primary: DuckDuckGoWebSearchClient(),
-                fallback: TrustedRouterWebSearchClient(
-                    sessionStore: sessionStore,
-                    apiKeyOverride: key,
-                    model: model,
-                    baseURL: baseURL
+                primary: BraveWebSearchClient(),
+                fallback: FallbackWebSearchClient(
+                    primary: DuckDuckGoWebSearchClient(),
+                    fallback: TrustedRouterWebSearchClient(
+                        sessionStore: sessionStore,
+                        apiKeyOverride: key,
+                        model: model,
+                        baseURL: baseURL
+                    )
                 )
             )
             // F22: when the session model exhausts the empty-response budget on a step (a

@@ -8,7 +8,14 @@ import QuillCodeTools
 @MainActor
 final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
-    @Published var draft: String
+    @Published var draft: String {
+        didSet {
+            guard !isComposerDraftBindingSideEffectsSuppressed else { return }
+            let ownerThreadID = model.selectedThread?.id
+            composerDraftCheckpointCoordinator.schedule(draft: draft, model: model)
+            model.updateLiveComposerDraft(draft, ownerThreadID: ownerThreadID)
+        }
+    }
     @Published var terminalDraft: String
     @Published var browserAddressDraft: String
     @Published var isCommandPalettePresented = false
@@ -38,6 +45,8 @@ final class QuillCodeDesktopController: ObservableObject {
     let sshHostDiscovery: SSHHostDiscovery
     let sshRemoteProjectProbe: SSHRemoteProjectProbe
     let composerCoordinator: QuillCodeDesktopComposerCoordinator
+    let composerDraftCheckpointCoordinator: QuillCodeDesktopComposerDraftCheckpointCoordinator
+    var isComposerDraftBindingSideEffectsSuppressed = false
     let copyCoordinator: QuillCodeDesktopCopyCoordinator
     let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
     let projectAccessCoordinator: QuillCodeDesktopProjectAccessCoordinator
@@ -50,28 +59,40 @@ final class QuillCodeDesktopController: ObservableObject {
     let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
     let updateController: QuillCodeDesktopUpdateController
     let installationLocationController: QuillCodeDesktopInstallationLocationController
+    let launchLifecycleController: QuillCodeDesktopLaunchLifecycleController?
+    var updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
+    var automaticStartupState: QuillCodeDesktopStartupState
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until app services start.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
+        computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator =
+            QuillCodeDesktopComputerUseCoordinator(),
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
         automationNotifier: any QuillCodeAutomationNotifying = DesktopAutomationNotifierFactory.platformDefault(),
         sshHostDiscovery: SSHHostDiscovery = SSHHostDiscovery(),
         sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe(),
+        composerDraftCheckpointCoordinator: QuillCodeDesktopComposerDraftCheckpointCoordinator =
+            QuillCodeDesktopComposerDraftCheckpointCoordinator(),
+        projectAccessCoordinator: QuillCodeDesktopProjectAccessCoordinator =
+            QuillCodeDesktopProjectAccessCoordinator(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
         installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
+        launchLifecycleController: QuillCodeDesktopLaunchLifecycleController? = nil,
+        updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake? = nil,
+        startupMode: QuillCodeDesktopStartupMode = .normal,
         workspaceRoot: URL? = nil
     ) {
         let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
         self.bootstrap = bootstrap
-        self.computerUseCoordinator = QuillCodeDesktopComputerUseCoordinator()
+        self.computerUseCoordinator = computerUseCoordinator
         self.activeWorkCoordinator = QuillCodeDesktopActiveWorkCoordinator()
         self.browserCoordinator = QuillCodeDesktopBrowserCoordinator(
             pageFetcher: browserPageFetcher,
@@ -89,9 +110,10 @@ final class QuillCodeDesktopController: ObservableObject {
         self.sshHostDiscovery = sshHostDiscovery
         self.sshRemoteProjectProbe = sshRemoteProjectProbe
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
+        self.composerDraftCheckpointCoordinator = composerDraftCheckpointCoordinator
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
-        self.projectAccessCoordinator = QuillCodeDesktopProjectAccessCoordinator()
+        self.projectAccessCoordinator = projectAccessCoordinator
         self.modelStateCoordinator = QuillCodeDesktopModelStateCoordinator()
         self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
@@ -102,8 +124,11 @@ final class QuillCodeDesktopController: ObservableObject {
         self.updateController = updateController ?? QuillCodeDesktopUpdateController()
         self.installationLocationController = installationLocationController
             ?? QuillCodeDesktopInstallationLocationController()
+        self.launchLifecycleController = launchLifecycleController
+        self.updateLaunchHandshake = updateLaunchHandshake
+        self.automaticStartupState = QuillCodeDesktopStartupState(mode: startupMode)
         do {
-            self.model = try bootstrap.makeModel()
+            self.model = try bootstrap.makeModel(automaticStartupPolicy: .deferUntilRequested)
         } catch {
             self.model = QuillCodeWorkspaceModel(
                 startupLoadIssue: WorkspaceStartupLoadIssue(
@@ -118,14 +143,6 @@ final class QuillCodeDesktopController: ObservableObject {
             modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: launchWorkspaceRoot)
         }
         self.computerUseCoordinator.install(on: model)
-        // Opt-in (QUILLCODE_USE_CUA_DRIVER=1): asynchronously upgrade to the cua-driver backend so
-        // computer use runs in the background without stealing focus/cursor. Native stays live until
-        // this resolves, so startup never blocks on the driver subprocess.
-        let cuaCoordinator = self.computerUseCoordinator
-        let cuaModel = model
-        Task { @MainActor in
-            await cuaCoordinator.resolvePreferredBackend(on: cuaModel)
-        }
         // Ping the user when unattended work needs attention. The closure reads live config so
         // Settings toggles apply immediately without rebuilding the desktop controller.
         let workspaceModel = model
@@ -147,13 +164,6 @@ final class QuillCodeDesktopController: ObservableObject {
             // and read tools must stop with the session too.
             tasks.cancel(.codeReview(threadID))
         }
-        projectAccessCoordinator.restoreAccess(for: workspaceModel.root.projects)
-        ToolArtifactLocalPreviewAccess.configure(
-            projectRoots: workspaceModel.root.projects
-                .filter { !$0.isRemote }
-                .map { URL(fileURLWithPath: $0.path) },
-            readableProjectRoots: projectAccessCoordinator.activeProjectURLs
-        )
         let initialState = modelStateCoordinator.initialState(from: model)
         self.surface = initialState.surface
         self.draft = initialState.draft
@@ -165,51 +175,36 @@ final class QuillCodeDesktopController: ObservableObject {
         workspaceModel.onProjectContextChanged = { [weak self] in
             self?.refresh()
         }
-        workspaceModel.scheduleSelectedProjectContextRefresh()
-        // Bootstrap may finish a very small scan before the callback above is installed. Starting
-        // one final generation here guarantees the published surface receives the completed index.
-        workspaceModel.refreshFileMentionIndex()
         browserCoordinator.installSessionUpdateHandler(
             model: model,
             refresh: { [weak self] in self?.refresh() }
         )
         installVisibleBrowserToolOverride(on: model)
-        automationCoordinator.runDueAutomations(
-            model: model,
-            notifier: automationNotifier,
-            refresh: { [weak self] in self?.refresh() }
-        )
-        automationCoordinator.startTicker(
-            model: model,
-            tasks: tasks,
-            notifier: automationNotifier,
-            refresh: { [weak self] in self?.refresh() }
-        )
-        scheduleModelCatalogRefreshIfNeeded()
-        modelCatalogRefreshCoordinator.startTicker(tasks: tasks) { [weak self] in
-            self?.scheduleModelCatalogRefreshIfNeeded()
-        }
-        scheduleTrustedRouterCreditsRefreshIfNeeded()
-        trustedRouterCreditsCoordinator.startTicker(tasks: tasks) { [weak self] in
-            self?.scheduleTrustedRouterCreditsRefreshIfNeeded()
-        }
     }
 
-    /// Starts services that belong to the application process rather than any SwiftUI scene. The
-    /// ordinary app entry point calls this once; the owned controllers keep repeat calls idempotent.
-    func startApplicationServices() {
+    /// Starts process-owned services after SwiftUI has yielded through the first-window boundary.
+    /// The owned controllers keep repeat calls idempotent for recovery and repeated scene tasks.
+    func startApplicationServicesAfterFirstWindow() {
+        composerDraftCheckpointCoordinator.startLifecycleFlushes(model: model)
         installApprovalNotificationHandling()
         installationLocationController.startIfNeeded()
         updateController.startAutomaticChecks()
     }
 
     /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
-    /// back into the workspace. This can run before a window exists and remains idempotent.
+    /// back into the workspace. It remains idempotent across repeated post-window startup requests.
     private func installApprovalNotificationHandling() {
         guard approvalNotificationDelegate == nil else { return }
-        // Only the packaged product owns these categories. Bare executables and XCTest bundles must
-        // not replace the notification delegate of their host process.
-        guard Bundle.main.bundleIdentifier == updateController.configuration?.bundleIdentifier else {
+        let bundle = Bundle.main
+        // A SwiftPM executable can inherit the product bundle identifier without being backed by a
+        // Launch Services bundle. UserNotifications raises an Objective-C exception in that state,
+        // so identity and the canonical packaged layout must agree before touching the singleton.
+        guard QuillCodeDesktopPackagedProcessIdentity.ownsNotificationCenter(
+            bundleIdentifier: bundle.bundleIdentifier,
+            bundleURL: bundle.bundleURL,
+            executableURL: bundle.executableURL,
+            expectedBundleIdentifier: updateController.configuration?.bundleIdentifier
+        ) else {
             return
         }
         let delegate = QuillCodeApprovalNotificationDelegate(
@@ -224,22 +219,27 @@ final class QuillCodeDesktopController: ObservableObject {
         center.setNotificationCategories([QuillCodeApprovalNotification.category, QuillCodeRetryNotification.category])
     }
 
-    /// Decides a blocked approval gate from a tapped notification action. Selects the gate's thread
-    /// first (a notification may target a thread the user is not currently viewing), then routes through
-    /// the SAME coordinator `runToolCardAction` path as the in-app tool card. Going through the one
-    /// path (rather than a bare `Task` calling `decidePendingApproval`) means the notification decision
-    /// serializes on that chat's `.send` slot exactly like the in-app decision, so two decisions for
-    /// the same chat cannot interleave their resume/drain. A Skip still records unconditionally.
-    func decideNotificationApproval(requestID: String, approve: Bool, threadID: UUID?) {
-        if let threadID, model.selectedThread?.id != threadID {
-            selectThread(threadID)
-        }
-        runToolCardAction(ToolCardActionSurface(
-            title: approve ? "Approve" : "Skip",
-            kind: approve ? .approve : .deny,
-            requestID: requestID,
-            style: approve ? .primary : .secondary
-        ))
-    }
+}
 
+enum QuillCodeDesktopPackagedProcessIdentity {
+    static func ownsNotificationCenter(
+        bundleIdentifier: String?,
+        bundleURL: URL,
+        executableURL: URL?,
+        expectedBundleIdentifier: String?
+    ) -> Bool {
+        guard let expectedBundleIdentifier,
+              bundleIdentifier == expectedBundleIdentifier,
+              bundleURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame,
+              let executableURL
+        else {
+            return false
+        }
+        let expectedExecutableDirectory = bundleURL
+            .appendingPathComponent("Contents/MacOS", isDirectory: true)
+            .standardizedFileURL
+        return executableURL
+            .deletingLastPathComponent()
+            .standardizedFileURL == expectedExecutableDirectory
+    }
 }

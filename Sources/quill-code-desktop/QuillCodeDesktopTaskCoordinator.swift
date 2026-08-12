@@ -8,6 +8,9 @@ final class QuillCodeDesktopTaskCoordinator {
         case codeReview(UUID)
         case terminal
         case browserPreview
+        case computerUseBackendResolution
+        case computerUseStatusRefresh
+        case computerUseForegroundRefresh
         case automationTicker
         case modelCatalogRefresh
         case modelCatalogRefreshTicker

@@ -1,5 +1,337 @@
 # Code Quality Audit
 
+## 2026-08-11 Cached Worktree Environment Projection
+
+Overall grade after this slice: **A+ launch isolation, A+ cache ownership, A+ stale-result safety**.
+
+- Removed synchronous `.quillcode/config.toml` reads from authoritative workspace surface builds.
+  Restored projects now publish the safe automatic setup default immediately, then receive named
+  worktree environments from the existing utility-priority project-context refresh after the first
+  window. Newly added and explicitly refreshed projects populate the same model-owned cache at once.
+- Cache entries are keyed by project identity, updated only after the project refresh generation is
+  accepted, and removed with the project. This keeps stale background scans from crossing project
+  selections while preventing slow, sleeping, or unavailable project volumes from stalling launch,
+  pane interaction, agent progress refreshes, or unrelated UI work.
+- Added integration coverage proving restored project environments load off the main actor, remain
+  stable across surface rebuilds, and change only after an explicit background refresh.
+
+Verification:
+
+- Focused cache contract: 3 tests, 0 failures; widened project/surface suites: 39 tests, 0 failures.
+- Full Swift suite: 5,862 tests, 5 skipped, 0 failures.
+- Release-mode packaged daily-driver smoke: 3/3 fresh launches within budget; 349.64 ms median
+  launch-ready, 103.38 MiB first-window RSS, 174.02 MiB settled after the first interaction sweep,
+  and 180.97 MiB after the repeated sweep (6.95 MiB repeated growth).
+- `python3 scripts/grade-code-quality.py --root .`: every module summary remains A+.
+- `git diff --check`: clean.
+
+## 2026-08-11 Point-In-Time Environment Status Snapshots
+
+Overall grade after this slice: **A+ snapshot integrity, A+ event ordering, A+ release determinism**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Snapshot integrity | A+ | A successfully decoded `environment/status` response remains the result of that probe even when the idle transport closes before the awaiting actor resumes. |
+| Event ordering | A+ | A newer transport generation remains authoritative for cached state, so the completed probe cannot publish a stale reconnect transition over a disconnect. |
+| Failure semantics | A+ | Send, timeout, decode, and remote transport failures still reset the active connection and return a bounded disconnected snapshot. |
+| Release determinism | A+ | The exact close-after-response boundary passed 100 consecutive real localhost WebSocket repetitions after intermittently delaying an exact-main release. |
+
+Validation:
+
+- Focused close-after-response stress: 100 runs, 100 passed
+- Complete WebSocket client suite: 13 tests, 0 failures
+- Process-level app-server WebSocket smoke passed
+- `swift test` (5,861 tests; 5 skipped; 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 First-Window Update Activation Handshake
+
+Overall grade after this slice: **A+ rollback safety, A+ readiness ownership, A+ recovery behavior**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Rollback safety | A+ | The helper cannot accept a replacement merely because its executable entered and remained alive; acknowledgement waits for the native workspace's first-window-ready transition. |
+| Readiness ownership | A+ | Crash classification and update/relocation activation now share one controller transition instead of maintaining separate definitions of a successful launch. |
+| Recovery behavior | A+ | A recovery-mode replacement keeps its acknowledgement pending until the user explicitly chooses paused or resumed background work. |
+| Failure semantics | A+ | The one-shot request clears only after an atomic acknowledgement write succeeds, so transient write failure remains retryable and preserves helper rollback. |
+| Regression evidence | A+ | Focused lifecycle tests pin normal and recovery timing; source parity prevents process-entry acknowledgement from returning. |
+
+Validation:
+
+- Focused launch-lifecycle, updater, and relocation boundary: 19 tests, 0 failures
+- Broader updater, installation, relocation, and publication boundary: 77 tests, 0 failures
+- `swift test --disable-sandbox` (5,861 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, native interaction, and DMG Move & Relaunch smokes passed
+- Optimized packaged performance: 359.99 ms median launch-ready, 103.52 MiB initial, 180.44 MiB
+  post-interaction, and 187.23 MiB repeated-interaction memory across 3/3 passing processes
+- The post-publication workflow remains the authoritative previous-public-build updater gate on
+  both Apple silicon and Intel because unpublished builds cannot advance the GitHub-only feed
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 Serialized Update Recovery And Durable Relaunch
+
+Overall grade after this slice: **A+ update isolation, A+ relaunch durability, A+ crash classification**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Update isolation | A+ | A fresh update cancels and fully joins startup orphan recovery before download, staging, or helper launch can begin. |
+| Relaunch durability | A+ | Update and relocation exits synchronously flush pending composer text and finish the active launch before AppKit termination or the bounded forced fallback. |
+| Cancellation safety | A+ | Recovery completion is followed by cancellation and generation checks, so a superseded foreground operation cannot resume into preparation. |
+| Crash classification | A+ | A successful forced updater exit cannot leave a stale ready marker and surface a false unexpected-exit warning after relaunch. |
+| Regression evidence | A+ | Deterministic actor-gated tests cover recovery serialization; lifecycle, composer, and source-parity gates pin forced-relaunch cleanup. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeDesktopUpdateControllerTests|QuillCodeDesktopLaunchLifecycleTests|QuillCodeDesktopComposerDraftCheckpointCoordinatorTests|ParityPackagedUpdaterGateTests|ParityDesktopGateTests'`
+- Broader updater, relocation, installation, and smoke boundary: 26 tests, 0 failures
+- `swift test --disable-sandbox` (5,858 tests; 5 skipped; 0 failures)
+- Packaged release direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  Accessibility, and two interaction-sweep smokes passed
+- Optimized packaged daily-driver performance: 347.97 ms median launch-ready, 103.67 MiB initial,
+  179.12 MiB post-interaction, and 186.89 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .` (all module summaries A+)
+- `git diff --check`
+
+## 2026-08-11 Graceful Termination And Accurate Crash Recovery
+
+Overall grade after this slice: **A+ crash classification, A+ lifecycle integrity, A+ release enforcement**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash classification | A+ | Normal logout, shutdown, automatic termination, and explicit Quit must pass through AppKit termination and clear the matching active-launch record instead of looking like a crash. |
+| Lifecycle integrity | A+ | The packaged capability now matches the launch store's existing write-before-remove graceful boundary and leaves genuine `SIGKILL` and process-loss detection intact. |
+| Recovery UX | A+ | Ordinary system termination cannot trigger a false unexpected-exit warning or pause automatic workspace services on the next launch. |
+| Release enforcement | A+ | Packaged smoke validates the generated Boolean value, while source parity pins both generation and artifact verification. |
+
+Validation:
+
+- `swift test --filter ParityDownloadBuildsGateTests/testMacOSDownloadPackagingEmbedsUpdaterMetadata`
+- Built release `Info.plist` inspection
+- `bash -n scripts/build-macos-app.sh scripts/packaged-macos-smoke.sh`
+- `git diff --check`
+
+## 2026-08-10 Independently Owned Agent Progress Histories
+
+Overall grade after this slice: **A+ progress ownership, A+ memory scaling, A+ structural recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Main-actor cost | A+ | Matching histories reconcile in place with no temporary history array; structural identity changes use one detached rebuild. |
+| Memory scaling | A+ | The model and producer keep independent buffers, so neither side causes the other's next streamed mutation to clone the complete transcript. |
+| State ownership | A+ | Live instructions, memories, goals, drafts, attachments, and follow-up queues cannot be rolled back by a stale send-start snapshot. |
+| Structural recovery | A+ | Appends, in-place updates, truncation, compaction, and reordered identities all produce exact snapshot semantics without retaining producer storage. |
+| Regression evidence | A+ | A two-tick 50,000-event test checks both buffer addresses and exact values; structural and parity gates protect fallback and routing. |
+
+Validation:
+
+- `swift test --filter 'WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent|WorkspaceComposerIntegrationTests/testAgentProgressReconcilesStructuralHistoryWithoutSharingProducerStorage|ThreadEventLogCompactorTests|JSONThreadStoreTests|ParityAgentStreamingGateTests|ParityWorkspaceThreadMutationModelGateTests'`
+- `swift test --disable-sandbox` (5,813 tests; 5 skipped; 0 failures)
+- Packaged direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  accessibility, and two interaction-sweep smokes passed
+- Optimized packaged performance: 263.64 ms median launch-ready, 90.42 MiB initial, 149.52 MiB
+  post-interaction, and 153.95 MiB repeated-interaction memory with 4.44 MiB repeated-sweep
+  growth across 3/3 passing processes
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-10 Crash-Safe Composer Draft Checkpoints
+
+Overall grade after this slice: **A+ crash recovery, A+ persistence boundaries, A+ typing-path cost**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Crash recovery | A+ | Unsent text survives abrupt exits after a short debounce, with immediate deactivate/quit flushes and pending-first-message recovery. |
+| Ownership safety | A+ | Every delayed write is bound to its original chat identity and cannot cross a rapid selection change. |
+| Persistence architecture | A+ | Small private sidecars avoid serializing large transcripts while typing; tombstones, one-time new-chat baselines, and full-thread fallback keep recovery authoritative. |
+| Privacy and bounds | A+ | One-MiB draft bounds, bounded no-follow reads, owner/schema checks, `0700`/`0600` permissions, and runtime-context guards keep confidential/side text memory-only. |
+| Runtime behavior | A+ | Live model synchronization prevents unrelated background refreshes from erasing text during the debounce window. |
+| Regression evidence | A+ | Focused store, model lifecycle, desktop debounce, lifecycle notification, fallback, deletion, relaunch, and parity tests cover the complete boundary. |
+
+Validation:
+
+- Focused checkpoint, lifecycle, path, and desktop parity boundary: 29 tests, 0 failures
+- Authoritative full Swift suite: 5,804 tests, 5 skipped, 0 failures
+- Packaged writer terminated by `SIGKILL` (status 137); a fresh packaged process restored the exact
+  unsent text and persisted a tombstone after clearing it
+- Packaged direct-executable, Launch Services, live-window, accessibility, interaction, screenshot,
+  and Computer Use smokes passed
+- Packaged performance: 277.41 ms median launch-ready, 98.62 MiB initial, 155.12 MiB
+  post-interaction, and 159.81 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-10 Bounded Streaming Presentation Cadence
+
+Overall grade after this slice: **A+ bounded streaming, A+ progress efficiency, A+ failure recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Response bounds | A+ | Every streamed action shares a 16 MiB UTF-8 limit, checked before append with a typed error and focused desktop recovery. |
+| Presentation efficiency | A+ | Visible drafts and bounded reasoning summaries publish at the existing 50 ms desktop cadence instead of rebuilding growing JSON and thread snapshots for every provider token. |
+| Per-action work | A+ | Once a stream is classified as a tool action, preview parsing stops; answer streams retain immediate first text and a forced exact terminal preview. |
+| Failure semantics | A+ | The latest safe answer and reasoning summary flush before a stream error propagates, while usage remains committed through the existing failure path. |
+| Architecture | A+ | Cadence policy lives in a focused agent type and is shared by answer and reasoning projection without coupling provider transport to SwiftUI. |
+| Regression evidence | A+ | Deterministic tests reduce 4,096 rapid fragments to two draft callbacks and cover success/error flushing, UTF-8 overflow, reasoning coalescing, recovery UX, and parity ownership. |
+
+Validation:
+
+- `swift test --filter 'TrustedRouterStreamingActionTests|AgentStreamingTests|WorkspaceRuntimeIssueBuilderTests|ParityAgentStreamingGateTests'` (35 tests, 0 failures)
+- `swift test --filter 'AgentMalformedActionRecoveryTests|AgentPromisedWorkGuardTests|AgentStreamingTests|RetryingLLMClientTests|ParityAgentStreamingGateTests|ParityTrustedRouterActionParsingGateTests'` (77 tests, 0 failures)
+- Full Swift suite: 5,809 tests, 5 skipped, 0 failures
+- Packaged direct-executable, Launch Services, SIGKILL draft recovery, live-window, Accessibility,
+  and two-pass interaction smokes passed
+- Packaged performance passed 3/3 fresh processes: 272.59 ms median launch-ready, 98.80 MiB
+  initial RSS, 158.42 MiB after interaction, and 163.12 MiB after repeated interaction
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-10 Durable Update Reminders
+
+Overall grade after this slice: **A+ interruption UX, A+ update freshness, A+ bounded persistence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Interruption UX | A+ | **Remind Me Tomorrow** gives dismissal an explicit 24-hour meaning across app restarts instead of allowing the same tester build to reopen its modal every six hours. |
+| Update freshness | A+ | Automatic feed polling continues on the normal channel cadence, a different release bypasses the deferral immediately, and explicit **Check for Updates...** always clears it. |
+| Deadline behavior | A+ | The scheduler wakes at the exact reminder deadline and republishes the already-verified cached release without a redundant network request, even when the ordinary channel interval is longer. |
+| Failure safety | A+ | Records are schema- and size-bounded; expiry, channel/release mismatch, malformed JSON, excessive clock rollback, and implausibly future-dated state all fail open. |
+| Privacy | A+ | The record contains only schema, public channel/commit/version/build identity, and a deadline; it never persists paths, prompts, transcripts, account data, or credentials. |
+| Visual UX | A+ | The fixed 470-point native sheet keeps the wider reminder action and primary relaunch action readable, separated, accessible, and inside the footer at real rendered dimensions. |
+| Architecture | A+ | Reminder persistence has one focused 118-line owner, updater state moved into a focused 33-line model, and the coordinating controller remains below the 400-line quality threshold at 391 lines. |
+
+Validation:
+
+- Final updater, rendered UI, packaging, hit-target, controller-architecture, and global source-safety
+  matrix: 97 tests, 0 failures
+- Authoritative full Swift suite: 5,789 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed; release-configured packaged direct-executable, Launch
+  Services, live-window, Accessibility-frame, interaction, and Computer Use smokes passed
+- Dedicated packaged performance smoke passed 3/3 launches: 269.39 ms median launch-ready,
+  90.86 MiB initial RSS, 149.33 MiB after interaction, 153.64 MiB after repeated interaction,
+  4.31 MiB repeated growth, and at most 2 repeated threads of growth
+- Rendered update-availability sheet was captured and visually inspected at 470 x 340 pixels
+- Deterministic grader: every touched production and feature-specific test file scores 100/A+
+
+## 2026-08-10 Unexpected-Exit Recovery
+
+Overall grade after this slice: **A+ crash visibility, A+ privacy, A+ lifecycle ownership**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Crash visibility | A+ | Packaged launches register before workspace construction and transition to Ready only after the first native root view appears, so the next launch can distinguish startup and running failures. |
+| False-positive control | A+ | A prior live PID, same-process reentry, stale/future marker, unsafe metadata, and a graceful Terminating marker never become crash notices. |
+| Lifecycle safety | A+ | Marker mutations use one cross-process `flock`, atomic JSON replacement, launch-ID ownership checks, and a graceful-quit write-before-remove transition, so an older process cannot clear a newer launch. |
+| Privacy | A+ | The private 0700 directory and 0600 marker contain only schema, launch identity, PID, phase, time, and validated build/system metadata; no paths, prompts, transcripts, account data, or credentials are recorded. |
+| UX | A+ | The next successful launch presents one native alert with Continue and Report Issue actions, names potentially incomplete in-progress work honestly, and does not republish after dismissal. |
+| Supportability | A+ | Crash reports include bounded current/previous version, build, commit, channel, OS, architecture, start time, and phase without attaching files or private workspace state. |
+| Architecture | A+ | Process bootstrap, one-shot root-view presentation, launch persistence, reporting, and packaged smoke have focused owners; extracting the root view and notification routing keeps the core desktop controller at 230 lines. |
+
+Validation:
+
+- Final focused lifecycle, issue-reporting, application-service, controller-architecture, updater
+  parity, review-binding, and native hit-target/accessibility suite: 33 tests, 0 failures
+- Authoritative full Swift suite: 5,778 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed; packaged direct-executable, Launch Services, live-window,
+  Accessibility-frame, interaction, and recovery smokes passed
+- Dedicated packaged performance smoke passed 3/3 launches: 266.41 ms median launch-ready,
+  98.58 MiB initial RSS, 158.00 MiB after interaction, 162.59 MiB after repeated interaction,
+  4.59 MiB repeated growth, and zero repeated thread growth
+- Deterministic grader: every touched production and feature-specific test file scores 100/A+
+
+## 2026-08-10 Bounded Live Terminal Backpressure
+
+Overall grade after this slice: **A+ memory ownership, A+ responsiveness, A+ crash resilience**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Process memory | A+ | PTY and pipe-backed streaming sessions accumulate only a bounded newest tail, while their `AsyncStream` queues retain at most 64 pending events and preserve the final completion event. |
+| Workspace memory | A+ | Running and completed stdout/stderr are capped independently; terminal history retains at most 100 commands and reports released history instead of growing silently for the lifetime of the app. |
+| Responsiveness | A+ | Streaming mutations publish through the desktop's existing 50 ms coalescer, so users see live output without rebuilding the full workspace surface for every process read. |
+| Lifecycle safety | A+ | Stop freezes the visible bounded tail before releasing live buffers, late events cannot overwrite a stopped entry, and completion replaces partial output with the process-owned bounded result. |
+| UX | A+ | The native and HTML terminal surfaces show live Running output, preserve the newest useful tail after truncation, and surface a quiet history-retention notice that Clear removes. |
+| Architecture | A+ | Backpressure, output retention, terminal history policy, model publication, and packaged smoke verification have focused owners with no duplicated process runner. |
+
+Validation:
+
+- Focused terminal/backpressure suite: 48 tests, 0 failures
+- Broad terminal, shell-streaming, and PTY suite: 249 tests, 0 failures
+- Authoritative full Swift suite: 5,769 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed a real 40,000-line PTY flood, live-progress publication,
+  bounded rendered output, final-tail preservation, and terminal cleanup
+- Packaged direct-executable and Launch Services smoke passed; live-window Accessibility and repeated
+  interaction checks passed at 266.16 ms median launch-ready, 98.28 MiB initial memory, 158.61 MiB
+  after the first interaction sweep, and 163.19 MiB after the repeated sweep
+
+## 2026-08-09 Previous-Public-Build Updater Gate
+
+Overall grade after this slice: **A+ compatibility evidence, A+ publication ordering, A+ failure isolation**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Real upgrade coverage | A+ | Native arm64 and Intel gates consume the untouched app that users could already have installed, including its real embedded feed and source metadata, instead of modifying newly built code to update to itself. |
+| Capture integrity | A+ | Release and manifest contracts are decoded strictly; downloaded bytes must match bounded GitHub size/digest and manifest size/SHA-256 before a transactional directory swap exposes them. |
+| Publication ordering | A+ | New release publication depends on prior-source capture, and artifact assembly selects only packaging artifacts, so the snapshot is necessarily old and can never leak into the new release inventory. |
+| Failure isolation | A+ | Missing first releases produce one explicit fallback record; malformed metadata, corrupt bytes, unsafe inputs, command failures, and existing outputs fail closed and remove staging data. |
+| Architecture | A+ | Contract decoding, bounded hashing, GitHub operations, transaction orchestration, and the CLI entry point remain focused modules with deterministic stateful parity coverage. |
+
+Validation:
+
+- Focused capture, updater, and Download Builds parity suite: 12 tests, 0 failures
+- Authoritative full suite outside the managed macOS service sandbox: 5,761 tests,
+  5 skipped, 0 failures
+- Python compile validation, shell syntax validation, and workflow YAML parsing
+- Stateful fake-GitHub verification of exact capture, first-release fallback, same-size corruption,
+  cleanup, and mutation-free repository rejection
+- Read-only production captures matched public tester build 695 at exact commit `7e4347e4` and the
+  published arm64 and x86_64 archive sizes and SHA-256 digests
+- Deterministic grader: every new production and test module A+
+
+## 2026-08-09 Transactional Tester Publication
+
+Overall grade after this slice: **A+ publication integrity, A+ recovery, A+ maintainability**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Pre-mutation integrity | A+ | Every candidate is uploaded under a run-scoped alias and its GitHub state, byte size, and SHA-256 digest must match before canonical names change. |
+| Recovery | A+ | Previous asset IDs, names, digests, metadata, and tag commit remain available until the new metadata and ref pass read-back verification; injected upload, rename, metadata, and tag failures restore the exact snapshot. |
+| User continuity | A+ | The updater manifest swaps after other candidates and the moving tag changes last; old assets are deleted only after commit, with bounded cleanup retries. |
+| Architecture | A+ | Parsing/contracts, bounded file hashing, remote operations, initial publication, transaction orchestration, and CLI validation are separate focused modules. The deterministic grader scores every new production file 100/A+. |
+| Regression coverage | A+ | Focused parity tests drive a stateful fake GitHub release and Git remote, assert operation order, exact final inventory, exact rollback digests, transient cleanup retry, and mutation-free input rejection. |
+
+Validation:
+
+- Transactional publisher, workflow, and freshness suite: 14 tests, 0 failures
+- Authoritative full suite outside the managed macOS service sandbox: 5,756 tests,
+  5 skipped, 0 failures
+- Python compile validation for the entry point and all transaction modules
+- Workflow parser, executable mode, diff hygiene, and secret scan
+- Deterministic production-file grades: 100/A+ for all six publisher files
+
+## 2026-08-09 Current-Main Publication Boundary
+
+Overall grade after this slice: **A+ release freshness, A+ supersession safety, A+ stable isolation**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Tester freshness | A+ | The publisher re-fetches `origin/main` after every architecture artifact is ready and immediately before the first moving-release mutation. Only the exact current commit can move `tester-latest`. |
+| Supersession behavior | A+ | A stale tester run records `publish-required=false`, succeeds without touching the tag, release notes, manifest, or assets, and skips public-download and updater verification for a release it did not publish. The newer serialized run proceeds next. |
+| Stable isolation | A+ | Canonical version tags bypass main freshness but are resolved again from the remote and must still equal the workflow commit. Missing, malformed, moved, and unsupported refs fail closed. |
+| Workflow ownership | A+ | Build serialization remains non-cancelling, so a publisher cannot be interrupted during release replacement. The new gate narrows the stale-publication window without weakening artifact, CI, signing, or consumer verification gates. |
+
+Validation:
+
+- Focused publication planner, release policy, and Download Builds parity suites
+  (15 tests, 0 failures)
+- Full `swift test` (5,752 tests, 5 skipped, 0 failures)
+- Real GitHub remote: current `main` emitted `publish-required=true`; superseded build-691 commit
+  `50b88eb5` emitted `publish-required=false` and exited successfully
+- `bash -n` and YAML parsing passed; `git diff --check` passed
+- Deterministic code-quality grader: every module A+; the new planner and parity suite each score
+  100/A+ with no automated issues
+
 ## 2026-08-09 Window-Independent Application Services
 
 Overall grade after this slice: **A+ update reliability, A+ background ownership, A+ lifecycle isolation**.
@@ -17005,4 +17337,73 @@ Validation:
 - `swift test` (4,618 tests; 2 skipped; 0 failures)
 - `scripts/app-server-smoke.sh`
 - `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-11 Historical Archive Payload Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ data safety, A+ packaged performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory architecture | A+ | Bootstrap retains current-period archives but replaces older transcripts with bounded runtime summaries, avoiding historical message and event residency during ordinary use. |
+| Cache safety | A+ | The disposable summary index is schema- and fingerprint-validated, size-bounded, atomically written with mode `0600`, and ignored when corrupt, stale, oversized, symlinked, or nonregular. |
+| Data integrity | A+ | Selection and mutation hydrate canonical JSON first; metadata-only saves merge against authoritative payloads, while attempted deferred transcript mutation fails closed. |
+| Behavioral fidelity | A+ | Deferred summaries preserve the existing bounded search projection, attachment references, agent-import provenance, and Attention rows without changing ordinary CLI or app-server listing semantics. |
+| Lifecycle coverage | A+ | Selection, duplication, unarchive, automation follow-up, worktree retention/restoration, attachment cleanup, archived rewrites, and deletion honor deferred residency. |
+| Packaged performance | A+ | The final 100-chat run reached readiness in 294.68 ms with a 41.00 MiB initial physical footprint, 89.94 MiB after the repeated interaction sweep, 2.02 MiB repeated growth, and a thread count that fell from seven to six. |
+| Regression evidence | A+ | Cold and warm cache paths, invalidation, corruption recovery, 200-archive scale, data-loss rejection, current-month policy, search, provenance, Attention, hydration, and packaged fixture behavior are covered. |
+
+Validation:
+
+- `swift test` (6,174 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, Accessibility, computer-use contracts, and repeated 100-chat interaction passed)
+- Final physical-footprint evidence: 294.68 ms launch-ready, 41.00 MiB initial, 87.92 MiB post-interaction, 89.94 MiB repeated-interaction, and 2.02 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all touched modules A+)
+- `git diff --check`
+
+## 2026-08-11 Bounded Browser Session Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ crash resilience, A+ packaged usability**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory architecture | A+ | Browser residency is bounded to 20 tabs, 128 history entries per tab, 100 comments per tab, and capped snapshot fields; oversized restores process only the retained history window instead of allocating normalized copies of every imported entry. |
+| WebKit boundary | A+ | Page-controlled URL, title, visible text, outline, HTML, and viewport payloads are capped in JavaScript before bridge transfer and normalized again in the model-owned snapshot contract. |
+| Long-session resilience | A+ | Repeated fetch and live-DOM failures replace their prior diagnostics, forward-history pruning remains valid, and rejected over-capacity session tabs cannot steal selection. |
+| Capacity UX | A+ | Native and HTML new-tab controls disable at capacity, tab creation fails without changing the active page, and concise statuses explain released history/comments or shortened comment text. |
+| Browser workflow | A+ | Packaged direct and Launch Services runs completed authenticated-form, CRM, and shared-sheet inspect/type/click/script analogues with matching rendered state. These are deterministic local analogues and do not claim external SaaS authentication coverage. |
+| Packaged performance | A+ | Three independent 100-chat launches passed: 306.25 ms median readiness, 41.09 MiB initial physical footprint, 85.97 MiB post-interaction, 88.58 MiB repeated-interaction, 2.61 MiB repeated growth, and eight repeated-interaction threads. |
+| Regression evidence | A+ | Scale tests cover retained-window index fidelity, long navigation, comment rollover, diagnostic replacement, tab capacity, external session insertion, DOM payload caps, and native/HTML parity. |
+
+Validation:
+
+- `swift test` (6,183 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live-window accessibility, browser workflows, computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 306.25 ms median launch-ready, 41.09 MiB initial, 85.97 MiB post-interaction, 88.58 MiB repeated-interaction, and 2.61 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
+- `git diff --check`
+
+## 2026-08-11 Bounded Image Preview Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ responsiveness, A+ packaged performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Decode residency | A+ | Artifact images, message attachments, composer attachments, and appshot thumbnails decode directly to bounded bitmap dimensions instead of retaining full-resolution display bitmaps. |
+| Main-thread responsiveness | A+ | Local, data-URL, remote, and SVG thumbnail decoding runs at utility priority outside the main actor; SwiftUI receives only the finished bounded image. |
+| Input safety | A+ | Local files and streamed HTTP responses share a 32 MiB encoded-source cap, oversized declared responses are rejected before body delivery, and remote requests use ephemeral no-cache sessions with explicit timeouts and cancellation. |
+| Format fidelity | A+ | ImageIO preserves bitmap orientation and aspect ratio without upscaling, while the AppKit platform adapter keeps bounded SVG rasterization available without leaking native APIs into the app module. |
+| Surface budgets | A+ | General artifact previews cap their longest edge at 1,536 pixels, attachment previews at 512 pixels, and compact appshot thumbnails at 256 pixels. |
+| Packaged compatibility | A+ | The release bundle passed SIGKILL draft recovery, direct and Launch Services rendering, live native interaction, Accessibility contracts, and screenshot validation. |
+| Packaged performance | A+ | Three independent 100-chat launches passed: 292.07 ms median readiness, 41.02 MiB initial physical footprint, 86.45 MiB post-interaction, 87.67 MiB repeated-interaction, 1.22 MiB repeated growth, and a repeated thread count that fell from eight to seven. |
+
+Validation:
+
+- Focused thumbnail and architecture suite (11 tests, 0 failures)
+- `swift test` (6,191 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live-window Accessibility, computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 292.07 ms median launch-ready, 41.02 MiB initial, 86.45 MiB post-interaction, 87.67 MiB repeated-interaction, and 1.22 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
 - `git diff --check`

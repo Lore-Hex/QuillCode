@@ -17,6 +17,7 @@ import Foundation
 enum AgentDeliverableGate {
     /// Filenames the user message asks the run to CREATE. Order of first appearance, deduped.
     static func requiredDeliverables(in userMessage: String) -> [String] {
+        let declaredInputs = declaredRequiredInputs(in: userMessage)
         let pattern = #"""
         (?ix)
         \b(?:write|writes|build|builds|produce|produces|create|creates|generate|generates|
@@ -54,6 +55,15 @@ enum AgentDeliverableGate {
             }
             var name = String(userMessage[fileRange])
             if name.hasPrefix("./") { name.removeFirst(2) }
+            let normalizedName = AgentArtifactVerificationGate.normalizedPath(name)
+            let isDeclaredInput = declaredInputs.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, normalizedName)
+            })
+            let isBareDeclaredInputAlias = !normalizedName.contains("/")
+                && declaredInputs.contains(where: {
+                    URL(fileURLWithPath: $0).lastPathComponent == normalizedName
+                })
+            if isDeclaredInput || isBareDeclaredInputAlias { return }
             if seen.insert(name).inserted {
                 results.append(name)
             }
@@ -71,6 +81,28 @@ enum AgentDeliverableGate {
         return Array(results.filter { name in
             name.contains("/") || !qualifiedBasenames.contains((name as NSString).lastPathComponent)
         }.prefix(6))
+    }
+
+    /// Evaluation and desktop prompts explicitly inventory mapped inputs. A bare source alias in
+    /// the original request (for example `leads.csv`) refers to `inputs/leads.csv`; it must not
+    /// become a second output merely because an earlier create verb is within the regex window.
+    private static func declaredRequiredInputs(in userMessage: String) -> [String] {
+        var inputs: [String] = []
+        for line in userMessage.split(whereSeparator: \Character.isNewline) {
+            let text = String(line)
+            guard text.lowercased().contains("required inputs") else { continue }
+            for rawPath in AgentRequestTextScanner.backtickQuotedValues(in: text) {
+                let path = AgentArtifactVerificationGate.normalizedPath(rawPath)
+                guard AgentRequestPathGuard.isSafeWorkspaceRelativePath(path),
+                      path.hasPrefix("inputs/"),
+                      !inputs.contains(where: {
+                          AgentArtifactVerificationGate.pathsMatch($0, path)
+                      })
+                else { continue }
+                inputs.append(path)
+            }
+        }
+        return inputs
     }
 
     /// The subset of required deliverables that do not exist under `workspaceRoot`.

@@ -104,9 +104,9 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
             "struct WorkspaceSubagentRunToolExecutor",
             "WorkspaceSubagentRunToolRequestDecoder.decode",
             "WorkspaceSubagentScheduler(",
-            "recordSink?(record, parentThread.id)",
-            "await onProgress?(snapshot)"
+            "recordSink?(record, parentThread.id)"
         ])
+        Self.assertSource(modelRunText, excludes: "await onProgress?")
         Self.assertSource(sendFactoryText, containsAll: [
             "subagentRunRecordSink",
             "threadToolExecutionOverride",

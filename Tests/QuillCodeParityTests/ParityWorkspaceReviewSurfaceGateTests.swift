@@ -229,13 +229,15 @@ final class ParityWorkspaceReviewSurfaceGateTests: QuillCodeParityTestCase {
         Self.assertSource(mainPaneText, contains: "onCloseReview: { runCommand(id: \"toggle-review-panel\") }")
     }
 
-    func testNativeReviewOpeningBringsThePaneIntoViewWithoutTailScrollCompetition() throws {
+    func testNativeReviewUsesAFocusedViewportWithoutMaterializingTheTranscriptTail() throws {
         let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
 
-        Self.assertSource(transcriptText, contains: ".id(Self.reviewAnchorID)")
+        Self.assertSource(transcriptText, contains: "if review.isVisible")
+        Self.assertSource(transcriptText, contains: "reviewBody")
+        Self.assertSource(transcriptText, contains: "accessibilityIdentifier(\"quillcode-review-viewport\")")
         Self.assertSource(transcriptText, contains: ".onChange(of: review.isVisible)")
-        Self.assertSource(transcriptText, contains: "proxy.scrollTo(Self.reviewAnchorID, anchor: .top)")
-        Self.assertSource(transcriptText, contains: "!review.isVisible")
+        XCTAssertFalse(transcriptText.contains("reviewAnchorID"))
+        XCTAssertFalse(transcriptText.contains("scrollForReviewVisibility"))
     }
 
 }

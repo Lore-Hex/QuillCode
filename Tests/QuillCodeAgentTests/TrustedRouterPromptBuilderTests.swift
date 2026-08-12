@@ -162,10 +162,22 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(headless.contains("report the limitation honestly"))
     }
 
+    func testChartGuidanceUsesNativeRendererAndRequiresReadback() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileRead,
+            .chartRender,
+        ])
+
+        XCTAssertTrue(prompt.contains("use host.chart.render"))
+        XCTAssertTrue(prompt.contains("Do not install plotting"))
+        XCTAssertTrue(prompt.contains("read the generated PNG back with host.file.read"))
+    }
+
     func testComputerUsePromptRequiresFreshScreenshotsAndTreatsPixelsAsUntrusted() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .computerScreenshot,
-            .computerClick
+            .computerClick,
+            .computerActivate
         ])
 
         XCTAssertTrue(prompt.contains("Inspect that image before choosing coordinates"))
@@ -173,6 +185,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("untrusted page content"))
         XCTAssertTrue(prompt.contains("a signed-in session"))
         XCTAssertTrue(prompt.contains("start with a screenshot"))
+        XCTAssertTrue(prompt.contains("activate it by exact app name or bundle identifier"))
+        XCTAssertTrue(prompt.contains("then take a fresh screenshot before interacting"))
         XCTAssertTrue(prompt.contains("Never substitute host.browser.* or a guest/logged-out page"))
         XCTAssertTrue(prompt.contains("report the exact blocker"))
         XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])
@@ -205,6 +219,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
+        XCTAssertTrue(prompt.contains("Reserve interpreter `-c` commands"))
+        XCTAssertTrue(prompt.contains("write a relative workspace script with host.file.write"))
         XCTAssertTrue(prompt.contains("canonical argument keys"))
         XCTAssertTrue(prompt.contains("do not use \"command\""))
         XCTAssertTrue(prompt.contains("use host.file.list"))
@@ -235,11 +251,41 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         // Never fabricate a result a command did not produce.
         XCTAssertTrue(prompt.contains("Never fabricate results"))
         XCTAssertTrue(prompt.contains("must come from real tool output"))
+        XCTAssertTrue(prompt.contains("coverage checklist of every requested entity and field"))
+        XCTAssertTrue(prompt.contains("A similarly named company is not the same entity"))
+        XCTAssertTrue(prompt.contains("Affiliate roundups, generic directories"))
+        XCTAssertTrue(prompt.contains("live price and budget-fit result for every candidate"))
         // Execute, don't narrate: writing a script is not running it; keep going until outputs exist.
         XCTAssertTrue(prompt.contains("do not narrate it"))
         XCTAssertTrue(prompt.contains("Writing a script or a file does NOT run it"))
         XCTAssertTrue(prompt.contains("you MUST call the shell tool"))
         XCTAssertTrue(prompt.contains("not finished until every step has a real tool call"))
+        // The exact requested artifact, not an easier scratch format, defines completion.
+        XCTAssertTrue(prompt.contains("Exact deliverables first"))
+        XCTAssertTrue(prompt.contains("exact requested output path and file extension"))
+        XCTAssertTrue(prompt.contains("Never substitute CSV, Markdown, plain text"))
+        XCTAssertTrue(prompt.contains("Scratch and intermediate files do not satisfy the task"))
+        XCTAssertTrue(prompt.contains("verify its real format and requested structure"))
+        XCTAssertTrue(prompt.contains("Obey any instruction that forbids dependency installation"))
+    }
+
+    func testCollectionReadGuidanceMatchesAdvertisedSurface() {
+        let withCollectionRead = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileList,
+            .fileRead,
+            .fileReadMany
+        ])
+        XCTAssertTrue(withCollectionRead.contains("Collection source grounding"))
+        XCTAssertTrue(withCollectionRead.contains("call host.file.read_many"))
+        XCTAssertTrue(withCollectionRead.contains("call host.file.list once"))
+        XCTAssertTrue(withCollectionRead.contains("Use host.file.read for a specific source only"))
+
+        let withoutCollectionRead = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileList,
+            .fileRead
+        ])
+        XCTAssertFalse(withoutCollectionRead.contains("Collection source grounding"))
+        XCTAssertFalse(withoutCollectionRead.contains("call host.file.read_many"))
     }
 
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {
@@ -297,6 +343,14 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("never report totals you did not reconcile"))
     }
 
+    func testPromptRequiresRefreshingArtifactsAfterLaterResearch() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.webFetch, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("fetch new evidence after drafting a deliverable"))
+        XCTAssertTrue(prompt.contains("read the revised file back"))
+        XCTAssertTrue(prompt.contains("written before the final research step is not the final artifact"))
+    }
+
     func testPromptRequiresDeterministicTabularAggregation() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
 
@@ -304,6 +358,18 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("use the shell to compute and validate"))
         XCTAssertTrue(prompt.contains("Reconcile the computed population to the source row IDs"))
         XCTAssertTrue(prompt.contains("Do not perform multi-row arithmetic from memory"))
+        XCTAssertTrue(prompt.contains("Treat shell-computed quantitative results as canonical"))
+        XCTAssertTrue(prompt.contains("every repeated amount, rate, total, and formula result"))
+    }
+
+    func testPromptRequiresStandardsCompliantCSVAndParseBack() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("CSV deliverables"))
+        XCTAssertTrue(prompt.contains("standards-compliant serializer"))
+        XCTAssertTrue(prompt.contains("Quote fields containing commas, quotes, or newlines"))
+        XCTAssertTrue(prompt.contains("Read the saved CSV back with a CSV parser"))
+        XCTAssertTrue(prompt.contains("consistent column count on every row"))
     }
 
     func testPromptForbidsInventedFactsInDraftedCommunications() {
@@ -615,6 +681,104 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         })
     }
 
+    func testToolFeedbackKeepsFullCardButBoundsModelFacingWebOutput() throws {
+        let marker = "TAIL-MARKER-SHOULD-NOT-REPLAY"
+        let feedback = AgentToolFeedback(
+            toolCall: .init(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json([
+                    "url": "https://example.com/results",
+                    "query": "quarterly revenue",
+                ])
+            ),
+            result: .init(ok: true, stdout: String(repeating: "Revenue evidence. ", count: 2_000) + marker)
+        )
+        let encoded = try JSONHelpers.encodePretty(feedback)
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: "Research the quarter"),
+            .init(role: .tool, content: encoded),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Research the quarter",
+            tools: [.webFetch]
+        )
+        let observation = try XCTUnwrap(messages.compactMap { $0["content"] as? String }.last)
+
+        XCTAssertEqual(thread.messages.last?.content, encoded, "the durable tool card remains lossless")
+        XCTAssertTrue(observation.contains("Tool observation: host.web.fetch"))
+        XCTAssertTrue(observation.contains("https://example.com/results"))
+        XCTAssertTrue(observation.contains("quarterly revenue"))
+        XCTAssertFalse(observation.contains(marker))
+        XCTAssertLessThan(observation.count, 6_000)
+    }
+
+    func testToolFeedbackRetainsLargerModelAllowanceForSourceReads() throws {
+        let retained = "SOURCE-FACT-NEAR-END"
+        let feedback = AgentToolFeedback(
+            toolCall: .init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "inputs/records.csv"])
+            ),
+            result: .init(ok: true, stdout: String(repeating: "a", count: 8_000) + retained)
+        )
+        let thread = ChatThread(messages: [
+            .init(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Continue",
+            tools: [.fileRead]
+        )
+        let observation = try XCTUnwrap(messages.first {
+            ($0["content"] as? String)?.contains("Tool observation: host.file.read") == true
+        }?["content"] as? String)
+
+        XCTAssertTrue(observation.contains(retained))
+        XCTAssertTrue(observation.contains("inputs/records.csv"))
+    }
+
+    func testDelegatedToolFeedbackRetainsEvidenceBeyondGenericOutputLimit() throws {
+        let retained = "DELEGATED-EVIDENCE-NEAR-END"
+        let summary = String(repeating: "worker evidence ", count: 500) + retained
+        let feedback = AgentToolFeedback(
+            toolCall: .init(name: ToolDefinition.subagentsRun.name, argumentsJSON: "{}"),
+            result: .init(
+                ok: true,
+                stdout: ToolArguments.json([
+                    "summary": summary,
+                    "awaitingApproval": false,
+                ])
+            )
+        )
+        let thread = ChatThread(messages: [
+            .init(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Continue",
+            tools: [.subagentsRun]
+        )
+        let observation = try XCTUnwrap(messages.first {
+            ($0["content"] as? String)?.contains("Tool observation: host.subagents.run") == true
+        }?["content"] as? String)
+
+        XCTAssertTrue(observation.contains(retained))
+        XCTAssertLessThan(observation.count, 13_000)
+    }
+
+    func testLongHorizonDelegationGuidanceMatchesAdvertisedToolSurface() {
+        let withSubagents = TrustedRouterPromptBuilder.systemPrompt(tools: [.subagentsRun, .webFetch])
+        XCTAssertTrue(withSubagents.contains("call host.subagents.run early"))
+        XCTAssertTrue(withSubagents.contains("parent owns integration"))
+
+        let withoutSubagents = TrustedRouterPromptBuilder.systemPrompt(tools: [.webFetch])
+        XCTAssertFalse(withoutSubagents.contains("call host.subagents.run early"))
+    }
+
     func testSideConversationBoundaryFollowsInheritedHistoryAndPrecedesCurrentPrompt() {
         let parentID = UUID()
         let thread = ChatThread(
@@ -663,6 +827,38 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "second" })
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "two" })
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "third" })
+    }
+
+    func testPromptBuilderBoundsAggregateHistoryAndPinsActiveRequest() throws {
+        func feedback(marker: String) throws -> ChatMessage {
+            let value = AgentToolFeedback(
+                toolCall: .init(name: ToolDefinition.webFetch.name, argumentsJSON: "{}"),
+                result: .init(ok: true, stdout: marker + String(repeating: " evidence", count: 900))
+            )
+            return .init(role: .tool, content: try JSONHelpers.encodePretty(value))
+        }
+
+        let activeRequest = "Build the complete cited quarterly revenue artifact."
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: activeRequest),
+            try feedback(marker: "OLDEST-EVIDENCE"),
+            try feedback(marker: "MIDDLE-EVIDENCE"),
+            try feedback(marker: "NEWEST-EVIDENCE"),
+        ])
+        let builder = TrustedRouterPromptBuilder(historyCharacterLimit: 3_000)
+        let assembled = builder.assembled(
+            thread: thread,
+            userMessage: activeRequest,
+            tools: [.webFetch, .fileWrite]
+        )
+        let contents = assembled.messages.compactMap { $0["content"] as? String }
+
+        XCTAssertTrue(contents.contains { $0.contains("NEWEST-EVIDENCE") })
+        XCTAssertFalse(contents.contains { $0.contains("MIDDLE-EVIDENCE") })
+        XCTAssertFalse(contents.contains { $0.contains("OLDEST-EVIDENCE") })
+        XCTAssertEqual(contents.filter { $0 == activeRequest }.count, 1)
+        XCTAssertEqual(contents.last, activeRequest, "the active task is restored after bounded evidence")
+        XCTAssertFalse(assembled.historyPrefixStable)
     }
 
     func testInjectedContextBeforeFirstTurnPrecedesCurrentPrompt() throws {

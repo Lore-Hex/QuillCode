@@ -120,6 +120,19 @@ final class WebFetchToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains(#"{"name":"quill"}"#))
     }
 
+    func testHTTP200JSONFailureIsReportedAsToolFailure() {
+        let body = #"{"status":"REQUEST_NOT_PROCESSED","message":"daily threshold reached"}"#
+        let (executor, _) = makeExecutor(responses: [
+            htmlResponse(body, contentType: "application/json")
+        ])
+
+        let result = executor.fetch(urlString: "https://api.example.gov/data")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("REQUEST_NOT_PROCESSED") == true)
+        XCTAssertTrue(result.error?.contains("daily threshold reached") == true)
+    }
+
     func testSchemelessURLDefaultsToHTTPS() {
         let (executor, client) = makeExecutor(responses: [htmlResponse("<p>x</p>")])
         let result = executor.fetch(urlString: "example.com/docs")
@@ -411,12 +424,50 @@ final class WebFetchToolExecutorTests: XCTestCase {
         XCTAssertLessThan(result.stdout.utf8.count, 4_000)
     }
 
+    func testFocusedQueryKeepsRelevantEvidenceFromEndOfLongPage() {
+        let paragraphs = (0..<10_000).map { "<p>General filing text \($0).</p>" }.joined()
+        let body = paragraphs + "<table><tr><td>Q4 FY2026</td><td>Revenue $42.7M</td></tr></table>"
+        let (executor, _) = makeExecutor(
+            responses: [htmlResponse(body)],
+            outputMaxBytes: 2_000
+        )
+
+        let result = executor.fetch(
+            urlString: "https://example.com/long-filing",
+            query: "Q4 FY2026 revenue"
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("Q4 FY2026"))
+        XCTAssertTrue(result.stdout.contains("Revenue $42.7M"))
+        XCTAssertTrue(result.stdout.contains("Focused evidence windows"))
+        XCTAssertLessThan(result.stdout.utf8.count, 4_000)
+    }
+
     func testTransportErrorIsSurfaced() {
-        let client = StubWebFetchHTTPClient([.failure(.timedOut)])
+        let client = StubWebFetchHTTPClient([.failure(.timedOut), .failure(.timedOut)])
         let executor = WebFetchToolExecutor(client: client)
         let result = executor.fetch(urlString: "https://example.com/slow")
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error?.contains("timed out") == true)
+        XCTAssertTrue(result.error?.contains("browser-like headers") == true)
+        XCTAssertEqual(client.requests.count, 2)
+    }
+
+    func testTransportFailureRetriesWithBrowserHeaders() {
+        let client = StubWebFetchHTTPClient([
+            .failure(.transport("HTTP/2 stream reset")),
+            .success(htmlResponse("<p>Quarterly revenue: $191,000,000</p>")),
+        ])
+        let executor = WebFetchToolExecutor(client: client)
+
+        let result = executor.fetch(urlString: "https://example.com/results")
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("$191,000,000"))
+        XCTAssertEqual(client.requests.count, 2)
+        XCTAssertTrue(client.requests[0].headers["User-Agent"]?.contains("QuillCode") == true)
+        XCTAssertTrue(client.requests[1].headers["User-Agent"]?.contains("Mozilla") == true)
     }
 
     func testEmptyPageYieldsPlaceholder() {

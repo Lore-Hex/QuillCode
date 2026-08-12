@@ -5,13 +5,35 @@ import QuillCodeTools
 public struct TerminalCommandState: Sendable, Hashable, Identifiable {
     public var id: UUID
     public var command: String
-    public var stdout: String
-    public var stderr: String
+    var retainedStdout: String
+    var retainedStderr: String
     public var exitCode: Int32?
     public var ok: Bool
     public var status: TerminalCommandStatus
     public var executionContext: ExecutionContextSurface?
     public var createdAt: Date
+    var liveStdout = ShellOutputAccumulator()
+    var liveStderr = ShellOutputAccumulator()
+
+    public var stdout: String {
+        get { status == .running ? liveStdout.text : retainedStdout }
+        set {
+            retainedStdout = WorkspaceTerminalRetentionPolicy.cap(newValue)
+            guard status == .running else { return }
+            liveStdout = ShellOutputAccumulator()
+            liveStdout.append(newValue)
+        }
+    }
+
+    public var stderr: String {
+        get { status == .running ? liveStderr.text : retainedStderr }
+        set {
+            retainedStderr = WorkspaceTerminalRetentionPolicy.cap(newValue)
+            guard status == .running else { return }
+            liveStderr = ShellOutputAccumulator()
+            liveStderr.append(newValue)
+        }
+    }
 
     public init(
         id: UUID = UUID(),
@@ -26,13 +48,17 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
     ) {
         self.id = id
         self.command = command
-        self.stdout = stdout
-        self.stderr = stderr
+        self.retainedStdout = WorkspaceTerminalRetentionPolicy.cap(stdout)
+        self.retainedStderr = WorkspaceTerminalRetentionPolicy.cap(stderr)
         self.exitCode = exitCode
         self.ok = ok
         self.status = status ?? (ok ? .done : .failed)
         self.executionContext = executionContext
         self.createdAt = createdAt
+        if self.status == .running {
+            liveStdout.append(stdout)
+            liveStderr.append(stderr)
+        }
     }
 }
 
@@ -71,6 +97,7 @@ public struct TerminalState: Sendable, Hashable {
     public var isSuspended: Bool
     public private(set) var mouseReporting: TerminalMouseReporting
     public private(set) var keyboardMode: TerminalKeyboardMode
+    public internal(set) var discardedEntryCount: Int
     var mouseReportingParser: TerminalMouseReportingParser
     var keyboardModeParser: TerminalKeyboardModeParser
     public var entries: [TerminalCommandState]
@@ -89,6 +116,7 @@ public struct TerminalState: Sendable, Hashable {
         isSuspended: Bool = false,
         mouseReporting: TerminalMouseReporting = .disabled,
         keyboardMode: TerminalKeyboardMode = .standard,
+        discardedEntryCount: Int = 0,
         entries: [TerminalCommandState] = []
     ) {
         self.projectID = projectID
@@ -104,9 +132,14 @@ public struct TerminalState: Sendable, Hashable {
         self.isSuspended = isSuspended
         self.mouseReporting = mouseReporting
         self.keyboardMode = keyboardMode
+        let retained = WorkspaceTerminalRetentionPolicy.normalizedInitialEntries(
+            entries,
+            discardedEntryCount: discardedEntryCount
+        )
+        self.discardedEntryCount = retained.discardedEntryCount
         self.mouseReportingParser = TerminalMouseReportingParser(reporting: mouseReporting)
         self.keyboardModeParser = TerminalKeyboardModeParser(mode: keyboardMode)
-        self.entries = entries
+        self.entries = retained.entries
     }
 
     mutating func consumeInputModes(from output: String) {

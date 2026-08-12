@@ -45,6 +45,19 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    func hydrateThreadPayload(_ id: UUID) -> Bool {
+        threadPersistence.hydrate(id, threads: &root.threads) != nil
+    }
+
+    @discardableResult
+    func hydrateThreadPayloads<S: Sequence>(_ ids: S) -> Bool where S.Element == UUID {
+        for id in ids where !hydrateThreadPayload(id) {
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
     func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
         guard let index = threadPersistence.mutate(id, threads: &root.threads, update: update) else {
             return nil
@@ -57,7 +70,10 @@ extension QuillCodeWorkspaceModel {
         _ thread: ChatThread,
         preserveMemoryContext: Bool = true
     ) {
-        var thread = ThreadEventLogCompactor.compact(thread)
+        // Agent streaming keeps reasoning notices compact as it produces them, while the durable
+        // store repairs legacy histories on load and save. Keep this hot path copy-on-write: it is
+        // called at presentation cadence and must not rebuild the full event array on every update.
+        var thread = thread
         // A destroyed ephemeral thread must STAY destroyed: an in-flight send's progress callbacks
         // carry the run's own thread snapshot, and upserting it would resurrect a confidential/side
         // conversation the user already navigated away from (the UI promised it was gone). The
@@ -93,5 +109,27 @@ extension QuillCodeWorkspaceModel {
             touchProject(root.selectedProjectID)
             saveProjects()
         }
+    }
+
+    func updateThreadFromAgentProgress(_ thread: ChatThread) -> WorkspaceAgentProgressThreadMutation? {
+        if thread.runtimeContext.isEphemeral,
+           !root.threads.contains(where: { $0.id == thread.id }) {
+            return nil
+        }
+        let result = WorkspaceThreadLifecycleEngine.applyAgentRunProgressThreadUpdate(
+            thread,
+            threads: &root.threads,
+            projects: root.projects,
+            selectedThreadID: root.selectedThreadID,
+            selectedProjectID: root.selectedProjectID
+        )
+        root.selectedThreadID = result.lifecycle.selectedThreadID
+        root.selectedProjectID = result.lifecycle.selectedProjectID
+        if result.lifecycle.didSelectUpdatedThread {
+            syncTerminalSessionToSelectedProject()
+            touchProject(root.selectedProjectID)
+            saveProjects()
+        }
+        return result.mutation
     }
 }

@@ -36,6 +36,7 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
     var reportPath: String?
     var screenshotPath: String?
     var stateRootPath: String?
+    var performanceWorkloadID: String
 
     init?(arguments: [String]) {
         guard arguments.contains("--native-window-smoke") else {
@@ -45,6 +46,10 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
         self.reportPath = Self.value(after: "--window-smoke-report", in: arguments)
         self.screenshotPath = Self.value(after: "--window-smoke-screenshot", in: arguments)
         self.stateRootPath = Self.value(after: "--window-smoke-state-root", in: arguments)
+        self.performanceWorkloadID = Self.value(
+            after: "--window-smoke-performance-workload",
+            in: arguments
+        ) ?? QuillCodeDesktopPerformanceWorkload.firstRunEmpty.rawValue
     }
 
     private static func value(after flag: String, in arguments: [String]) -> String? {
@@ -52,6 +57,65 @@ struct QuillCodeDesktopWindowSmokeRequest: Sendable {
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return nil }
         return arguments[valueIndex]
+    }
+}
+
+struct QuillCodeDesktopComposerDraftCrashSmokeRequest: Sendable {
+    var phase: String
+    var stateRootPath: String?
+
+    init?(arguments: [String]) {
+        guard arguments.contains("--composer-draft-crash-smoke") else {
+            return nil
+        }
+
+        self.phase = Self.value(after: "--composer-draft-crash-phase", in: arguments) ?? ""
+        self.stateRootPath = Self.value(after: "--composer-draft-crash-state-root", in: arguments)
+    }
+
+    private static func value(after flag: String, in arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: flag) else { return nil }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return arguments[valueIndex]
+    }
+}
+
+struct QuillCodeDesktopComposerDraftCrashSmokeWorkspaceRoot: Sendable, Hashable {
+    var root: URL
+    var appState: URL
+    var workspace: URL
+
+    init(request: QuillCodeDesktopComposerDraftCrashSmokeRequest) {
+        if let stateRootPath = request.stateRootPath, !stateRootPath.isEmpty {
+            root = URL(fileURLWithPath: stateRootPath, isDirectory: true)
+        } else {
+            root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("quillcode-composer-crash-\(UUID().uuidString)", isDirectory: true)
+        }
+        appState = root.appendingPathComponent("app-state", isDirectory: true)
+        workspace = root.appendingPathComponent("workspace", isDirectory: true)
+    }
+
+    @MainActor
+    func makeController() -> QuillCodeDesktopController {
+        let paths = QuillCodePaths(home: appState)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        return QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            installationLocationController: QuillCodeDesktopInstallationLocationController(
+                configuration: nil
+            ),
+            workspaceRoot: workspace
+        )
     }
 }
 

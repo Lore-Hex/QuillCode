@@ -403,6 +403,12 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         }
         var cancelled = TerminalState()
         WorkspaceTerminalEngine.beginRun(command: "sleep 5", entryID: cancelledID, terminal: &cancelled)
+        WorkspaceTerminalEngine.appendOutput(
+            id: cancelledID,
+            stdout: "partial-before-cancel",
+            stderr: "warning-before-cancel",
+            terminal: &cancelled
+        )
         WorkspaceTerminalEngine.finishCancelledRun(
             id: cancelledID,
             executionContext: cancelledContext,
@@ -411,7 +417,8 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
 
         XCTAssertFalse(cancelled.isRunning)
         XCTAssertEqual(cancelled.entries[0].status, .stopped)
-        XCTAssertEqual(cancelled.entries[0].stderr, WorkspaceTerminalEngine.stoppedMessage)
+        XCTAssertEqual(cancelled.entries[0].stdout, "partial-before-cancel")
+        XCTAssertEqual(cancelled.entries[0].stderr, "warning-before-cancel")
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(cancelledContext.cwdMarkerURL).path))
     }
 

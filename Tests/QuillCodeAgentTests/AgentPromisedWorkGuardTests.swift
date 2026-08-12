@@ -280,6 +280,31 @@ extension AgentPromisedWorkGuardTests {
         }
     }
 
+    func testDetectsEvidenceReadyAnnouncementWithoutFinalSynthesis() {
+        let stalls = [
+            "I have all the data needed.",
+            "I have all the evidence needed!",
+            "All required data is collected.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(
+                    for: text,
+                    tools: [.webFetch, .fileWrite, .fileRead]
+                ),
+                .promisedWork,
+                "evidence readiness is not a completed deliverable: \(text)"
+            )
+        }
+    }
+
+    func testEvidenceReadyPhraseWithVerifiedDeliverableIsACompletion() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "I have all the data needed. The final chart is saved and verified at outputs/revenue.html.",
+            tools: [.fileWrite, .fileRead]
+        ))
+    }
+
     func testDetectsTerminalPresentProgressWorkNarration() {
         let stalls = [
             "I need to read the two source files before writing. Reading inputs/context.md and inputs/data.csv now.",
@@ -293,6 +318,51 @@ extension AgentPromisedWorkGuardTests {
                 "present-progress narration should re-drive: \(text)"
             )
         }
+    }
+
+    func testDetectsBareInProgressStatusAsUnfinishedWork() {
+        let stalls = [
+            "[Research in progress]",
+            "Work in progress",
+            "**Analysis in progress**",
+            "Task in progress",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.webSearch, .fileWrite]),
+                .promisedWork,
+                "bare progress status should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testDetectsDelegatedWorkerNextStepStalls() {
+        let stalls = [
+            "I found Q3 2024. Now I need Q2 2024 to complete the requested series.",
+            "I could not extract a verified number. Next: re-fetch the investor filing.",
+            "Three rows are verified; I still need to search for the fourth filing.",
+            "COMPLETE: I need Q4 FY2026 revenue to finish the four-quarter set. Fetching Q4 report now.",
+            "The IR page uses JavaScript. Fetching the Q2 2025 press release next for concrete revenue figures.",
+            "The page does not yet verify the exact SKU. Let me continue researching.",
+            "The listed model is not eligible. Continuing research.",
+            "Starting research on MacBook Pro 14-inch M4 (32GB/1TB).",
+            "The product page is truncated. Let me try the browser to access the full page directly.",
+            "Amazon blocked the listing fetch. Trying the ASUS official product page next.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.webFetch, .webSearch]),
+                .promisedWork,
+                "unfinished delegated work should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testCompletedDelegatedHandoffIsNotAStall() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "All four quarters are verified. The remaining step is for the deliverable owner to merge these findings.",
+            tools: [.webFetch, .fileWrite]
+        ))
     }
 
     func testPresentProgressObservationIsNotAPromise() {

@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeApp
 @testable import quill_code_desktop
 
 @MainActor
@@ -10,7 +11,7 @@ final class QuillCodeDesktopProgressRefreshSchedulerTests: XCTestCase {
         var refreshCount = 0
 
         for _ in 0..<10_000 {
-            scheduler.schedule { refreshCount += 1 }
+            scheduler.schedule(.agent) { _ in refreshCount += 1 }
         }
 
         XCTAssertTrue(scheduler.hasPendingRefresh)
@@ -26,8 +27,8 @@ final class QuillCodeDesktopProgressRefreshSchedulerTests: XCTestCase {
         var firstCount = 0
         var latestCount = 0
 
-        scheduler.schedule { firstCount += 1 }
-        scheduler.schedule {
+        scheduler.schedule(.agent) { _ in firstCount += 1 }
+        scheduler.schedule(.agent) { _ in
             latestCount += 1
             refreshed.fulfill()
         }
@@ -42,7 +43,7 @@ final class QuillCodeDesktopProgressRefreshSchedulerTests: XCTestCase {
         let scheduler = QuillCodeDesktopProgressRefreshScheduler(delayNanoseconds: 1_000_000)
         var refreshCount = 0
 
-        scheduler.schedule { refreshCount += 1 }
+        scheduler.schedule(.agent) { _ in refreshCount += 1 }
         scheduler.cancel()
         try await Task.sleep(nanoseconds: 10_000_000)
 
@@ -58,9 +59,33 @@ final class QuillCodeDesktopProgressRefreshSchedulerTests: XCTestCase {
                 delayNanoseconds: 5_000_000_000
             )
             retainedScheduler = scheduler
-            scheduler.schedule {}
+            scheduler.schedule(.agent) { _ in }
         }
 
         XCTAssertNil(retainedScheduler)
+    }
+
+    func testCadenceBoundaryUnionsIndependentProgressScopes() async throws {
+        let scheduler = QuillCodeDesktopProgressRefreshScheduler(delayNanoseconds: 1_000_000)
+        let refreshed = expectation(description: "coalesced refresh")
+        var receivedScope: WorkspaceProgressSurfaceScope = []
+
+        scheduler.schedule(.agent) { _ in XCTFail("latest action should replace this closure") }
+        scheduler.schedule(.terminal) { scope in
+            receivedScope = scope
+            refreshed.fulfill()
+        }
+
+        await fulfillment(of: [refreshed], timeout: 1)
+        XCTAssertTrue(receivedScope.contains(.agent))
+        XCTAssertTrue(receivedScope.contains(.terminal))
+    }
+
+    func testEmptyScopeDoesNotScheduleRefresh() {
+        let scheduler = QuillCodeDesktopProgressRefreshScheduler()
+
+        scheduler.schedule([]) { _ in XCTFail("empty scopes must not run") }
+
+        XCTAssertFalse(scheduler.hasPendingRefresh)
     }
 }

@@ -354,6 +354,30 @@ final class SafetyShellPolicyTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
     }
 
+    func testAutoApprovesWorkspaceBoundedChartRenderWithoutIntentMatch() async {
+        let reviewer = StaticSafetyReviewer()
+        let definition = ToolDefinition(
+            name: "host.chart.render",
+            description: "Render chart",
+            parametersJSON: "{}",
+            host: .local,
+            risk: .append
+        )
+        let call = ToolCall(
+            name: definition.name,
+            argumentsJSON: #"{"path":"outputs/chart.png","categories":["Q1"],"series":{"East":"10"}}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Turn the regional revenue source into the requested slide chart.",
+            toolCall: call,
+            toolDefinition: definition,
+            recentMessages: [.init(role: .user, content: "Prepare the slide asset.")]
+        ))
+
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
+    }
+
     func testAutoApprovesApplyPatchWithoutIntentMatch() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(

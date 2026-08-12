@@ -114,7 +114,7 @@ public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Se
     }
 
     init(request: ShellExecutionRequest, sandboxPolicy: ShellProcessSandboxPolicy?) {
-        let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
+        let (stream, continuation) = ShellProcessEventStream.makeStream()
         let runner = ShellStreamingProcessRunner(
             request: request,
             sandboxPolicy: sandboxPolicy,

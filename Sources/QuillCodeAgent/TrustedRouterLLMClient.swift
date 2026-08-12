@@ -5,7 +5,7 @@ import TrustedRouter
 import FoundationNetworking
 #endif
 
-public enum TrustedRouterAgentError: Error, CustomStringConvertible {
+public enum TrustedRouterAgentError: Error, CustomStringConvertible, LocalizedError {
     case missingAPIKey
     case emptyResponse
     case invalidActionJSON(String)
@@ -33,6 +33,8 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
             return "\(message) \(diagnosticSummary)"
         }
     }
+
+    public var errorDescription: String? { description }
 }
 
 public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
@@ -112,18 +114,21 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         tools: [ToolDefinition]
     ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
         let apiKey = try configuredAPIKey()
-        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
         let assembled = promptBuilder.assembled(thread: thread, userMessage: userMessage, tools: tools)
+        let body = try Self.chatCompletionBody(
+            model: model,
+            messages: assembled.messages,
+            promptCachingPolicy: promptCachingPolicy,
+            historyPrefixStable: assembled.historyPrefixStable
+        )
+
+        #if os(Linux)
+        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
         let (bytes, response) = try await client.rawStreamRequest(
             method: "POST",
             path: "/chat/completions",
             headers: ["accept": "text/event-stream"],
-            body: try Self.chatCompletionBody(
-                model: model,
-                messages: assembled.messages,
-                promptCachingPolicy: promptCachingPolicy,
-                historyPrefixStable: assembled.historyPrefixStable
-            )
+            body: body
         )
         if response.statusCode >= 400 {
             throw TrustedRouterAgentError.streamingHTTPError(
@@ -134,6 +139,41 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         }
 
         return TrustedRouterStreamingEventDecoder.eventStream(from: bytes)
+        #else
+        let session = URLSession(configuration: .ephemeral)
+        do {
+            let trimmedBaseURL = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard let url = URL(string: "\(trimmedBaseURL)/chat/completions") else {
+                throw URLError(.badURL)
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.httpBody = body
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.setValue("tr-req-\(UUID().uuidString)", forHTTPHeaderField: "Idempotency-Key")
+
+            let (bytes, response) = try await session.bytes(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw URLError(.badServerResponse)
+            }
+            if httpResponse.statusCode >= 400 {
+                let responseBody = try await Self.drain(bytes)
+                throw TrustedRouterAgentError.streamingHTTPError(
+                    statusCode: httpResponse.statusCode,
+                    body: responseBody,
+                    rateLimit: HTTPRateLimitDetails.parse(headers: Self.headerMap(httpResponse))
+                )
+            }
+            return TrustedRouterStreamingEventDecoder.eventStream(from: bytes) {
+                session.invalidateAndCancel()
+            }
+        } catch {
+            session.invalidateAndCancel()
+            throw error
+        }
+        #endif
     }
 
     public static func collectAction(from stream: AsyncThrowingStream<String, Error>) async throws -> AgentAction {
@@ -194,4 +234,14 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         }
         return String(data: data, encoding: .utf8) ?? ""
     }
+
+    #if !os(Linux)
+    private static func drain(_ bytes: URLSession.AsyncBytes) async throws -> String {
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+        }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+    #endif
 }

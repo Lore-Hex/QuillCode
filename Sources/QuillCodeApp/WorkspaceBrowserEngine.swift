@@ -1,8 +1,13 @@
 import Foundation
 
 struct WorkspaceBrowserEngine {
-    static func newTab(state: inout BrowserState) -> UUID {
+    static func newTab(state: inout BrowserState) -> UUID? {
         storeSelectedTab(in: &state)
+        guard state.canCreateNewTab else {
+            state.status = WorkspaceBrowserRetentionPolicy.tabLimitStatus
+            storeSelectedTab(in: &state)
+            return nil
+        }
         let tab = BrowserTabState()
         state.tabs.append(tab)
         state.selectedTabID = tab.id
@@ -57,7 +62,9 @@ struct WorkspaceBrowserEngine {
         state.title = BrowserInspector.title(for: state.snapshot, fallbackURL: url)
         state.status = "Preview ready"
         if updateHistory {
-            appendHistory(url.absoluteString, state: &state)
+            if appendHistory(url.absoluteString, state: &state) {
+                state.status = "Preview ready; older browser history released."
+            }
         }
         storeSelectedTab(in: &state)
     }
@@ -128,7 +135,13 @@ struct WorkspaceBrowserEngine {
         storeSelectedTab(in: &state)
 
         var changed = false
+        var rejectedNewTab = false
         for tabUpdate in update.tabs {
+            if !state.tabs.contains(where: { $0.id == tabUpdate.id }),
+               !state.canCreateNewTab {
+                rejectedNewTab = true
+                continue
+            }
             changed = apply(tabUpdate, state: &state) || changed
         }
 
@@ -141,13 +154,22 @@ struct WorkspaceBrowserEngine {
 
         loadSelectedTab(into: &state)
         state.isVisible = true
+        if rejectedNewTab {
+            state.status = WorkspaceBrowserRetentionPolicy.tabLimitStatus
+            storeSelectedTab(in: &state)
+            changed = true
+        }
         return changed
     }
 
     static func markSnapshotFetchFailure(_ error: any Error, state: inout BrowserState) {
         if var snapshot = state.snapshot {
             let message = WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error)
-            snapshot.details.append("Snapshot fetch: \(message)")
+            snapshot.details = WorkspaceBrowserRetentionPolicy.replacingDiagnostic(
+                prefix: "Snapshot fetch: ",
+                message: message,
+                in: snapshot.details
+            )
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
@@ -156,7 +178,11 @@ struct WorkspaceBrowserEngine {
 
     static func markLiveDOMCaptureFailure(_ error: any Error, state: inout BrowserState) {
         if var snapshot = state.snapshot {
-            snapshot.details.append("Live DOM capture: \(liveDOMCaptureMessage(for: error))")
+            snapshot.details = WorkspaceBrowserRetentionPolicy.replacingDiagnostic(
+                prefix: "Live DOM capture: ",
+                message: liveDOMCaptureMessage(for: error),
+                in: snapshot.details
+            )
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
@@ -169,8 +195,27 @@ struct WorkspaceBrowserEngine {
         guard !trimmed.isEmpty, let url = state.currentURL else {
             return false
         }
-        state.comments.append(BrowserCommentState(url: url, text: trimmed))
-        state.status = "Comment added"
+        let shortenedComment = WorkspaceBrowserRetentionPolicy.exceedsMaximumCharacters(
+            trimmed,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumCommentCharacters
+        )
+        let boundedText = WorkspaceBrowserRetentionPolicy.bounded(
+            trimmed,
+            maximumCharacters: WorkspaceBrowserRetentionPolicy.maximumCommentCharacters
+        )
+        state.comments.append(BrowserCommentState(url: url, text: boundedText))
+        let releasedComment = state.comments.count > WorkspaceBrowserRetentionPolicy.maximumCommentCount
+        state.comments = WorkspaceBrowserRetentionPolicy.normalizedComments(state.comments)
+        switch (shortenedComment, releasedComment) {
+        case (true, true):
+            state.status = "Comment shortened; oldest browser comment released."
+        case (true, false):
+            state.status = "Comment shortened to 4,000 characters."
+        case (false, true):
+            state.status = "Comment added; oldest browser comment released."
+        case (false, false):
+            state.status = "Comment added"
+        }
         storeSelectedTab(in: &state)
         return true
     }
@@ -178,7 +223,7 @@ struct WorkspaceBrowserEngine {
     private static func storeSelectedTab(in state: inout BrowserState) {
         ensureSelectedTab(in: &state)
         guard let index = state.tabs.firstIndex(where: { $0.id == state.selectedTabID }) else { return }
-        state.tabs[index] = BrowserTabState(
+        let retained = BrowserTabState(
             id: state.selectedTabID,
             addressDraft: state.addressDraft,
             currentURL: state.currentURL,
@@ -189,6 +234,15 @@ struct WorkspaceBrowserEngine {
             snapshot: state.snapshot,
             comments: state.comments
         )
+        state.tabs[index] = retained
+        state.addressDraft = retained.addressDraft
+        state.currentURL = retained.currentURL
+        state.history = retained.history
+        state.historyIndex = retained.historyIndex
+        state.title = retained.title
+        state.status = retained.status
+        state.snapshot = retained.snapshot
+        state.comments = retained.comments
     }
 
     @discardableResult
@@ -203,13 +257,18 @@ struct WorkspaceBrowserEngine {
 
         var tab = state.tabs[index]
         var changed = false
+        var releasedHistory = false
         let displayURL = update.liveDOMSnapshot?.finalURL ?? update.url
         let urlString = displayURL.absoluteString
         if tab.currentURL != urlString {
             tab.currentURL = urlString
             tab.addressDraft = urlString
             tab.snapshot = snapshot(for: update, displayURL: displayURL)
-            appendHistory(urlString, history: &tab.history, historyIndex: &tab.historyIndex)
+            releasedHistory = appendHistory(
+                urlString,
+                history: &tab.history,
+                historyIndex: &tab.historyIndex
+            )
             changed = true
         } else if update.liveDOMSnapshot != nil {
             tab.snapshot = snapshot(for: update, displayURL: displayURL)
@@ -228,8 +287,10 @@ struct WorkspaceBrowserEngine {
         }
 
         if changed {
-            tab.status = "Synced from browser session"
-            state.tabs[index] = tab
+            tab.status = releasedHistory
+                ? "Synced from browser session; older history released."
+                : "Synced from browser session"
+            state.tabs[index] = WorkspaceBrowserRetentionPolicy.normalizedTab(tab)
         }
         return changed
     }
@@ -246,7 +307,9 @@ struct WorkspaceBrowserEngine {
 
     private static func loadSelectedTab(into state: inout BrowserState) {
         ensureSelectedTab(in: &state)
-        guard let tab = state.tabs.first(where: { $0.id == state.selectedTabID }) else { return }
+        guard let index = state.tabs.firstIndex(where: { $0.id == state.selectedTabID }) else { return }
+        let tab = WorkspaceBrowserRetentionPolicy.normalizedTab(state.tabs[index])
+        state.tabs[index] = tab
         state.addressDraft = tab.addressDraft
         state.currentURL = tab.currentURL
         state.history = tab.history
@@ -280,27 +343,30 @@ struct WorkspaceBrowserEngine {
         return true
     }
 
-    private static func appendHistory(_ url: String, state: inout BrowserState) {
+    @discardableResult
+    private static func appendHistory(_ url: String, state: inout BrowserState) -> Bool {
         appendHistory(url, history: &state.history, historyIndex: &state.historyIndex)
     }
 
-    private static func appendHistory(_ url: String, history: inout [String], historyIndex: inout Int?) {
+    @discardableResult
+    private static func appendHistory(
+        _ url: String,
+        history: inout [String],
+        historyIndex: inout Int?
+    ) -> Bool {
         if let historyIndex,
            history.indices.contains(historyIndex),
            history[historyIndex] == url {
-            return
+            return false
         }
-
-        let preservedHistory: ArraySlice<String>
-        if let historyIndex,
-           history.indices.contains(historyIndex) {
-            preservedHistory = history.prefix(through: historyIndex)
-        } else {
-            preservedHistory = []
-        }
-
-        history = Array(preservedHistory) + [url]
-        historyIndex = history.indices.last
+        let appended = WorkspaceBrowserRetentionPolicy.historyByAppending(
+            url,
+            to: history,
+            selectedIndex: historyIndex
+        )
+        history = appended.entries
+        historyIndex = appended.selectedIndex
+        return appended.didReleaseEntries
     }
 
     private static func replaceCurrentHistory(with url: String, state: inout BrowserState) {

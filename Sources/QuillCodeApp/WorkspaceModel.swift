@@ -39,6 +39,9 @@ public final class QuillCodeWorkspaceModel {
     /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
     /// the running entry has been removed.
     var completedAgentRunStopReasons: [UUID: AgentRunStopReason] = [:]
+    /// One-shot structural hints for the next coalesced agent refresh. This deliberately stores no
+    /// transcript arrays, so publishing progress cannot retain a producer's large history buffers.
+    var agentTranscriptRefreshTracker = WorkspaceAgentTranscriptRefreshTracker()
     public private(set) var lastError: String?
     let startupLoadIssue: WorkspaceStartupLoadIssue?
 
@@ -111,6 +114,12 @@ public final class QuillCodeWorkspaceModel {
     /// Building it per run is essential: project, worktree, model, permissions, MCP, and SSH routing
     /// can all differ from one chat to another.
     var subagentSchedulerOverride: WorkspaceSubagentScheduler?
+    /// Optional hard delegation limit for bounded hosts such as automations and desktop evaluations.
+    /// Interactive app runs leave this nil and use the normal long-research allowance.
+    public var subagentDelegationBudgetOverride: Duration?
+    /// Bounded hosts can reserve the end of a run for named-deliverable synthesis. Interactive
+    /// desktop sessions leave this nil and continue until the user stops them.
+    public var boundedRunFinalizationAfterSecondsOverride: TimeInterval?
     var resolvingSubagentApprovals: Set<String> = []
     /// The edit session for app/UI-initiated tool runs (`runToolCall`): review-pane opens,
     /// slash commands, diagnostic applies. Deliberately SEPARATE from every chat thread's
@@ -137,6 +146,9 @@ public final class QuillCodeWorkspaceModel {
     var projectContextRefreshInFlight: WorkspaceProjectContextRefreshRequest?
     var projectContextRefreshPending: WorkspaceProjectContextRefreshRequest?
     var projectMetadataLoader: @Sendable (URL, ProjectHookTrustFileStore?) -> WorkspaceProjectMetadata
+    /// Presentation-only cache populated by the same off-main project-context scan that owns
+    /// `.quillcode/config.toml`. Authoritative surface rebuilds must never perform project I/O.
+    var worktreeEnvironmentSurfacesByProjectID: [UUID: WorkspaceWorktreeEnvironmentSurface] = [:]
     /// In-memory front buffer for per-thread composer drafts during rapid thread switches.
     /// `ChatThread.composerDraft` is the cross-launch source of truth.
     public internal(set) var threadDrafts: [UUID: String] = [:]
@@ -174,6 +186,7 @@ public final class QuillCodeWorkspaceModel {
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
+        composerDraftStore: ComposerDraftCheckpointStore? = nil,
         threadLoadIssue: WorkspaceThreadLoadIssue? = nil,
         startupLoadIssue: WorkspaceStartupLoadIssue? = nil,
         projectStore: JSONProjectStore? = nil,
@@ -222,11 +235,14 @@ public final class QuillCodeWorkspaceModel {
         self.agentRuns = agentRuns
         self.runner = runner
         self.subagentSchedulerOverride = nil
+        self.subagentDelegationBudgetOverride = nil
+        self.boundedRunFinalizationAfterSecondsOverride = nil
         self.contextSummaryGenerator = contextSummaryGenerator
         let threadPersistenceIssueTracker = WorkspaceThreadPersistenceIssueTracker()
         self.threadPersistenceIssueTracker = threadPersistenceIssueTracker
         self.threadPersistence = WorkspaceThreadPersistence(
             store: threadStore,
+            composerDraftStore: composerDraftStore,
             issueTracker: threadPersistenceIssueTracker
         )
         let registryPersistenceIssueTracker = WorkspaceRegistryPersistenceIssueTracker()
@@ -346,8 +362,15 @@ public final class QuillCodeWorkspaceModel {
         changedFilePathsProjectID == root.selectedProjectID ? changedFilePaths : []
     }
 
-    public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
+    /// Installs the executable backend without synchronously querying operating-system permission
+    /// state. Desktop startup uses this boundary so TCC and screen-capture preflights can run in its
+    /// cancellable post-window refresh task while Computer Use actions are available immediately.
+    public func installComputerUseBackend(_ backend: any ComputerUseBackend) {
         computerUseBackend = backend
+    }
+
+    public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
+        installComputerUseBackend(backend)
         setComputerUseStatus(backend.status)
     }
 
@@ -370,11 +393,13 @@ public final class QuillCodeWorkspaceModel {
         refreshGlobalMemories()
         refreshGlobalHookConfiguration()
         let previousResolutions = instructionDiagnosticResolutions(for: id)
-        WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
+        if let metadata = WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,
             projects: &root.projects,
             hookTrustStore: projectHookTrustStore
-        )
+        ), let id {
+            worktreeEnvironmentSurfacesByProjectID[id] = metadata.worktreeEnvironmentSurface
+        }
         let currentResolutions = instructionDiagnosticResolutions(for: id)
         if currentResolutions != previousResolutions {
             saveProjects()

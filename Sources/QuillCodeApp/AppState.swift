@@ -5,7 +5,7 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 public struct SidebarItem: Sendable, Hashable, Identifiable {
-    static let maximumSearchTextCharacters = 8_000
+    static let maximumSearchTextCharacters = ThreadSearchTextBuilder.maximumCharacters
 
     public var id: UUID
     public var title: String
@@ -22,7 +22,8 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.title = thread.title
         self.subtitle = thread.model
         self.updatedAt = thread.updatedAt
-        self.searchText = Self.boundedSearchText(from: thread.messages)
+        self.searchText = thread.payloadResidency.deferredSearchText
+            ?? ThreadSearchTextBuilder.build(from: thread.messages)
         self.isPinned = thread.isPinned
         self.isArchived = thread.isArchived
         self.worktree = thread.worktree.map { binding in
@@ -42,27 +43,6 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.pullRequest = thread.pullRequest
     }
 
-    private static func boundedSearchText(from messages: [ChatMessage]) -> String {
-        var text = ""
-        text.reserveCapacity(maximumSearchTextCharacters)
-        var remainingCharacters = maximumSearchTextCharacters
-        var hasIncludedMessage = false
-
-        for message in messages where message.role == .user || message.role == .assistant {
-            guard remainingCharacters > 0 else { break }
-            if hasIncludedMessage {
-                text.append("\n")
-                remainingCharacters -= 1
-                guard remainingCharacters > 0 else { break }
-            }
-
-            let prefix = message.content.prefix(remainingCharacters)
-            text.append(contentsOf: prefix)
-            remainingCharacters -= prefix.count
-            hasIncludedMessage = true
-        }
-        return text
-    }
 }
 
 public struct TopBarState: Sendable, Hashable {

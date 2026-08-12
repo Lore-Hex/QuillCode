@@ -86,6 +86,59 @@ final class AgentFlailWiringTests: XCTestCase {
         XCTAssertTrue(reason.contains("identical failure"), reason)
     }
 
+    func testSuccessfulResearchFlailMovesIntoNamedArtifactFinalizationOnce() async throws {
+        let root = try makeTempDirectory()
+        let fetches = (1...4).map { index in
+            ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json([
+                    "url": "https://example.gov/series",
+                    "focusQuery": "annual series window \(index)",
+                ])
+            )
+        }
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Final report\n\nThe retained official series supports the result.\n",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: fetches.map(AgentAction.tool) + [
+                .tool(write), .tool(read), .say("Completed and verified the report."),
+            ]),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.webFetch.name else { return nil }
+                return ToolResult(ok: true, stdout: "Official annual series evidence.")
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 3_600
+        )
+
+        let result = try await runner.send(
+            "Research the official series, save the complete result to outputs/report.md, and "
+                + "read the saved file back to verify it.",
+            in: thread,
+            workspaceRoot: root
+        )
+
+        let diagnostics = result.thread.events.map(\.summary).joined(separator: "\n")
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "# Final report\n\nThe retained official series supports the result.\n"
+        )
+        XCTAssertTrue(diagnostics.contains(
+            "moved early into bounded finalization for ./outputs/report.md"
+        ), diagnostics)
+        XCTAssertFalse(diagnostics.contains("stopped the run"), diagnostics)
+    }
+
     /// Control: a healthy run making fresh progress every step must never see the flail machinery —
     /// it exhausts the ceiling exactly as before this feature.
     func testHealthyProgressingRunNeverTripsTheDetector() async throws {

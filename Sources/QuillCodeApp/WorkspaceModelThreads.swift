@@ -86,6 +86,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func duplicateThread(_ id: UUID) -> UUID? {
+        guard hydrateThreadPayload(id) else { return nil }
         guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
         guard !refuseDurableContinuation(of: source, action: "duplicate") else { return nil }
         let projectID = knownProjectID(source.projectID)

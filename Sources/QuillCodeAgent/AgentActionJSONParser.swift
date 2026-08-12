@@ -83,11 +83,11 @@ public enum AgentActionJSONParser {
             // "arguments":{...}}` — instead of the envelope `{"type":"tool","name":"...","arguments"}`.
             // Coerce ONLY when the type is a real registered tool name, so this can never misfire on a
             // `say`, a wrapper shape, or arbitrary text.
-            guard AgentToolNameRegistry.isKnownToolName(rawType) else {
+            guard let canonicalName = AgentToolNameRegistry.canonicalName(rawType) else {
                 return nil
             }
             var canonical = object
-            canonical["name"] = rawType
+            canonical["name"] = canonicalName
             return canonicalToolObject(from: canonical)
         }
     }
@@ -150,7 +150,11 @@ public enum AgentActionJSONParser {
     }
 
     private static func toolName(in object: [String: Any]) -> String? {
-        stringValue(in: object, keys: ["name", "tool", "toolName", "tool_name"])
+        guard let rawName = stringValue(
+            in: object,
+            keys: ["name", "tool", "toolName", "tool_name"]
+        ) else { return nil }
+        return AgentToolNameRegistry.canonicalName(rawName) ?? rawName
     }
 
     private static func firstValue(in object: [String: Any], keys: [String]) -> Any? {

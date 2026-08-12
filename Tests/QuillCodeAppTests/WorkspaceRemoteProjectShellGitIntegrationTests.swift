@@ -25,10 +25,13 @@ final class WorkspaceRemoteProjectShellGitIntegrationTests: XCTestCase {
                 threads: [thread],
                 selectedThreadID: thread.id
             ),
-            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: ToolArguments.json(["cmd": "pwd"])
-            ))),
+            runner: AgentRunner(llm: ToolThenCompleteLLMClient(
+                call: ToolCall(
+                    name: ToolDefinition.shellRun.name,
+                    argumentsJSON: ToolArguments.json(["cmd": "pwd"])
+                ),
+                completion: "COMPLETE: remote-terminal"
+            )),
             sshRemoteShellExecutor: SSHRemoteShellExecutor(
                 sshExecutable: fakeSSH.path,
                 connectTimeoutSeconds: 4

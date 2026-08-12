@@ -46,6 +46,78 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(action, .say("hello"))
     }
 
+    func testCollectActionCoalescesRapidVisibleDraftsAndFlushesFinalText() async throws {
+        let finalText = String(repeating: "x", count: 4_096)
+        let events = [AgentTextStreamEvent.text(#"{"type":"say","text":""#)]
+            + finalText.map { .text(String($0)) }
+            + [.text(#""}"#)]
+        var drafts: [String] = []
+
+        let action = try await AgentActionStreamCollector.collect(
+            from: eventStream(events),
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: { drafts.append($0) },
+            onUsage: nil,
+            onReasoning: nil,
+            maximumActionUTF8Bytes: 32 * 1_024,
+            previewIntervalNanoseconds: 50_000_000,
+            nowNanoseconds: { 1 }
+        )
+
+        XCTAssertEqual(action, .say(finalText))
+        XCTAssertEqual(drafts.count, 2)
+        XCTAssertEqual(drafts.first, "x")
+        XCTAssertEqual(drafts.last, finalText)
+    }
+
+    func testCollectActionFlushesLatestSafePreviewBeforeStreamFailure() async {
+        var drafts: [String] = []
+        let brokenStream = AsyncThrowingStream<AgentTextStreamEvent, Error> { continuation in
+            continuation.yield(.text(#"{"type":"say","text":""#))
+            continuation.yield(.text("hel"))
+            continuation.yield(.text("lo"))
+            continuation.finish(throwing: StreamingProbeError.disconnected)
+        }
+
+        do {
+            _ = try await AgentActionStreamCollector.collect(
+                from: brokenStream,
+                emptyError: AgentError.emptyStreamingResponse,
+                onVisibleAssistantText: { drafts.append($0) },
+                onUsage: nil,
+                onReasoning: nil,
+                maximumActionUTF8Bytes: 1_024,
+                previewIntervalNanoseconds: 50_000_000,
+                nowNanoseconds: { 1 }
+            )
+            XCTFail("Expected the provider stream failure")
+        } catch StreamingProbeError.disconnected {
+            XCTAssertEqual(drafts, ["hel", "hello"])
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testCollectActionRejectsResponseBeyondUTF8ByteBudget() async {
+        do {
+            _ = try await AgentActionStreamCollector.collect(
+                from: eventStream([.text(String(repeating: "x", count: 33))]),
+                emptyError: AgentError.emptyStreamingResponse,
+                onVisibleAssistantText: nil,
+                onUsage: nil,
+                onReasoning: nil,
+                maximumActionUTF8Bytes: 32,
+                previewIntervalNanoseconds: 50_000_000,
+                nowNanoseconds: { 1 }
+            )
+            XCTFail("Expected the response budget to reject the stream")
+        } catch let AgentError.streamingActionTooLarge(maximumBytes) {
+            XCTAssertEqual(maximumBytes, 32)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testCollectActionPublishesReasoningSummariesSeparatelyFromText() async throws {
         var reasoning: [String] = []
         let action = try await AgentActionStreamCollector.collect(
@@ -92,6 +164,16 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(accumulator.text, "First second")
     }
 
+    func testReasoningAccumulatorCoalescesRapidProgressAndFlushesFinalSummary() {
+        var accumulator = AgentReasoningStreamAccumulator()
+
+        XCTAssertEqual(accumulator.appendThrottled("First", nowNanoseconds: 1), "First")
+        XCTAssertNil(accumulator.appendThrottled(" second", nowNanoseconds: 2))
+        XCTAssertNil(accumulator.appendThrottled(" third", nowNanoseconds: 3))
+        XCTAssertEqual(accumulator.finalPendingSummary(), "First second third")
+        XCTAssertNil(accumulator.finalPendingSummary())
+    }
+
     func testStreamingPreviewExposesOnlySayText() {
         XCTAssertEqual(
             AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),
@@ -100,6 +182,82 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertNil(AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"printf text"}}"#))
         XCTAssertNil(AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say"}"#))
     }
+
+    #if !os(Linux)
+    func testDirectSSEDecoderPreservesReasoningTextAndUsage() async throws {
+        let bytes = byteStream([
+            #"data: {"choices":[{"delta":{"reasoning_content":"Inspect evidence."}}]}"# + "\n\n",
+            #"data: {"choices":[{"delta":{"content":"{\"type\":\"say\",\"text\":\"done\"}"}}]}"# + "\n\n",
+            #"data: {"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"# + "\n\n",
+            "data: [DONE]\n\n",
+        ])
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(from: bytes, onTermination: {})
+
+        var events: [AgentTextStreamEvent] = []
+        for try await event in decoded {
+            events.append(event)
+        }
+
+        XCTAssertEqual(events.count, 3)
+        XCTAssertEqual(events[0], .reasoning("Inspect evidence."))
+        XCTAssertEqual(events[1], .text(#"{"type":"say","text":"done"}"#))
+        guard case .usage(let usage) = events[2] else {
+            return XCTFail("Expected a usage event")
+        }
+        XCTAssertEqual(usage.promptTokens, 11)
+        XCTAssertEqual(usage.completionTokens, 7)
+        XCTAssertEqual(usage.totalTokens, 18)
+    }
+
+    func testReasoningBudgetTerminatesDirectSSEProducer() async {
+        let termination = StreamTerminationProbe()
+        let bytes = byteStream([
+            #"data: {"choices":[{"delta":{"reasoning_content":"12345678"}}]}"# + "\n\n",
+            #"data: {"choices":[{"delta":{"content":"{\"type\":\"say\",\"text\":\"too late\"}"}}]}"# + "\n\n",
+        ])
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(from: bytes) {
+            termination.record()
+        }
+        let guarded = AgentPreActionReasoningBudget.enforcing(
+            maximumCharacters: 6,
+            on: decoded
+        )
+
+        do {
+            for try await _ in guarded {}
+            XCTFail("Expected the reasoning budget to fire")
+        } catch is AgentPreActionReasoningBudgetExceededError {
+            // Expected.
+        } catch {
+            XCTFail("Wrong error: \(error)")
+        }
+
+        for _ in 0..<100 where !termination.wasRecorded {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(termination.wasRecorded, "The direct transport must be cancelled promptly")
+    }
+
+    func testDirectSSEDecoderDoesNotDropEventsWhenConsumerIsSlow() async throws {
+        let expected = (0..<64).map(String.init)
+        let frames = expected.map { value in
+            #"data: {"choices":[{"delta":{"content":""# + value + #""}}]}"# + "\n\n"
+        }
+        let decoded = TrustedRouterStreamingEventDecoder.eventStream(
+            from: byteStream(frames),
+            onTermination: {}
+        )
+
+        var received: [String] = []
+        for try await event in decoded {
+            guard case .text(let value) = event else { continue }
+            received.append(value)
+            try await Task.sleep(for: .milliseconds(1))
+        }
+
+        XCTAssertEqual(received, expected)
+    }
+    #endif
 
     private func stream(_ chunks: [String]) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
@@ -118,4 +276,30 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
             continuation.finish()
         }
     }
+
+    private func byteStream(_ frames: [String]) -> AsyncThrowingStream<UInt8, Error> {
+        AsyncThrowingStream { continuation in
+            for byte in frames.joined().utf8 {
+                continuation.yield(byte)
+            }
+            continuation.finish()
+        }
+    }
+}
+
+private final class StreamTerminationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded = false
+
+    var wasRecorded: Bool {
+        lock.withLock { recorded }
+    }
+
+    func record() {
+        lock.withLock { recorded = true }
+    }
+}
+
+private enum StreamingProbeError: Error {
+    case disconnected
 }

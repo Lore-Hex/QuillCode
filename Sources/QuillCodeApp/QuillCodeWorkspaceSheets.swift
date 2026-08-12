@@ -6,6 +6,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var surface: WorkspaceSurface
     @Binding var isSearchPresented: Bool
     @Binding var searchQuery: String
+    @Binding var isModelPickerPresented: Bool
     @Binding var isCommandPalettePresented: Bool
     @Binding var commandQuery: String
     @Binding var isSettingsPresented: Bool
@@ -29,6 +30,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var agentImportActions: QuillCodeAgentImportActions?
     @ObservedObject var sshConnectionDialog: QuillCodeSSHConnectionDialogCoordinator
     var onSelectThread: (UUID) -> Void
+    var onSetModel: (String) -> Void
+    var onToggleModelFavorite: (String) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     var onStartTrustedRouterSignIn: () -> Void
@@ -110,6 +113,17 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                     )
                 }
                 .zIndex(20)
+            }
+            if isModelPickerPresented {
+                dismissibleModal(accessibilityLabel: "Dismiss model picker", onDismiss: dismissModelPicker) {
+                    QuillCodeModelPickerDialog(
+                        topBar: surface.topBar,
+                        isPresented: $isModelPickerPresented,
+                        onSetModel: onSetModel,
+                        onToggleModelFavorite: onToggleModelFavorite
+                    )
+                }
+                .zIndex(25)
             }
             if isKeyboardShortcutsPresented {
                 dismissibleModal(accessibilityLabel: "Dismiss keyboard shortcuts", onDismiss: dismissKeyboardShortcuts) {
@@ -195,6 +209,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         .animation(.easeOut(duration: 0.16), value: isSettingsPresented)
         .animation(.easeOut(duration: 0.16), value: agentImportDialog.phase)
         .animation(.easeOut(duration: 0.16), value: isSearchPresented)
+        .animation(.easeOut(duration: 0.16), value: isModelPickerPresented)
         .animation(.easeOut(duration: 0.16), value: isCommandPalettePresented)
         .animation(.easeOut(duration: 0.16), value: sshConnectionDialog.isPresented)
         .animation(.easeOut(duration: 0.16), value: subagentTranscript?.id)
@@ -346,6 +361,10 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         isSearchPresented = false
     }
 
+    private func dismissModelPicker() {
+        isModelPickerPresented = false
+    }
+
     private func selectSearchThread(_ threadID: UUID) {
         onSelectThread(threadID)
         isSearchPresented = false
@@ -460,6 +479,7 @@ extension View {
         surface: WorkspaceSurface,
         isSearchPresented: Binding<Bool>,
         searchQuery: Binding<String>,
+        isModelPickerPresented: Binding<Bool>,
         isCommandPalettePresented: Binding<Bool>,
         commandQuery: Binding<String>,
         isSettingsPresented: Binding<Bool>,
@@ -483,6 +503,8 @@ extension View {
         agentImportActions: QuillCodeAgentImportActions?,
         sshConnectionDialog: QuillCodeSSHConnectionDialogCoordinator,
         onSelectThread: @escaping (UUID) -> Void,
+        onSetModel: @escaping (String) -> Void,
+        onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
@@ -511,6 +533,7 @@ extension View {
             surface: surface,
             isSearchPresented: isSearchPresented,
             searchQuery: searchQuery,
+            isModelPickerPresented: isModelPickerPresented,
             isCommandPalettePresented: isCommandPalettePresented,
             commandQuery: commandQuery,
             isSettingsPresented: isSettingsPresented,
@@ -534,6 +557,8 @@ extension View {
             agentImportActions: agentImportActions,
             sshConnectionDialog: sshConnectionDialog,
             onSelectThread: onSelectThread,
+            onSetModel: onSetModel,
+            onToggleModelFavorite: onToggleModelFavorite,
             onSaveSettings: onSaveSettings,
             onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,

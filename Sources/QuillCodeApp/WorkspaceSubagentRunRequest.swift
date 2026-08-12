@@ -42,10 +42,10 @@ struct WorkspaceSubagentRunRequest: Codable, Equatable, Sendable, Hashable {
 }
 
 enum WorkspaceSubagentRunToolRequestDecoder {
-    private static let maxObjectiveCharacters = 220
+    private static let maxObjectiveCharacters = 4_000
     private static let maxWorkerCount = 6
     private static let maxWorkerNameCharacters = 72
-    private static let maxRoleCharacters = 140
+    private static let maxRoleCharacters = 2_000
     private static let maxDependencyCharacters = 72
     private static let maxGroupDepth = 4
     private static let maxGroupComponentCharacters = 32
@@ -100,6 +100,18 @@ enum WorkspaceSubagentRunToolRequestDecoder {
                 }
             }
         }
+        for worker in workers {
+            let declaredDependencies = Set(worker.dependsOn.map { $0.lowercased() })
+            for candidate in workers where candidate.name.lowercased() != worker.name.lowercased() {
+                guard !declaredDependencies.contains(candidate.name.lowercased()),
+                      roleRequiresResult(worker.role, from: candidate.name)
+                else { continue }
+                throw WorkspaceSubagentRunToolRequestError.implicitDependency(
+                    worker: worker.name,
+                    dependency: candidate.name
+                )
+            }
+        }
 
         return WorkspaceSubagentRunRequest(
             objective: objective,
@@ -152,6 +164,23 @@ enum WorkspaceSubagentRunToolRequestDecoder {
         return values.filter { seen.insert($0.lowercased()).inserted }
     }
 
+    private static func roleRequiresResult(_ role: String, from workerName: String) -> Bool {
+        let role = role.lowercased()
+        let name = workerName.lowercased()
+        let dependencyPhrases = [
+            "returned by \(name)",
+            "results from \(name)",
+            "result from \(name)",
+            "output from \(name)",
+            "outputs from \(name)",
+            "provided by \(name)",
+            "evidence from \(name)",
+            "using \(name)'s",
+            "using \(name)\u{2019}s",
+        ]
+        return dependencyPhrases.contains(where: role.contains)
+    }
+
     private static func boundedLine(_ text: String, limit: Int) -> String {
         let normalized = text
             .components(separatedBy: .whitespacesAndNewlines)
@@ -176,6 +205,7 @@ private enum WorkspaceSubagentRunToolRequestError: LocalizedError {
     case duplicateWorkerName
     case selfDependency(String)
     case unknownDependency(worker: String, dependency: String)
+    case implicitDependency(worker: String, dependency: String)
 
     var errorDescription: String? {
         switch self {
@@ -205,6 +235,8 @@ private enum WorkspaceSubagentRunToolRequestError: LocalizedError {
             return "Delegated worker \(name) cannot depend on itself."
         case .unknownDependency(let worker, let dependency):
             return "Delegated worker \(worker) depends on unknown worker \(dependency)."
+        case .implicitDependency(let worker, let dependency):
+            return "Delegated worker \(worker) uses results from \(dependency) but does not declare it in dependsOn. Add the dependency or make the roles independent."
         }
     }
 }

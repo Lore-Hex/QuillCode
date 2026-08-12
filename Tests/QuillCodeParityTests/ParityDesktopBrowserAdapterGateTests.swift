@@ -17,6 +17,22 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(capturerText, contains: "DesktopBrowserLiveDOMSnapshotExtractor.snapshot")
         Self.assertSource(extractorText, contains: "evaluateJavaScript")
         Self.assertSource(extractorText, contains: "BrowserLiveDOMSnapshot")
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumURLCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumOutlineCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumVisibleTextCharacters"
+        )
+        Self.assertSource(
+            extractorText,
+            contains: "BrowserLiveDOMSnapshot.maximumHTMLCharacters"
+        )
         Self.assertSource(capturerText, contains: "enum DesktopBrowserLiveDOMProfile")
         Self.assertSource(capturerText, contains: "case persistent")
         Self.assertSource(capturerText, contains: "case ephemeral")
@@ -87,7 +103,8 @@ final class ParityDesktopBrowserAdapterGateTests: QuillCodeParityTestCase {
         Self.assertSource(presenterText, contains: "session?.reloadSelectedTab()")
         Self.assertSource(sessionWindowText, contains: "tab.webView.goBack()")
         Self.assertSource(sessionWindowText, contains: "tab.webView.goForward()")
-        Self.assertSource(sessionWindowText, contains: "tab.webView.evaluateJavaScript(trimmedSource)")
+        Self.assertSource(sessionWindowText, contains: "let isolatedSource = \"{\\n\\(trimmedSource)\\n}\"")
+        Self.assertSource(sessionWindowText, contains: "tab.webView.evaluateJavaScript(isolatedSource)")
         Self.assertSource(sessionJavaScriptText, contains: "document.querySelector(selector)")
         Self.assertSource(sessionJavaScriptText, contains: "element.click()")
         Self.assertSource(sessionJavaScriptText, contains: "element.dispatchEvent(new InputEvent")

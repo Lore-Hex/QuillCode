@@ -80,7 +80,7 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
   exit 1
 fi
 
-echo "==> Measuring packaged Quill Cowork launch and resident memory"
+echo "==> Measuring packaged Quill Cowork launch and physical footprint"
 REPORT_PATHS=()
 for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
   REPORT_PATH="$SMOKE_ROOT/window-report-$attempt.json"
@@ -88,10 +88,15 @@ for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
   STATE_ROOT="$SMOKE_ROOT/window-state-$attempt"
   echo "==> Packaged performance attempt $attempt/$PERFORMANCE_ATTEMPT_COUNT"
   "$APP_EXECUTABLE" \
+    --seed-daily-driver-window-smoke \
+    --window-smoke-state-root "$STATE_ROOT" \
+    >/dev/null
+  "$APP_EXECUTABLE" \
     --native-window-smoke \
     --window-smoke-report "$REPORT_PATH" \
     --window-smoke-screenshot "$SCREENSHOT_PATH" \
     --window-smoke-state-root "$STATE_ROOT" \
+    --window-smoke-performance-workload "daily-driver-100-chats" \
     >/dev/null &
   SMOKE_PID="$!"
 

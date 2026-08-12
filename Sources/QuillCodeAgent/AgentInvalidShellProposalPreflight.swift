@@ -20,6 +20,27 @@ enum AgentInvalidShellProposalPreflight {
         else { return nil }
 
         let command = removingMatchingQuotes(from: rawCommand)
+        if isIncompleteInlineInterpreterCommand(command) {
+            return Correction(
+                summary: "Self-healing: rejected an incomplete inline interpreter command.",
+                prompt: """
+                The proposed `\(command)` shell call has `-c` but no complete program to execute. \
+                Issue one complete validator command with correctly balanced quoting, or use the \
+                file tools directly. Do not retry an empty or unterminated `-c` command.
+                """
+            )
+        }
+        if isMultilineInlineInterpreterCommand(command) {
+            return Correction(
+                summary: "Self-healing: redirected a multiline inline interpreter command.",
+                prompt: """
+                The proposed shell call embeds a multiline program in an interpreter `-c` argument. \
+                Nested JSON, shell, and language quoting makes that form unreliable. Write the \
+                program to a relative workspace script with host.file.write, then run that script \
+                with host.shell.run. Reserve `-c` for a complete single-line program.
+                """
+            )
+        }
         if let path = nonExecutableSourcePath(command, workspaceRoot: workspaceRoot) {
             return Correction(
                 summary: "Self-healing: redirected a workspace source path away from the shell.",
@@ -66,6 +87,21 @@ enum AgentInvalidShellProposalPreflight {
 
     private static func isBareCommandName(_ command: String) -> Bool {
         command.range(of: #"^[A-Za-z_][A-Za-z0-9_.-]*$"#, options: .regularExpression) != nil
+    }
+
+    private static func isIncompleteInlineInterpreterCommand(_ command: String) -> Bool {
+        command.range(
+            of: #"^(?:[^\s]+/)?(?:python(?:[0-9]+(?:\.[0-9]+)*)?|node|ruby|perl)\s+-c\s*['\"]?$"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
+    }
+
+    private static func isMultilineInlineInterpreterCommand(_ command: String) -> Bool {
+        guard command.contains("\n") || command.contains("\r") else { return false }
+        return command.range(
+            of: #"^(?:[^\s]+/)?(?:python(?:[0-9]+(?:\.[0-9]+)*)?|node|ruby|perl)\s+-c\s+"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
     }
 
     private static func isExecutableCommand(_ command: String) -> Bool {

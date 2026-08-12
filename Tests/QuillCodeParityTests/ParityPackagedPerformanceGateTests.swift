@@ -7,6 +7,18 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let app = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let runner = try Self.desktopSourceText(named: "QuillCodeDesktopWindowSmokeRunner.swift")
         let support = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
+        let activationSampler = try Self.desktopSourceText(
+            named: "QuillCodeDesktopAccessibilityActivationSampler.swift"
+        )
+        let interactionVerifier = try Self.desktopSourceText(
+            named: "QuillCodeDesktopAccessibilityInteractionVerifier.swift"
+        )
+        let hierarchySettler = try Self.desktopSourceText(
+            named: "QuillCodeDesktopAccessibilityHierarchySettler.swift"
+        )
+        let frameSampler = try Self.desktopSourceText(
+            named: "QuillCodeDesktopAccessibilityFrameSampler.swift"
+        )
         let packagedSmoke = try Self.scriptText(named: "packaged-macos-smoke.sh")
         let performanceSmoke = try Self.scriptText(named: "packaged-macos-performance-smoke.sh")
         let packageDownloads = try Self.scriptText(named: "package-macos-downloads.sh")
@@ -16,7 +28,8 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         Self.assertSource(snapshot, containsAll: [
             "proc_pidinfo(",
             "PROC_PIDTASKINFO",
-            "pti_resident_size",
+            "TASK_VM_INFO",
+            "phys_footprint",
             "pti_threadnum",
             #"static let measurement = "initial-live-window""#,
             #"static let postInteractionMeasurement = "settled-after-native-interaction-sweep""#,
@@ -58,14 +71,37 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(performanceIndex, screenshotIndex)
         XCTAssertLessThan(interactionIndex, completedPerformanceIndex)
         Self.assertSource(support, contains: #""performance": performance.dictionary"#)
+        Self.assertSource(activationSampler, containsAll: [
+            "candidateIdentifiers(for: probe)",
+            "matchingAnyIdentifier: directCandidates",
+            #"markStage("start", contractID: contract.contractID)"#,
+            #"markStage("complete", contractID: contract.contractID)"#,
+            "QuillCodeDesktopProcessResourceSnapshot.capture()"
+        ])
+        Self.assertSource(interactionVerifier, contains: "matchingIdentifiers: [identifier]")
+        Self.assertSource(hierarchySettler, containsAll: [
+            "layoutSentinelIdentifiers",
+            "matchingIdentifiers: layoutSentinelIdentifiers"
+        ])
+        Self.assertSource(frameSampler, containsAll: [
+            "targetIdentifiers",
+            "matchingIdentifiers: targetIdentifiers"
+        ])
 
         Self.assertSource(packagedSmoke, containsAll: [
             "packaged-performance.json",
+            #"QUILLCODE_PACKAGED_MACOS_SMOKE_CONFIGURATION:-release"#,
+            #"--configuration "$APP_CONFIGURATION""#,
+            "--seed-daily-driver-window-smoke",
+            #"--window-smoke-performance-workload "daily-driver-100-chats""#,
+            "performance-window-report.json",
             "native-click-probe-contracts.py\" performance",
             "performance_manifest=packaged-performance.json"
         ])
         Self.assertSource(performanceSmoke, containsAll: [
             "--native-window-smoke",
+            "--seed-daily-driver-window-smoke",
+            #"--window-smoke-performance-workload "daily-driver-100-chats""#,
             "PERFORMANCE_ATTEMPT_COUNT=3",
             #"REPORT_PATHS+=("$REPORT_PATH")"#,
             "--max-launch-ready-milliseconds",
@@ -122,8 +158,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(manifest["ok"] as? Bool, true)
         XCTAssertEqual(manifest["withinBudget"] as? Bool, true)
-        XCTAssertEqual(manifest["schemaVersion"] as? Int, 3)
+        XCTAssertEqual(manifest["schemaVersion"] as? Int, 5)
+        XCTAssertEqual(manifest["workload"] as? String, "daily-driver-100-chats")
         XCTAssertEqual(manifest["measurement"] as? String, "initial-live-window")
+        XCTAssertEqual(manifest["memoryMeasurement"] as? String, "physical-footprint")
         XCTAssertEqual(
             manifest["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
@@ -436,6 +474,54 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
     }
 
+    func testPerformanceValidatorRejectsMislabeledWorkload() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let reportData = try Data(contentsOf: fixture.report)
+        var report = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reportData) as? [String: Any]
+        )
+        var performance = try XCTUnwrap(report["performance"] as? [String: Any])
+        performance["workload"] = "first-run-empty"
+        report["performance"] = performance
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted])
+            .write(to: fixture.report, options: .atomic)
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("unexpected packaged performance workload"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorRejectsMislabeledMemoryMeasurement() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let reportData = try Data(contentsOf: fixture.report)
+        var report = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reportData) as? [String: Any]
+        )
+        var performance = try XCTUnwrap(report["performance"] as? [String: Any])
+        performance["memoryMeasurement"] = "resident-set-size"
+        report["performance"] = performance
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted])
+            .write(to: fixture.report, options: .atomic)
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("unexpected performance memory measurement"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
     private func makeFixture() throws -> (root: URL, report: URL, manifest: URL) {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-performance-gate-(UUID().uuidString)")
@@ -460,8 +546,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "ok": true,
             "appName": "Quill Cowork",
             "performance": [
-                "schemaVersion": 3,
+                "schemaVersion": 5,
+                "workload": "daily-driver-100-chats",
                 "measurement": "initial-live-window",
+                "memoryMeasurement": "physical-footprint",
                 "launchReadyMilliseconds": launchReadyMilliseconds,
                 "residentMemoryBytes": residentMemoryBytes,
                 "threadCount": threadCount,

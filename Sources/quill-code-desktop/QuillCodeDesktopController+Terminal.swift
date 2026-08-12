@@ -9,6 +9,7 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
+            progressRefresh: { [weak self] in self?.scheduleProgressRefresh(.terminal) },
             refresh: { [weak self] in self?.refresh() }
         )
     }

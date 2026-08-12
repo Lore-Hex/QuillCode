@@ -15,6 +15,7 @@ enum AgentArtifactVerificationGate {
         let patterns = [
             #"(?is)\bafter\s+(?:writing|saving|creating|producing|generating)\b.{0,120}\bread\b.{0,80}\b(?:back|verify|confirm)\b"#,
             #"(?is)\bread\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b.{0,40}\b(?:back|verify|confirm)\b"#,
+            #"(?is)\bread(?:ing)?\s+(?:it|that|this)\s+back\b"#,
             #"(?is)\bverify\b.{0,80}\b(?:saved|written|created|output|deliverable|artifact|file)\b"#,
         ]
         let range = NSRange(userMessage.startIndex..., in: userMessage)
@@ -55,18 +56,45 @@ enum AgentArtifactVerificationGate {
         unverifiedPaths: Set<String>
     ) -> AgentAction {
         guard case .say = action,
-              requiresReadback(in: userMessage),
+              let call = requiredReadbackCall(
+                userMessage: userMessage,
+                tools: tools,
+                unverifiedPaths: unverifiedPaths
+              )
+        else { return action }
+        return .tool(call)
+    }
+
+    static func requiredReadbackCall(
+        userMessage: String,
+        tools: [ToolDefinition],
+        unverifiedPaths: Set<String>
+    ) -> ToolCall? {
+        guard requiresReadback(in: userMessage),
               tools.contains(where: { $0.name == ToolDefinition.fileRead.name }),
               let path = unverifiedPaths.sorted().first
-        else { return action }
-        return .tool(ToolCall(
+        else { return nil }
+        return ToolCall(
             name: ToolDefinition.fileRead.name,
             argumentsJSON: ToolArguments.json(["path": path])
-        ))
+        )
     }
 
     static func pathArgument(from call: ToolCall) -> String? {
         try? ToolArguments(call.argumentsJSON).requiredString("path")
+    }
+
+    static func isExistingWorkspaceFile(_ path: String, workspaceRoot: URL) -> Bool {
+        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let normalized = normalizedPath(path)
+        let unresolved = (normalized as NSString).isAbsolutePath
+            ? URL(fileURLWithPath: normalized)
+            : root.appendingPathComponent(normalized)
+        let candidate = unresolved.standardizedFileURL.resolvingSymlinksInPath()
+        guard candidate.path.hasPrefix(root.path + "/") else { return false }
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory)
+            && !isDirectory.boolValue
     }
 
     static func pathsMatch(_ lhs: String, _ rhs: String) -> Bool {

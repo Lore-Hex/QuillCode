@@ -3,7 +3,7 @@
 [![CI](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml)
 [![Download Builds](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml)
 
-**A 100% Swift coding agent and AI coworker, built for Swift developers.**
+**A 100% Swift coding agent and AI coworker for real project work.**
 
 [Download for Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) · [Download for Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
@@ -11,10 +11,9 @@
 
 Quill Cowork combines project-aware chat, local tools, Git workflows, Computer Use, automations,
 plugins, and a full workspace terminal in one SwiftUI desktop app. The desktop app and agent runtime
-are written entirely in Swift, with no Electron or web-app shell. Swift developers can inspect,
-extend, profile, and contribute to the same strongly typed code that ships to users. Bounded
-background work, persistent local state, and a verified updater with automatic rollback are built
-into that Swift architecture.
+are written entirely in Swift, with no Electron or web-app shell. Bounded background work,
+persistent local state, and a verified updater with automatic rollback are built into that Swift
+architecture.
 
 ## What You Can Do
 
@@ -48,9 +47,28 @@ remain available as manual fallbacks and verified auto-update payloads.
 Quill Cowork checks for updates automatically and also provides **Check for Updates...** in the app
 menu. Downloads are size- and SHA-256-verified, the app identity and code signature are checked before
 installation, the packaged source commit must match the public manifest, activation is atomic, and
-the previous build is restored if the new build cannot finish launching. Use **Report an Issue...**
+the previous build is restored if the new build cannot render its first workspace window and remain
+stable. Use **Report an Issue...**
 in the app menu to open a prefilled GitHub report with bounded build and system information; it does
-not attach project paths, transcripts, or credentials.
+not attach project paths, transcripts, or credentials. After an unexpected exit, the next successful
+launch identifies whether the prior session ended during startup or while running, warns that active
+command work may be incomplete, and offers the same privacy-safe report path. A startup-phase exit
+reopens with automatic project refreshes, automations, account checks, and optional driver discovery
+paused until the user either keeps them paused for that launch or deliberately resumes them.
+
+Unsent composer text is checkpointed after a brief typing pause and immediately when the app becomes
+inactive or quits. Quill Cowork restores that text after an unexpected exit without rewriting the
+potentially large chat transcript on every keystroke. Checkpoints are private, bounded, and scoped to
+one chat; confidential-chat text is never written to them.
+
+Live model output is also bounded and projected to the interface at display cadence instead of once
+per provider token. The first useful text remains immediate, the exact final draft is preserved across
+success and connection failure, and an oversized response offers a direct model-switch recovery path.
+
+Choosing **Remind Me Tomorrow** defers only that exact update for 24 hours, including across app
+restarts. A newer build appears on the normal check cadence, and **Check for Updates...** always
+overrides the reminder. The app reopens its already-verified update state at the deadline without an
+extra network request.
 
 ## Downloads
 

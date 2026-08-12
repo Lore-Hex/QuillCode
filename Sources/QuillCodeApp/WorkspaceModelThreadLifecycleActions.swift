@@ -74,6 +74,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func unarchiveThread(_ id: UUID) -> Bool {
+        guard hydrateThreadPayload(id) else { return false }
         return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({
                 WorkspaceThreadLifecycleEngine.unarchiveThread(id, threads: &$0)
@@ -100,6 +101,7 @@ extension QuillCodeWorkspaceModel {
             setLastError("Stop this chat before deleting it.")
             return false
         }
+        guard hydrateThreadPayload(id) else { return false }
         // Typed /delete bypasses the discard-on-exit helper; keep the ephemeral spend receipt so a
         // deleted confidential session's usage still counts against the period limits, and clear the
         // workspace-scoped error so a private run's failure doesn't render as a runtime-issue card
@@ -141,6 +143,7 @@ extension QuillCodeWorkspaceModel {
             setLastError("Stop this chat before clearing it.")
             return false
         }
+        guard hydrateThreadPayload(id) else { return false }
         let originalThread = root.threads.first(where: { $0.id == id })
         // /clear wipes the transcript (and its usage events); keep the ephemeral spend receipt first.
         if let originalThread {

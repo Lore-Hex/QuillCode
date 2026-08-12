@@ -381,7 +381,8 @@ extension QuillCodeWorkspaceModel {
             expectedThreadID: expectedThreadID,
             composer: composer
         ) else { return }
-        updateThreadFromAgentRun(progress.thread)
+        guard let mutation = updateThreadFromAgentProgress(progress.thread) else { return }
+        agentTranscriptRefreshTracker.record(mutation, selectedThreadID: root.selectedThreadID)
         updateAgentRun(threadID: expectedThreadID, status: progress.agentStatus)
     }
 

@@ -4,9 +4,19 @@ import QuillCodeCore
 @MainActor
 extension QuillCodeWorkspaceModel {
     func restorePersistedSelectedComposerDraftIfNeeded() {
-        guard let selectedThreadID = root.selectedThreadID else { return }
+        guard let selectedThreadID = root.selectedThreadID else {
+            if composer.draft.isEmpty {
+                composer.draft = threadPersistence.pendingComposerDraft() ?? ""
+            }
+            return
+        }
+        threadPersistence.deletePendingComposerDraft()
+        let persistedDraft = persistedComposerDraft(for: selectedThreadID)
+        if let index = root.threads.firstIndex(where: { $0.id == selectedThreadID }) {
+            root.threads[index].composerDraft = Self.normalizedComposerDraft(persistedDraft)
+        }
         if composer.draft.isEmpty {
-            composer.draft = persistedComposerDraft(for: selectedThreadID) ?? ""
+            composer.draft = persistedDraft ?? ""
         }
         if composer.attachments.isEmpty {
             composer.attachments = persistedComposerAttachments(for: selectedThreadID)
@@ -14,8 +24,27 @@ extension QuillCodeWorkspaceModel {
     }
 
     func persistCurrentComposerDraft() {
-        guard let selectedThreadID = root.selectedThreadID else { return }
+        guard let selectedThreadID = root.selectedThreadID else {
+            threadPersistence.savePendingComposerDraft(Self.normalizedComposerDraft(composer.draft))
+            return
+        }
         persistComposerDraft(composer.draft, for: selectedThreadID)
+    }
+
+    /// Keeps model projections aligned with the live desktop binding without touching disk. The
+    /// desktop follows this with a debounced checkpoint, while navigation can still synchronously
+    /// persist before changing the owner.
+    public func updateLiveComposerDraft(_ draft: String, ownerThreadID: UUID?) {
+        guard ownerThreadID == root.selectedThreadID else { return }
+        composer.draft = draft
+    }
+
+    /// Applies a debounced desktop checkpoint to the owner that was selected when typing occurred.
+    /// Capturing that identity prevents a delayed write from bleeding text into a newly selected chat.
+    public func checkpointComposerDraft(_ draft: String, ownerThreadID: UUID?) {
+        guard ownerThreadID == root.selectedThreadID else { return }
+        composer.draft = draft
+        persistCurrentComposerDraft()
     }
 
     func clearComposerDraft(for threadID: UUID?) {
@@ -28,7 +57,8 @@ extension QuillCodeWorkspaceModel {
     }
 
     func persistedComposerDraft(for threadID: UUID) -> String? {
-        root.threads.first { $0.id == threadID }?.composerDraft
+        guard let thread = root.threads.first(where: { $0.id == threadID }) else { return nil }
+        return threadPersistence.composerDraft(for: thread)
     }
 
     func persistedComposerAttachments(for threadID: UUID) -> [ChatAttachment] {
@@ -43,7 +73,7 @@ extension QuillCodeWorkspaceModel {
             return
         }
         root.threads[index].composerDraft = normalized
-        threadPersistence.save(root.threads[index])
+        threadPersistence.saveComposerDraft(in: root.threads[index])
     }
 
     static func normalizedComposerDraft(_ draft: String?) -> String? {

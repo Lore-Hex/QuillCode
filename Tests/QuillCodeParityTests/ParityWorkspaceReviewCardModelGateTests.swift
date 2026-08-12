@@ -20,7 +20,7 @@ final class ParityWorkspaceReviewCardModelGateTests: QuillCodeParityTestCase {
         let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let approvalPlannerText = try Self.appSourceText(named: "WorkspaceApprovalActionPlanner.swift")
         let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
-        let desktopAppText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let desktopRootViewText = try Self.desktopSourceText(named: "QuillCodeDesktopRootView.swift")
         let desktopControllerText = try Self.desktopControllerSourceText()
         let desktopActionCoordinatorText = try Self.desktopSourceText(
             named: "QuillCodeDesktopWorkspaceActionCoordinator.swift"
@@ -81,7 +81,7 @@ final class ParityWorkspaceReviewCardModelGateTests: QuillCodeParityTestCase {
             "private func appendApprovalDecision",
             "approvalVerdict"
         ])
-        Self.assertSource(desktopAppText, contains: "controller.runToolCardAction")
+        Self.assertSource(desktopRootViewText, contains: "controller.runToolCardAction")
         Self.assertSource(desktopControllerText, contains: "workspaceActionCoordinator.runToolCardAction")
         Self.assertSource(desktopActionCoordinatorText, contains: "model.runToolCardAction")
     }

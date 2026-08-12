@@ -71,6 +71,41 @@ For a bug report, include the warning title, affected data labels, app version, 
 Do not include API keys, account details, filesystem paths, URLs, or raw private content. The
 in-app diagnostic is deliberately content-free and should report `Private content included: No`.
 
+## Tester Recovery: Unexpected Exit
+
+Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
+termination clears the matching marker. Update and Move & Relaunch exits synchronously flush pending
+composer text and clear that marker before their bounded termination fallback. If the process
+disappears after it was ready, the next launch shows **Quill Cowork closed unexpectedly** and warns
+that an in-progress command may be incomplete. Choose **Continue** to return to the workspace or
+**Report Issue...** to open a prefilled
+crash report.
+
+Packaged apps require graceful macOS termination rather than opting into sudden process death. This
+ensures normal logout, shutdown, automatic termination, and explicit Quit cross the same marker-clearing
+boundary; macOS cannot skip that cleanup and make an ordinary system action look like a crash.
+
+If the process disappears before reaching its first-window startup boundary, the next launch opens
+the saved workspace in recovery mode. Managed-worktree retention, pull-request reconciliation,
+project indexing, due automations, account refreshes, and optional Computer Use driver discovery stay
+paused instead of immediately repeating the same startup work. **Keep Background Work Paused** leaves
+that work off for the current launch; **Resume Background Work** starts the normal idempotent service
+set. Draft protection, updates, issue reporting, installation recovery, and explicit user actions
+remain available in either choice.
+
+The marker and report include only launch phase/time plus version, build, source commit, channel,
+architecture, and macOS version. They do not include project paths, filenames, prompts, transcripts,
+tool output, account details, or credentials. Live-process, stale, future-dated, unsafe, and graceful
+termination records are ignored to avoid false crash notices.
+
+Ordinary composer typing uses a private per-chat checkpoint after a 350-millisecond quiet interval.
+Leaving Quill Cowork or quitting flushes pending text immediately. The checkpoint is a bounded small
+record rather than a rewrite of the chat transcript, so long conversations do not turn autosave into
+typing or memory pressure. A delayed checkpoint carries the chat identity from the keystroke boundary
+and is rejected after a selection change, while a durable tombstone prevents sent or cleared text from
+returning after relaunch. A first message without a chat owner has its own pending record and moves to
+the created chat on send. Confidential and side-conversation drafts remain memory-only.
+
 ## Build Cadence
 
 The tester release is refreshed:
@@ -95,7 +130,22 @@ on that commit. This avoids no-op build-number updates and unnecessary updater
 prompts without treating a partial publication as healthy.
 When a build is required, the workflow updates the stable `tester-latest` tag
 and replaces release assets in place, so the links above do not change as new
-builds are published.
+builds are published. Immediately before changing that moving release, the
+publisher fetches `origin/main` again. If another merge has superseded the
+packaged commit, the run exits successfully without touching the tag, manifest,
+or assets; the already queued run for the newer commit becomes the next publisher.
+Immutable stable version tags are unaffected by this tester-channel freshness gate.
+
+Tester asset replacement is also recoverable after the freshness decision. The publisher uploads
+every candidate under a run-scoped temporary name, then requires GitHub's recorded size, upload
+state, and SHA-256 digest to match the local artifact before any canonical download name changes.
+Existing assets are renamed to rollback aliases instead of deleted; verified candidates take their
+canonical names with the updater manifest swapped last. Release notes and target commit change only
+after the complete asset inventory is present, and `tester-latest` moves last. A failure during
+upload, asset exchange, metadata update, or tag push deletes candidates and restores the prior
+asset names, release metadata, and remote tag, then verifies that restored snapshot. Rollback assets
+are deleted with bounded retries only after the new metadata and tag both agree. This keeps a
+transport or GitHub API failure from stranding an unrecoverable half-published tester channel.
 
 DMG construction is transactional and stage-aware. The packager creates each
 candidate beside the destination, then verifies, mounts, inspects, signature-checks,
@@ -115,20 +165,32 @@ source commit, channel, feed URLs, minimum macOS version, and signing team to ag
 with the public manifest. A publication is not green until this consumer check passes.
 
 A separate native post-publication gate runs on Apple silicon and Intel macOS
-runners. Each downloads its matching public app archive, re-signs an isolated copy
-with its build number set one revision behind, and launches the packaged updater
-against the live feed. The gate requires the app
+runners. Before publication can begin, a read-only job captures the current public
+manifest and both architecture-specific updater archives, verifies their GitHub and
+manifest size/SHA-256 contracts, and stores them outside the release-asset input set.
+After publication, each native runner launches that untouched previous public app
+against the newly live feed. The gate requires the app
 to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
-then checks the activated version and source commit, code signature, launch
-handshake, and staging cleanup. This catches failures that manifest-only and
-unit-level updater checks cannot prove.
+then checks the exact source and target metadata, activated version and source
+commit, code signature, first-window-ready launch handshake, post-handshake process
+stability, and staging cleanup. The acknowledgement is parsed at process entry but
+is not written until the native workspace crosses the same ready boundary used for
+unexpected-exit classification, so a replacement that hangs during bootstrap keeps
+the previous build available for rollback. A channel with no
+previous release uses an explicitly recorded synthetic one-build-behind fallback;
+once a public source exists, metadata rewriting and re-signing are not allowed.
+This catches cross-version compatibility failures that a self-update of newly built
+code, manifest-only checks, and unit-level updater tests cannot prove.
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
-boundary. Release packaging measures three fresh processes with isolated state,
-requires at least two launches to meet the time budget, and requires every memory
-sample to meet its budget. The median-launch attempt, every attempt, thread
-counts, and enforced budgets ship as both architecture-specific `PERFORMANCE.json` assets.
+boundary. Each attempt atomically seeds and verifies one project with 100 saved
+chats and a 200-message active transcript before timing the real packaged launch.
+Release packaging measures three fresh processes with isolated state, requires at
+least two launches to meet the time budget, and requires every memory sample to
+meet its budget. The workload identity, median-launch attempt, every attempt,
+thread counts, and enforced budgets ship as both architecture-specific
+`PERFORMANCE.json` assets.
 
 Each process then completes the packaged native interaction sweep twice, including
 reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
@@ -187,6 +249,10 @@ the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
 
+Startup recovery waits two minutes before removing abandoned updater staging apps. Starting a fresh
+foreground update cancels and fully joins that recovery first, so cleanup can never remove the new
+installer's live staging bundle.
+
 Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
 updates must contain an actual ad-hoc signature with no team. A Developer ID
 update must declare a valid team, be notarized, contain a Developer ID Application
@@ -232,6 +298,14 @@ active-helper grace period on launch, the app also removes only its exact hidden
 `.Quill Cowork.update-<lowercase UUID>.app` sibling directories left by an
 interrupted install; symlinks, lookalikes, and unexpected app identities are never
 treated as updater-owned staging.
+
+The update sheet's **Remind Me Tomorrow** action persists a bounded record for only the exact
+channel, commit, version, and build being dismissed. Automatic checks keep their normal cadence so
+a different build can appear immediately, while the same build stays quiet for 24 hours across app
+restarts. At the deadline, the app presents the cached verified release without making a redundant
+request. A user-initiated **Check for Updates...** clears the reminder. Expired, malformed,
+oversized, mismatched, and implausibly future-dated records fail open and cannot suppress updates.
+The reminder record contains public release identity only, never project or account data.
 
 ## Tester Install Notes
 
