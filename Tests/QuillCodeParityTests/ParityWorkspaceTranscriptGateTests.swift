@@ -39,4 +39,21 @@ final class ParityWorkspaceTranscriptGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(broadSurfaceTests.contains("testContextBannerAppearsNearEstimatedLimit"), "WorkspaceSurfaceTests should not own context-banner threshold behavior.")
         XCTAssertFalse(broadSurfaceTests.contains("testContextBannerHiddenForShortThreadAndForkDisabledWithoutMessages"), "WorkspaceSurfaceTests should not own context-banner hidden-state behavior.")
     }
+
+    func testOffscreenAssistantMarkdownReleasesRenderedCopies() throws {
+        let markdownText = try Self.appSourceText(named: "QuillCodeMessageMarkdown.swift")
+        let markdownTests = try Self.appTestSourceText(named: "MessageMarkdownBlocksTests.swift")
+
+        Self.assertSource(markdownText, containsAll: [
+            "func releaseRenderedContent()",
+            "blocks.removeAll(keepingCapacity: false)",
+            "inlineCache.removeAll(keepingCapacity: false)",
+            "plainInlineText.removeAll(keepingCapacity: false)",
+            ".onDisappear(perform: document.releaseRenderedContent)",
+        ])
+        XCTAssertTrue(
+            markdownTests.contains("testMarkdownDocumentReleasesAndRehydratesOffscreenRendering"),
+            "Offscreen Markdown release must retain focused rehydration coverage."
+        )
+    }
 }

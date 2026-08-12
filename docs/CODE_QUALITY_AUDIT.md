@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-12 Offscreen Markdown Render Residency
+
+Overall grade after this slice: **A+ transcript memory, A+ rendering fidelity, A+ lifecycle safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Offscreen residency | A+ | Lazy transcript rows release parsed Markdown blocks, attributed inline text, plain-text projections, and their copied source string when they leave the viewport. |
+| Durable ownership | A+ | The transcript surface remains the single durable owner of message text; render state is disposable and cannot discard conversation history. |
+| Rehydration | A+ | A returning row rebuilds its blocks and inline styles from the canonical message text on demand, preserving headings, emphasis, links, and code presentation. |
+| Capacity release | A+ | Offscreen cleanup releases dictionary and array backing storage instead of keeping high-water allocations attached to retained row state. |
+| UI stability | A+ | Cleanup is tied to the existing lazy row lifecycle, requires no global cache or eviction coordinator, and leaves visible and streaming rows unchanged. |
+| Regression evidence | A+ | Behavioral tests prove release and exact-text rehydration, while parity coverage pins lifecycle wiring and non-retaining cleanup policy. |
+
+Validation:
+
+- Focused Markdown, transcript-parity, and rendered SwiftUI coverage: 22 tests, 0 failures.
+- Full Swift suite: 6,248 tests, 5 skipped, 0 failures.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, live-window,
+  Accessibility, native interaction, coworker, browser, computer-use, and 100-chat smokes passed.
+- Three fresh optimized packaged processes passed their performance budgets: 299.13 ms median
+  launch-ready, 40.70 MiB initial footprint, 85.00 MiB after interaction, and 87.05 MiB after the
+  repeated sweep.
+- The arm64 DMG passed checksum, read-only mount, architecture, signature, move, relaunch,
+  first-window readiness, and cleanup checks.
+- `python3 scripts/grade-code-quality.py --root .`: every production module and touched production
+  and focused test file grades A+; `git diff --check` passed.
+
 ## 2026-08-12 Bounded Crash-Consistent Policy Persistence
 
 Overall grade after this slice: **A+ policy resilience, A+ bounded memory, A+ concurrency safety**.
