@@ -53,15 +53,16 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertNotEqual(forward, changed)
     }
 
-    func testDesktopPerformanceSnapshotCapturesBoundedProcessResources() throws {
+    func testDesktopPerformanceSnapshotCapturesBoundedProcessResources() async throws {
         let now = ProcessInfo.processInfo.systemUptime
         let initialSnapshot = try QuillCodeDesktopInitialPerformanceSnapshot.capture(
             launchStartedAtUptime: now - 1.25,
             nowUptime: now
         )
         let firstSweepResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
-        let snapshot = try initialSnapshot.completingRepeatedInteractionSweep(
-            firstSweepResources: firstSweepResources
+        let snapshot = try await initialSnapshot.completingRepeatedInteractionSweep(
+            firstSweepResources: firstSweepResources,
+            idleMeasurementDuration: 0.01
         )
 
         XCTAssertEqual(snapshot.launchReadyMilliseconds, 1_250, accuracy: 0.01)
@@ -71,6 +72,11 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertGreaterThan(snapshot.postInteractionResources.threadCount, 0)
         XCTAssertGreaterThan(snapshot.repeatedInteractionResources.residentMemoryBytes, 0)
         XCTAssertGreaterThan(snapshot.repeatedInteractionResources.threadCount, 0)
+        XCTAssertGreaterThan(snapshot.idleResources.residentMemoryBytes, 0)
+        XCTAssertGreaterThan(snapshot.idleResources.threadCount, 0)
+        XCTAssertGreaterThan(snapshot.idleDurationMilliseconds, 0)
+        XCTAssertGreaterThanOrEqual(snapshot.idleProcessorTimeNanoseconds, 0)
+        XCTAssertGreaterThanOrEqual(snapshot.idleCPUPercent, 0)
         XCTAssertEqual(
             snapshot.residentMemoryGrowthBytes,
             snapshot.postInteractionResources.residentMemoryBytes - snapshot.residentMemoryBytes
@@ -84,12 +90,20 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "physical-footprint"
         )
         XCTAssertEqual(
+            snapshot.dictionary["processorTimeMeasurement"] as? String,
+            "process-user-plus-system-nanoseconds"
+        )
+        XCTAssertEqual(
             snapshot.dictionary["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
         )
         XCTAssertEqual(
             snapshot.dictionary["repeatedInteractionMeasurement"] as? String,
             "settled-after-repeated-native-interaction-sweep"
+        )
+        XCTAssertEqual(
+            snapshot.dictionary["idleMeasurement"] as? String,
+            "settled-idle-after-interaction-sweeps"
         )
         XCTAssertEqual(snapshot.dictionary["interactionSweepCount"] as? Int, 2)
         XCTAssertEqual(
@@ -601,8 +615,15 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 ),
                 repeatedInteractionResources: QuillCodeDesktopProcessResourceSnapshot(
                     residentMemoryBytes: 108 * 1_024 * 1_024,
-                    threadCount: 19
-                )
+                    threadCount: 19,
+                    processorTimeNanoseconds: 1_000_000_000
+                ),
+                idleResources: QuillCodeDesktopProcessResourceSnapshot(
+                    residentMemoryBytes: 109 * 1_024 * 1_024,
+                    threadCount: 19,
+                    processorTimeNanoseconds: 1_010_000_000
+                ),
+                idleDurationMilliseconds: 2_000
             ),
             image: QuillCodeDesktopSmokePixelReport(
                 width: 2560,
@@ -642,10 +663,16 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
         XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
         XCTAssertTrue(json.contains(#""memoryMeasurement" : "physical-footprint""#))
+        XCTAssertTrue(json.contains(
+            #""processorTimeMeasurement" : "process-user-plus-system-nanoseconds""#
+        ))
         XCTAssertTrue(json.contains(#""workload" : "first-run-empty""#))
         XCTAssertTrue(json.contains(#""postInteractionMeasurement" : "settled-after-native-interaction-sweep""#))
         XCTAssertTrue(json.contains(
             #""repeatedInteractionMeasurement" : "settled-after-repeated-native-interaction-sweep""#
+        ))
+        XCTAssertTrue(json.contains(
+            #""idleMeasurement" : "settled-idle-after-interaction-sweeps""#
         ))
         XCTAssertTrue(json.contains(#""interactionSweepCount" : 2"#))
         XCTAssertEqual(jsonObject["stateRootPath"] as? String, "/tmp/quillcode-window-state")
@@ -674,6 +701,22 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(
             (jsonObject["performance"] as? [String: Any])?["repeatedInteractionThreadGrowth"] as? Int,
             -1
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["idleProcessorTimeNanoseconds"] as? Int,
+            10_000_000
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["idleCPUPercent"] as? Double,
+            0.5
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["idleResidentMemoryGrowthBytes"] as? Int,
+            1 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["idleThreadGrowth"] as? Int,
+            0
         )
     }
 

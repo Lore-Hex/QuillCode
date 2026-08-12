@@ -186,8 +186,8 @@ once a public source exists, metadata rewriting and re-signing are not allowed.
 This catches cross-version compatibility failures that a self-update of newly built
 code, manifest-only checks, and unit-level updater tests cannot prove.
 
-The release-configured macOS app must also open a real native window within three
-seconds and remain below 256 MiB of resident memory at that initial-window
+The release-configured macOS app must also open a real native window within 2.5
+seconds and remain below 128 MiB of resident memory at that initial-window
 boundary. Each attempt atomically seeds and verifies one project with 100 saved
 chats and a 200-message active transcript before timing the real packaged launch.
 Release packaging measures three fresh processes with isolated state, requires at
@@ -199,18 +199,21 @@ thread counts, and enforced budgets ship as both architecture-specific
 Each process then completes the packaged native interaction sweep twice, including
 reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
 samples the same process after a one-second settling interval following each pass.
-Both interaction snapshots must remain below 256 MiB, the first may retain no more
-than 80 MiB above the initial-window sample, and the repeated pass may add no more
-than another 16 MiB or 4 additional threads. All three samples must stay at or below
-64 threads. The public performance asset records every raw snapshot and signed delta
-so a release cannot hide resource regressions behind a fast first frame or one-time
-UI warming.
+Both interaction snapshots must remain below 128 MiB, the first may retain no more
+than 64 MiB above the initial-window sample, and the repeated pass may add no more
+than another 12 MiB or 2 additional threads. All samples must stay at or below 32 threads.
+After the repeated pass settles, each process also measures a two-second idle
+window from macOS process user-plus-system CPU counters. Idle work must remain below
+5% CPU, may retain no more than another 8 MiB, and may add no more than 2 threads.
+The public performance asset records every raw snapshot, timing boundary, and signed
+delta so a release cannot hide resource regressions behind a fast first frame,
+one-time UI warming, or a background busy loop.
 The post-publication verifier downloads both exact performance assets after their
 checksums pass, requires the production schema and three-process aggregation,
-recomputes every memory/thread delta and budget result, checks the median headline,
+recomputes every CPU/memory/thread delta and budget result, checks the median headline,
 and rejects missing evidence or weakened production limits. Publication therefore
 proves the public JSON's meaning as well as its bytes.
-These intentionally conservative first budgets catch major regressions without
+These native-baseline budgets leave operating headroom while catching regressions without
 turning one loaded-runner outlier into the product metric.
 
 ## Auto-Update Contract

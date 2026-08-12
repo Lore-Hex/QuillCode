@@ -129,6 +129,10 @@
 
 ## Latest Quality Pass
 
+- Public macOS performance evidence now includes a process-specific two-second settled-idle phase
+  after two complete native interaction sweeps. Release and post-publication gates recompute CPU,
+  memory, and thread deltas under tighter native-baseline limits: 2.5-second launch majority,
+  128 MiB maximum footprint, 32 threads, 5% idle CPU, and bounded retained growth.
 - Stable releases now remain non-latest prerelease candidates until public asset verification and
   real update, activation, relaunch, and launch-stability checks pass on native Apple Silicon and
   Intel runners. Candidate or updater failure drafts only the new release without changing the

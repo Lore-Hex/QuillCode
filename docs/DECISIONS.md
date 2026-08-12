@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-12: public performance evidence gates settled idle resources
+
+- **Decision:** Every packaged release attempt measures a two-second idle window after two complete
+  reversible native interaction sweeps. The app reads its own cumulative user-plus-system CPU time
+  from `proc_taskinfo`, alongside physical footprint and thread count, before and after that window.
+- **Budgets:** The release majority must reach its live window within 2.5 seconds. Every resource
+  sample must remain below 128 MiB and 32 threads; first-pass retained growth is capped at 64 MiB,
+  repeated-pass growth at 12 MiB and two threads, and settled idle at 5% CPU, 8 MiB, and two threads.
+- **Evidence contract:** Version-6 evidence records the processor-time source, measured wall time,
+  nanosecond CPU delta, derived CPU percentage, idle resource snapshot, signed deltas, and per-attempt
+  budget flags. Offline and post-publication validators independently recompute those values and
+  require the exact production policy.
+- **Why:** A native app can look fast and memory-light at a screenshot boundary while a polling loop,
+  animation, or delayed worker continues consuming battery and accumulating state. Idle behavior is
+  part of the product advantage and therefore belongs at the release boundary, not in an occasional
+  manual profile.
+
 ## 2026-08-11: rich artifact previews have a recent residency budget
 
 - **Decision:** Durable tool events retain every artifact reference, but transcript projection no

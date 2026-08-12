@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-08-12 Settled Idle Resource Release Evidence
+
+Overall grade after this slice: **A+ native performance evidence, A+ release integrity, A+ regression coverage**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Idle CPU evidence | A+ | Every packaged attempt measures raw process user-plus-system CPU time across a two-second settled idle window and records the independently reproducible percentage. |
+| Memory evidence | A+ | Initial, first-sweep, repeated-sweep, and idle physical-footprint samples are all bounded at 128 MiB, with separate retained-growth limits for warming, repetition, and idle. |
+| Thread evidence | A+ | Every snapshot is capped at 32 threads, while repeated and idle phases may add no more than two threads. |
+| Release policy | A+ | Public evidence uses one versioned production contract with a 2.5-second launch majority, 5% idle CPU ceiling, and exact post-publication policy matching. |
+| Forgery resistance | A+ | Offline and public validators recompute CPU, memory, and thread deltas from raw measurements and reject mislabeled, incomplete, weakened, or internally inconsistent evidence. |
+| Product coverage | A+ | Measurement follows two complete reversible native interaction sweeps against an isolated 100-chat, 200-message daily-driver workspace. |
+
+Validation:
+
+- Focused desktop, packaged-performance, and published-release verification: 71 tests, 0 failures.
+- Full Swift suite: 6,254 tests, 5 skipped, 0 failures.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, live-window,
+  Accessibility, native interaction, coworker, browser, computer-use, and 100-chat smokes passed.
+- Three fresh optimized packaged processes passed the final production budgets: 289.32 ms median
+  launch-ready, 40.89 MiB initial footprint, 85.88 MiB after the first interaction sweep,
+  85.09 MiB after the repeated sweep, and 0.0007% settled idle CPU.
+- Python bytecode compilation and shell syntax validation passed; `git diff --check` is clean.
+- `python3 scripts/grade-code-quality.py --root .`: every production and test module summary remains A+.
+
 ## 2026-08-12 Offscreen Markdown Render Residency
 
 Overall grade after this slice: **A+ transcript memory, A+ rendering fidelity, A+ lifecycle safety**.
