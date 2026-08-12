@@ -46,14 +46,17 @@ public struct RunSpendPeriodLedger: Sendable, Hashable {
     }
 
     private func periodThread(_ thread: ChatThread, since start: Date) -> ChatThread {
-        ChatThread(
+        let periodEvents = thread.payloadResidency.deferredSummary?.periodUsage?
+            .events(since: start, through: now)
+            ?? thread.events.filter { $0.createdAt >= start && $0.createdAt <= now }
+        return ChatThread(
             id: thread.id,
             title: thread.title,
             projectID: thread.projectID,
             mode: thread.mode,
             model: thread.model,
             messages: [],
-            events: thread.events.filter { $0.createdAt >= start && $0.createdAt <= now },
+            events: periodEvents,
             createdAt: thread.createdAt,
             updatedAt: thread.updatedAt,
             instructions: thread.instructions,

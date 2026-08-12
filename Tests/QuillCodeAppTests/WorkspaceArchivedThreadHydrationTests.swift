@@ -7,7 +7,7 @@ import QuillCodePersistence
 final class WorkspaceArchivedThreadHydrationTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_786_435_200) // 2026-08-11 UTC
 
-    func testBootstrapDefersOnlyHistoricalArchiveAndHydratesItOnSelection() throws {
+    func testBootstrapDefersEveryArchiveAndHydratesHistoricalChatOnSelection() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
         let project = ProjectRef(name: "Quill Cowork", path: paths.home.path)
@@ -68,7 +68,7 @@ final class WorkspaceArchivedThreadHydrationTests: XCTestCase {
 
         XCTAssertEqual(model.root.selectedThreadID, active.id)
         XCTAssertTrue(try XCTUnwrap(model.root.threads.first { $0.id == active.id }).payloadResidency.isLoaded)
-        XCTAssertTrue(
+        XCTAssertFalse(
             try XCTUnwrap(model.root.threads.first { $0.id == recentArchive.id })
                 .payloadResidency.isLoaded
         )
@@ -93,6 +93,13 @@ final class WorkspaceArchivedThreadHydrationTests: XCTestCase {
         XCTAssertEqual(selected.messages.map(\.content), historical.messages.map(\.content))
         XCTAssertEqual(selected.events.map(\.id), historical.events.map(\.id))
         XCTAssertEqual(selected.events.map(\.summary), historical.events.map(\.summary))
+
+        model.selectThread(active.id)
+
+        XCTAssertFalse(
+            try XCTUnwrap(model.root.threads.first { $0.id == historical.id })
+                .payloadResidency.isLoaded
+        )
     }
 
     func testDuplicateAndUnarchiveHydrateHistoricalPayloadBeforeMutation() throws {
@@ -175,7 +182,7 @@ final class WorkspaceArchivedThreadHydrationTests: XCTestCase {
         let followUp = try XCTUnwrap(model.root.threads.first { $0.id == followUpID })
 
         XCTAssertEqual(followUp.messages.map(\.content), historical.messages.map(\.content))
-        XCTAssertTrue(
+        XCTAssertFalse(
             try XCTUnwrap(model.root.threads.first { $0.id == historical.id })
                 .payloadResidency.isLoaded
         )

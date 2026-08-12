@@ -140,6 +140,31 @@ struct WorkspaceThreadPersistence {
     }
 
     @discardableResult
+    func deferPayload(
+        _ id: UUID,
+        threads: inout [ChatThread],
+        retainingUsageSince usageRetentionStart: Date,
+        calendar: Calendar,
+        now: Date
+    ) -> Bool {
+        guard !issueTracker.hasFailure(for: id),
+              let store,
+              let index = threads.firstIndex(where: { $0.id == id }),
+              !threads[index].runtimeContext.isEphemeral,
+              let deferred = store.deferPayload(
+                  threads[index],
+                  retainingUsageSince: usageRetentionStart,
+                  calendar: calendar,
+                  now: now
+              )
+        else {
+            return false
+        }
+        threads[index] = deferred
+        return true
+    }
+
+    @discardableResult
     func mutate(
         _ id: UUID,
         threads: inout [ChatThread],

@@ -130,12 +130,17 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         for ordinal in 1...chatCount {
             try threadStore.save(makeThread(ordinal: ordinal))
         }
-        // Performance smoke represents an established daily-driver workspace. Prime the disposable
-        // archive index outside the measured launch so the packaged app exercises its warm-start path.
-        _ = threadStore.bootstrapListing(deferArchivedBefore: .distantFuture)
+        // Performance smoke represents an established daily-driver workspace. Prime per-thread
+        // payload summaries outside the measured launch so the package exercises its warm path.
+        _ = threadStore.bootstrapListing(
+            deferArchivedBefore: .distantFuture,
+            maximumResidentActivePayloads: JSONThreadStore.defaultMaximumResidentActivePayloads,
+            retainingUsageSince: .distantPast,
+            now: .distantFuture
+        )
 
         let marker = Marker(
-            schemaVersion: 2,
+            schemaVersion: 3,
             workload: QuillCodeDesktopPerformanceWorkload.dailyDriver100Chats.rawValue,
             projectCount: 1,
             chatCount: chatCount,
@@ -170,7 +175,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         let markerURL = workspaceRoot.root.appendingPathComponent(markerFileName)
         let marker = try JSONDecoder().decode(Marker.self, from: Data(contentsOf: markerURL))
         guard marker == Marker(
-            schemaVersion: 2,
+            schemaVersion: 3,
             workload: workload.rawValue,
             projectCount: 1,
             chatCount: chatCount,
@@ -218,11 +223,25 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
                 .allSatisfy({ !$0.payloadResidency.isLoaded && $0.messages.isEmpty }),
             "archived chat payload residency"
         )
+        let loadedActiveThreads = root.threads.filter {
+            !$0.isArchived && $0.payloadResidency.isLoaded
+        }
+        try require(
+            loadedActiveThreads.count <= JSONThreadStore.defaultMaximumResidentActivePayloads,
+            "bounded active chat payload residency"
+        )
+        try require(
+            loadedActiveThreads.allSatisfy {
+                $0.id == selectedThread.id
+                    || $0.messages.count == marker.shortThreadTurnCount * 2
+            },
+            "loaded active chat message count"
+        )
         try require(
             root.threads
-                .filter({ !$0.isArchived && $0.id != selectedThread.id })
-                .allSatisfy({ $0.messages.count == marker.shortThreadTurnCount * 2 }),
-            "active background chat message count"
+                .filter({ !$0.isArchived && !$0.payloadResidency.isLoaded })
+                .allSatisfy({ $0.messages.isEmpty && $0.events.isEmpty }),
+            "cold active chat payload residency"
         )
         return workload
     }
@@ -267,13 +286,16 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
                 ChatMessage(
                     id: messageID(threadOrdinal: threadOrdinal, ordinal: userOrdinal),
                     role: .user,
-                    content: "Review \(topic.lowercased()) for daily task \(threadOrdinal), turn \(turn). Identify the highest-impact next step and keep the response concise.",
+                    content: "Review \(topic.lowercased()) for daily task \(threadOrdinal), "
+                        + "turn \(turn). Identify the highest-impact next step and keep the "
+                        + "response concise.",
                     createdAt: createdAt.addingTimeInterval(TimeInterval(userOrdinal * 60))
                 ),
                 ChatMessage(
                     id: messageID(threadOrdinal: threadOrdinal, ordinal: assistantOrdinal),
                     role: .assistant,
-                    content: "Turn \(turn) is complete. The next \(topic.lowercased()) action is recorded with checks for speed, resilience, and usability.",
+                    content: "Turn \(turn) is complete. The next \(topic.lowercased()) action "
+                        + "is recorded with checks for speed, resilience, and usability.",
                     createdAt: createdAt.addingTimeInterval(TimeInterval(assistantOrdinal * 60))
                 )
             ]
@@ -289,9 +311,15 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
     }
 
     private static func deterministicUUID(namespace: UInt32, value: Int) -> UUID {
-        let namespaceHex = String(format: "%08X", namespace)
-        let valueHex = String(format: "%012llX", UInt64(value))
-        return UUID(uuidString: "\(namespaceHex)-0000-4000-8000-\(valueHex)")!
+        let value = UInt64(value)
+        return UUID(uuid: (
+            UInt8((namespace >> 24) & 0xff), UInt8((namespace >> 16) & 0xff),
+            UInt8((namespace >> 8) & 0xff), UInt8(namespace & 0xff),
+            0x00, 0x00, 0x40, 0x00, 0x80, 0x00,
+            UInt8((value >> 40) & 0xff), UInt8((value >> 32) & 0xff),
+            UInt8((value >> 24) & 0xff), UInt8((value >> 16) & 0xff),
+            UInt8((value >> 8) & 0xff), UInt8(value & 0xff)
+        ))
     }
 
     private struct Marker: Codable, Equatable {

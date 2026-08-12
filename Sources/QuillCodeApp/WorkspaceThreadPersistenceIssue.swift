@@ -37,4 +37,8 @@ final class WorkspaceThreadPersistenceIssueTracker {
     func recordSuccess(for threadID: UUID) {
         failedThreadIDs.remove(threadID)
     }
+
+    func hasFailure(for threadID: UUID) -> Bool {
+        failedThreadIDs.contains(threadID)
+    }
 }
