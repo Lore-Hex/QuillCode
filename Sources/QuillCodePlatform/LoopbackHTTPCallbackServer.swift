@@ -280,7 +280,7 @@ public final class LoopbackHTTPCallbackServer: @unchecked Sendable {
         let body = """
         <!doctype html>
         <html lang="en">
-          <head><meta charset="utf-8"><title>QuillCode</title></head>
+          <head><meta charset="utf-8"><title>Quill Cowork</title></head>
           <body style="font-family: system-ui, sans-serif; padding: 40px;"><h1>\(escaped)</h1></body>
         </html>
         """

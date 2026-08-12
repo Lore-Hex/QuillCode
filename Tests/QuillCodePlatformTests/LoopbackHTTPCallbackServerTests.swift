@@ -28,7 +28,9 @@ final class LoopbackHTTPCallbackServerTests: XCTestCase {
         let captured = try await wait.value
 
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("sign-in is complete"))
+        let page = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(page.contains("<title>Quill Cowork</title>"))
+        XCTAssertTrue(page.contains("sign-in is complete"))
         XCTAssertEqual(captured.path, "/oauth/callback")
         XCTAssertEqual(captured.query, "code=abc&state=expected")
         XCTAssertEqual(captured.port, server.callbackURL.port)

@@ -40,8 +40,27 @@ final class QuillCodePathsTests: PersistenceTestCase {
         }
         XCTAssertEqual(try posixPermissions(at: paths.composerDraftsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.subagentApprovalPayloadsDirectory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: paths.secretsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.pluginDataDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.importsDirectory), 0o700)
+    }
+
+    func testEnsureRepairsLegacySecretsDirectoryPermissions() throws {
+        let home = try makeTempDirectory().appendingPathComponent(".quillcode")
+        let paths = QuillCodePaths(home: home)
+        try FileManager.default.createDirectory(
+            at: paths.secretsDirectory,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o755]
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: paths.secretsDirectory.path
+        )
+
+        try paths.ensure()
+
+        XCTAssertEqual(try posixPermissions(at: paths.secretsDirectory), 0o700)
     }
 
     func testPluginDataDirectoriesAreStablePrivateAndWorkspaceScoped() throws {
