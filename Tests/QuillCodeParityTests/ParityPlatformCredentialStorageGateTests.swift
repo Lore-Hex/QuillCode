@@ -37,6 +37,11 @@ final class ParityPlatformCredentialStorageGateTests: QuillCodeParityTestCase {
         Self.assertSource(source, containsAll: [
             "QuillCodeSigningTeamIdentifier",
             "isValidTeamIdentifier(signingTeamIdentifier)",
+            "static let currentTeamIdentifier = loadCurrentTeamIdentifier()",
+            "SecCodeCheckValidity",
+            "SecCodeCopyStaticCode",
+            "SecCodeCopySigningInformation",
+            "runtimeSigningTeamIdentifier == signingTeamIdentifier",
             "LegacyMigratingSecretStore(",
             "KeychainSecretStore(service: macOSService)",
             "kSecAttrSynchronizable as String: false",

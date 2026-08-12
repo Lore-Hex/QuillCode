@@ -12,7 +12,15 @@ public enum QuillSecretStoreFactory {
         let signingTeamIdentifier = Bundle.main.object(
             forInfoDictionaryKey: "QuillCodeSigningTeamIdentifier"
         ) as? String
-        return make(for: paths, signingTeamIdentifier: signingTeamIdentifier)
+        guard paths.secretStorageScope == .userAccount,
+              isValidTeamIdentifier(signingTeamIdentifier) else {
+            return FileSecretStore(directory: paths.secretsDirectory)
+        }
+        return make(
+            for: paths,
+            signingTeamIdentifier: signingTeamIdentifier,
+            runtimeSigningTeamIdentifier: MacOSCodeSigningIdentity.currentTeamIdentifier
+        )
         #else
         return FileSecretStore(directory: paths.secretsDirectory)
         #endif
@@ -21,16 +29,18 @@ public enum QuillSecretStoreFactory {
     #if canImport(Security)
     static func make(
         for paths: QuillCodePaths,
-        signingTeamIdentifier: String?
+        signingTeamIdentifier: String?,
+        runtimeSigningTeamIdentifier: String?
     ) -> any QuillSecretStore {
         let legacy = FileSecretStore(directory: paths.secretsDirectory)
         guard paths.secretStorageScope == .userAccount,
-              isValidTeamIdentifier(signingTeamIdentifier) else {
+              isValidTeamIdentifier(signingTeamIdentifier),
+              runtimeSigningTeamIdentifier == signingTeamIdentifier else {
             return legacy
         }
 
-        // Ad-hoc designated requirements are build-specific hashes. Wait for the stable Developer
-        // ID identity so Keychain access survives an ordinary app update without prompting.
+        // Require the sealed metadata to agree with the running signature. Ad-hoc designated
+        // requirements are build-specific hashes and do not provide a durable Keychain identity.
         return LegacyMigratingSecretStore(
             primary: KeychainSecretStore(service: macOSService),
             legacy: legacy
@@ -46,6 +56,35 @@ public enum QuillSecretStoreFactory {
     }
     #endif
 }
+
+#if canImport(Security)
+enum MacOSCodeSigningIdentity {
+    static let currentTeamIdentifier = loadCurrentTeamIdentifier()
+
+    private static func loadCurrentTeamIdentifier() -> String? {
+        var code: SecCode?
+        guard SecCodeCopySelf(SecCSFlags(), &code) == errSecSuccess,
+              let code,
+              SecCodeCheckValidity(code, SecCSFlags(), nil) == errSecSuccess else {
+            return nil
+        }
+
+        var staticCode: SecStaticCode?
+        guard SecCodeCopyStaticCode(code, SecCSFlags(), &staticCode) == errSecSuccess,
+              let staticCode else {
+            return nil
+        }
+
+        var information: CFDictionary?
+        let flags = SecCSFlags(rawValue: kSecCSSigningInformation)
+        guard SecCodeCopySigningInformation(staticCode, flags, &information) == errSecSuccess,
+              let values = information as? [String: Any] else {
+            return nil
+        }
+        return values[kSecCodeInfoTeamIdentifier as String] as? String
+    }
+}
+#endif
 
 public struct LegacyMigratingSecretStore: QuillSecretStore {
     public var primary: any QuillSecretStore

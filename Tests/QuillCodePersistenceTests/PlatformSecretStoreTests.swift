@@ -21,31 +21,61 @@ final class PlatformSecretStoreTests: PersistenceTestCase {
     }
 
     #if canImport(Security)
-    func testFactoryRequiresCanonicalHomeAndDeveloperIDTeamMetadataForKeychain() throws {
+    func testFactoryRequiresCanonicalHomeAndMatchingDeveloperIDSignatureForKeychain() throws {
         XCTAssertTrue(
             QuillSecretStoreFactory.make(
                 for: QuillCodePaths(),
-                signingTeamIdentifier: nil
+                signingTeamIdentifier: nil,
+                runtimeSigningTeamIdentifier: nil
             ) is FileSecretStore
         )
         XCTAssertTrue(
             QuillSecretStoreFactory.make(
                 for: QuillCodePaths(),
-                signingTeamIdentifier: "lowercase1"
+                signingTeamIdentifier: "lowercase1",
+                runtimeSigningTeamIdentifier: "lowercase1"
             ) is FileSecretStore
         )
         XCTAssertTrue(
             QuillSecretStoreFactory.make(
                 for: QuillCodePaths(),
-                signingTeamIdentifier: "A1B2C3D4E5"
+                signingTeamIdentifier: "A1B2C3D4E5",
+                runtimeSigningTeamIdentifier: nil
+            ) is FileSecretStore
+        )
+        XCTAssertTrue(
+            QuillSecretStoreFactory.make(
+                for: QuillCodePaths(),
+                signingTeamIdentifier: "A1B2C3D4E5",
+                runtimeSigningTeamIdentifier: "OTHER12345"
+            ) is FileSecretStore
+        )
+        XCTAssertTrue(
+            QuillSecretStoreFactory.make(
+                for: QuillCodePaths(),
+                signingTeamIdentifier: "A1B2C3D4E5",
+                runtimeSigningTeamIdentifier: "A1B2C3D4E5"
             ) is LegacyMigratingSecretStore
         )
         XCTAssertTrue(
             QuillSecretStoreFactory.make(
                 for: QuillCodePaths(home: try makeTempDirectory()),
-                signingTeamIdentifier: "A1B2C3D4E5"
+                signingTeamIdentifier: "A1B2C3D4E5",
+                runtimeSigningTeamIdentifier: "A1B2C3D4E5"
             ) is FileSecretStore
         )
+    }
+
+    func testRuntimeSigningIdentityReturnsOnlyADeveloperTeamIdentifier() {
+        let teamIdentifier = MacOSCodeSigningIdentity.currentTeamIdentifier
+
+        if let teamIdentifier {
+            XCTAssertEqual(teamIdentifier.utf8.count, 10)
+            XCTAssertTrue(teamIdentifier.utf8.allSatisfy { byte in
+                (UInt8(ascii: "A")...UInt8(ascii: "Z")).contains(byte)
+                    || (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(byte)
+            })
+        }
     }
     #endif
 
