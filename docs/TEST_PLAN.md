@@ -287,6 +287,16 @@ Drive the QuillCode test harness with mock LLM:
 - local and SSH Remote worktree create handoff into the selected worktree project and thread
 - remote-pairing mock, SSH Remote registration mock, SSH Remote context-refresh mock, SSH Remote terminal mock, and SSH Remote chat shell mock
 
+## Swift Project Desktop Evaluations
+
+Run the ten visible-desktop iOS, macOS, and SwiftPM scenarios defined in
+[`SWIFT_PROJECT_EVALS.md`](SWIFT_PROJECT_EVALS.md) and
+[`swift-project-eval-catalog.json`](swift-project-eval-catalog.json). These scenarios prove that
+Quill Cowork can open a real Swift project, preserve project-scoped execution context, repair code,
+run `swift test` and `xcodebuild`, inspect `.xcresult` failures, interact with named simulators, and
+ground build/test/launch claims in retained evidence. SWIFT-001 is the environment gate; the other
+tasks must not run when it fails.
+
 ## Native Smoke Tests
 
 - On a permission-enabled macOS development machine, start Record & Replay from Extensions, confirm once, demonstrate a bounded cross-app workflow, stop from both Extensions and the menu-bar widget in separate runs, verify recording ends immediately, verify the generated skill exists under the selected project, and replay it in a new task. Repeat with permissions revoked after start to prove Stop remains available.

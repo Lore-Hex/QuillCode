@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "suite": "swift-project-desktop",
+  "description": "Visible Quill Cowork desktop evaluations for real iOS and macOS Swift work.",
+  "sharedRequirements": [
+    "Open the fixture through the visible Open Project flow.",
+    "Create a project-scoped chat before sending the task.",
+    "Require an immediate user turn and visible queued or thinking state.",
+    "Require complete inspectable tool arguments, outputs, exit codes, and execution context.",
+    "Reject passive plan-only answers and ungrounded build, test, or launch claims.",
+    "Preserve unrelated files, credentials, signing settings, and simulator data."
+  ],
+  "tasks": [
+    {
+      "id": "SWIFT-001",
+      "platforms": ["iOS"],
+      "title": "Build, test, install, and launch a SwiftUI app",
+      "prompt": "Inspect this Swift project, build it, and run its XCTest suite on the named booted iPhone simulator. Then install and launch the built app. Execute the work now and report the exact results.",
+      "fixture": "SwiftUI app with one deterministic XCTest and visible expected text",
+      "commands": ["xcodebuild test", "xcrun simctl install", "xcrun simctl launch"],
+      "assertions": [
+        "The named simulator, not an arbitrary booted device, runs the tests.",
+        "The expected test count passes with zero failures.",
+        "The launched process remains alive after the launch command returns.",
+        "A simulator screenshot contains the expected fixture text."
+      ],
+      "status": "manually-verified-2026-08-09"
+    },
+    {
+      "id": "SWIFT-002",
+      "platforms": ["SwiftPM", "iOS"],
+      "title": "Repair Swift 6 strict-concurrency failures",
+      "prompt": "Run the failing strict-concurrency build, diagnose every relevant compiler error, and make the smallest idiomatic fix. Do not suppress diagnostics with unchecked conformance. Run the focused tests and simulator build before reporting completion.",
+      "fixture": "Shared mutable state and a non-Sendable capture that fail complete concurrency checking",
+      "commands": ["swift test", "xcodebuild build"],
+      "assertions": [
+        "Complete strict-concurrency checking remains enabled.",
+        "The repair uses actor isolation or Sendable value semantics.",
+        "No @unchecked Sendable workaround is introduced.",
+        "SwiftPM tests and the iOS simulator build pass."
+      ]
+    },
+    {
+      "id": "SWIFT-003",
+      "platforms": ["iOS"],
+      "title": "Implement and test an async URLSession client",
+      "prompt": "Complete the async API client and its deterministic tests for success, decoding errors, HTTP failures, and cancellation. Keep tests offline and execute the full relevant suite now.",
+      "fixture": "Incomplete async API client with a controllable URLProtocol test double",
+      "commands": ["xcodebuild test"],
+      "assertions": [
+        "The production API is async throws and preserves cancellation.",
+        "Tests cover success, decoding failure, HTTP failure, and cancellation.",
+        "Tests do not access the public network or use fixed sleeps.",
+        "All relevant tests pass repeatedly."
+      ]
+    },
+    {
+      "id": "SWIFT-004",
+      "platforms": ["iOS"],
+      "title": "Complete a SwiftData schema migration",
+      "prompt": "Migrate the supplied version-one SwiftData store to the new schema without losing records, update the UI for the new field, then run the migration tests and simulator launch now.",
+      "fixture": "Versioned SwiftData app, version-one store, and new required user-visible field",
+      "commands": ["xcodebuild test", "xcrun simctl launch"],
+      "assertions": [
+        "Existing records survive with the documented migrated value.",
+        "New records persist the new field.",
+        "In-memory and simulator integration tests pass.",
+        "The fixture store is migrated rather than deleted or recreated."
+      ]
+    },
+    {
+      "id": "SWIFT-005",
+      "platforms": ["iOS"],
+      "title": "Fix typed navigation and deep linking",
+      "prompt": "Repair the typed NavigationStack routes, state restoration, and incoming deep link so the supplied URL opens the expected detail. Add focused tests and run them on the simulator.",
+      "fixture": "SwiftUI navigation app with a wrong deep-link route and lost list state",
+      "commands": ["xcodebuild test"],
+      "assertions": [
+        "Route parsing has deterministic unit coverage.",
+        "The deep-link UI test reaches the expected accessibility identifier.",
+        "Back navigation restores the prior list state.",
+        "No global navigation singleton is introduced."
+      ]
+    },
+    {
+      "id": "SWIFT-006",
+      "platforms": ["iOS"],
+      "title": "Make a screen accessible at large Dynamic Type",
+      "prompt": "Fix the supplied settings screen for VoiceOver, 44-point targets, reading order, and the largest accessibility text size without replacing its visual design. Run its UI tests and capture simulator evidence.",
+      "fixture": "Settings screen with unlabeled icons, small targets, clipped copy, and incorrect reading order",
+      "commands": ["xcodebuild test", "xcrun simctl io screenshot"],
+      "assertions": [
+        "Controls expose concise accessibility labels and values.",
+        "Every interactive target meets the 44-point minimum.",
+        "UI tests activate every control by stable accessibility identifier.",
+        "Largest-text screenshots contain no overlap or truncation."
+      ]
+    },
+    {
+      "id": "SWIFT-007",
+      "platforms": ["iOS"],
+      "title": "Localize a feature with a string catalog",
+      "prompt": "Move this feature's user-facing copy into a string catalog, add English and Spanish localization with correct plurals and date formatting, then run both locale tests and capture simulator screenshots now.",
+      "fixture": "Hard-coded English feature with item counts and formatted dates",
+      "commands": ["xcodebuild test", "xcrun simctl io screenshot"],
+      "assertions": [
+        "The feature has no duplicated hard-coded user-facing literals.",
+        "Singular and plural tests pass in English and Spanish.",
+        "The Spanish UI test launches in the requested locale.",
+        "Translated controls remain unclipped."
+      ]
+    },
+    {
+      "id": "SWIFT-008",
+      "platforms": ["macOS"],
+      "title": "Build a persistent macOS menu-bar utility",
+      "prompt": "Connect the MenuBarExtra commands and settings window to one persisted preference model. Run the macOS tests, launch the app, change a preference, relaunch, and verify the visible menu state.",
+      "fixture": "SwiftUI MenuBarExtra app with an incomplete preference model",
+      "commands": ["xcodebuild test -destination platform=macOS", "open"],
+      "assertions": [
+        "The macOS test suite passes.",
+        "The menu-bar item is discoverable through Accessibility.",
+        "A preference update changes the visible menu state.",
+        "Quit and relaunch preserve the value through one source of truth."
+      ]
+    },
+    {
+      "id": "SWIFT-009",
+      "platforms": ["SwiftPM", "iOS", "macOS"],
+      "title": "Repair a multiplatform Swift package",
+      "prompt": "Restore clean target boundaries in this shared package while preserving public source compatibility and injected platform adapters. Run SwiftPM tests and build both the iOS and macOS consumers now.",
+      "fixture": "Shared domain target that imports a UI framework and breaks one platform consumer",
+      "commands": ["swift test", "xcodebuild build"],
+      "assertions": [
+        "SwiftPM tests pass.",
+        "The iOS simulator and macOS consumers build.",
+        "The domain target imports no UI framework and contains no application-level platform conditional.",
+        "Public API remains source compatible."
+      ]
+    },
+    {
+      "id": "SWIFT-010",
+      "platforms": ["iOS"],
+      "title": "Diagnose a failing XCUITest from its result bundle",
+      "prompt": "Run the failing XCUITest, inspect the failure and xcresult, repair the root cause, rerun the focused test, and then run the full suite. Cite the exact failing and passing test names.",
+      "fixture": "XCUITest with unstable identity and an asynchronous loading race",
+      "commands": ["xcodebuild test", "xcresulttool"],
+      "assertions": [
+        "The initial failure and result bundle are retained as evidence.",
+        "The repair uses stable accessibility identity and condition-based waiting.",
+        "No fixed sleep is added.",
+        "The focused rerun and full suite pass."
+      ]
+    }
+  ]
+}
