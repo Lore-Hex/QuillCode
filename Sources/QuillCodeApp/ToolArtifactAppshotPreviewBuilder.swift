@@ -30,19 +30,10 @@ enum ToolArtifactAppshotPreviewBuilder {
 
     private static func appshotRoot(from fileURL: URL) -> [String: Any]? {
         do {
-            let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
-            guard resourceValues.isRegularFile == true else { return nil }
-
-            let handle = try FileHandle(forReadingFrom: fileURL)
-            defer { try? handle.close() }
-            guard let data = try handle.read(upToCount: byteLimit + 1),
-                  !data.isEmpty,
-                  data.count <= byteLimit
-            else {
-                return nil
-            }
-
-            return try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            return try ToolArtifactJSONDocumentReader.document(
+                for: fileURL,
+                byteLimit: byteLimit
+            )?.root as? [String: Any]
         } catch {
             return nil
         }

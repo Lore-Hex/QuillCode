@@ -12,6 +12,19 @@ enum ToolArtifactMypyJSONPreviewBuilder {
         }
 
         do {
+            if documentPreview.extensionLabel.lowercased() == "json" {
+                guard let document = try ToolArtifactJSONDocumentReader.document(
+                    for: fileURL,
+                    byteLimit: byteLimit
+                ),
+                      let diagnostics = document.root as? [[String: Any]]
+                else { return nil }
+                return preview(
+                    from: diagnostics,
+                    byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: document.byteSize)
+                )
+            }
+
             let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
             guard resourceValues.isRegularFile == true else { return nil }
             let fileSize = max(resourceValues.fileSize ?? 0, 0)
