@@ -150,6 +150,13 @@ def write_accessibility_frames_manifest(
         "activatedContractIDs": activation_report["activatedContractIDs"],
         "activationCheckCount": activation_report["checkCount"],
         "activationCheckSummaries": activation_report["checkSummaries"],
+        "activationResourceMeasurement": activation_report["resourceMeasurement"],
+        "peakPresentedContractID": activation_report["peakPresentedContractID"],
+        "peakPresentedResidentMemoryBytes": activation_report["peakPresentedResidentMemoryBytes"],
+        "maximumPresentedResidentMemoryGrowthBytes": activation_report[
+            "maximumPresentedResidentMemoryGrowthBytes"
+        ],
+        "peakPresentedThreadCount": activation_report["peakPresentedThreadCount"],
         "windowSurface": report.get("surface"),
         "image": report.get("image"),
         "validationIssues": samples_report["validationIssues"],

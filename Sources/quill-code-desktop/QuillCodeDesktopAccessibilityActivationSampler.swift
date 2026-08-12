@@ -16,6 +16,11 @@ struct QuillCodeDesktopAccessibilityActivationCheck {
     var afterValue: String
     var axError: String
     var interactionEvidence: String
+    var baselineResidentMemoryBytes: Int64
+    var presentedResidentMemoryBytes: Int64
+    var presentedResidentMemoryGrowthBytes: Int64
+    var baselineThreadCount: Int
+    var presentedThreadCount: Int
     var validationIssue: String?
 
     var ok: Bool {
@@ -36,6 +41,11 @@ struct QuillCodeDesktopAccessibilityActivationCheck {
             "afterValue": afterValue,
             "axError": axError,
             "interactionEvidence": interactionEvidence,
+            "baselineResidentMemoryBytes": baselineResidentMemoryBytes,
+            "presentedResidentMemoryBytes": presentedResidentMemoryBytes,
+            "presentedResidentMemoryGrowthBytes": presentedResidentMemoryGrowthBytes,
+            "baselineThreadCount": baselineThreadCount,
+            "presentedThreadCount": presentedThreadCount,
             "ok": ok,
             "validationIssue": validationIssue ?? ""
         ]
@@ -54,6 +64,20 @@ struct QuillCodeDesktopAccessibilityActivationReport {
         validationIssues.isEmpty
     }
 
+    private var peakPresentedMemoryCheck: QuillCodeDesktopAccessibilityActivationCheck? {
+        checks.max { lhs, rhs in
+            lhs.presentedResidentMemoryBytes < rhs.presentedResidentMemoryBytes
+        }
+    }
+
+    private var maximumPresentedResidentMemoryGrowthBytes: Int64 {
+        checks.map(\.presentedResidentMemoryGrowthBytes).max() ?? 0
+    }
+
+    private var peakPresentedThreadCount: Int {
+        checks.map(\.presentedThreadCount).max() ?? 0
+    }
+
     var dictionary: [String: Any] {
         [
             "ok": ok,
@@ -62,6 +86,11 @@ struct QuillCodeDesktopAccessibilityActivationReport {
             "activatedContractIDs": activatedContractIDs,
             "skippedContractIDs": skippedContractIDs,
             "checkCount": checks.count,
+            "resourceMeasurement": QuillCodeDesktopPerformanceSnapshot.memoryMeasurement,
+            "peakPresentedContractID": peakPresentedMemoryCheck?.contractID ?? "",
+            "peakPresentedResidentMemoryBytes": peakPresentedMemoryCheck?.presentedResidentMemoryBytes ?? 0,
+            "maximumPresentedResidentMemoryGrowthBytes": maximumPresentedResidentMemoryGrowthBytes,
+            "peakPresentedThreadCount": peakPresentedThreadCount,
             "checks": checks.map(\.dictionary),
             "validationIssues": validationIssues
         ]
@@ -180,7 +209,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport,
         includesInitialSurface: Bool = true
     ) async throws -> QuillCodeDesktopAccessibilityActivationReport {
-        let report = await sample(
+        let report = try await sample(
             contentView: contentView,
             controller: controller,
             nativeHitTargets: nativeHitTargets,
@@ -197,7 +226,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         controller: QuillCodeDesktopController,
         nativeHitTargets: QuillCodeNativeHitTargetAuditReport,
         includesInitialSurface: Bool
-    ) async -> QuillCodeDesktopAccessibilityActivationReport {
+    ) async throws -> QuillCodeDesktopAccessibilityActivationReport {
         let probesByID = Dictionary(uniqueKeysWithValues: nativeHitTargets.clickProbes.map { ($0.contractID, $0) })
         var checks: [QuillCodeDesktopAccessibilityActivationCheck] = []
         var validationIssues: [String] = []
@@ -223,7 +252,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
                 continue
             }
 
-            let result = await activate(
+            let result = try await activate(
                 contract: contract,
                 probe: probe,
                 element: element,
@@ -296,11 +325,14 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         element: QuillCodeDesktopAccessibilityElementSnapshot,
         contentView: NSView,
         controller: QuillCodeDesktopController
-    ) async -> QuillCodeDesktopAccessibilityActivationCheck {
+    ) async throws -> QuillCodeDesktopAccessibilityActivationCheck {
         let baseline = contract.observe(controller)
+        let baselineResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
         let axError = QuillCodeDesktopAccessibilityTree.performPress(on: element)
         _ = await waitForStateChange(contract: contract, baseline: baseline, controller: controller)
         let after = contract.observe(controller)
+        await QuillCodeDesktopAccessibilityHierarchySettler.waitUntilStable(in: contentView)
+        let presentedResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
         let activationIssue = validationIssue(
             contractID: contract.contractID,
             axError: axError,
@@ -348,6 +380,12 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             afterValue: after.description,
             axError: axErrorDescription(axError),
             interactionEvidence: verification.evidence,
+            baselineResidentMemoryBytes: baselineResources.residentMemoryBytes,
+            presentedResidentMemoryBytes: presentedResources.residentMemoryBytes,
+            presentedResidentMemoryGrowthBytes: presentedResources.residentMemoryBytes
+                - baselineResources.residentMemoryBytes,
+            baselineThreadCount: baselineResources.threadCount,
+            presentedThreadCount: presentedResources.threadCount,
             validationIssue: contractIssue ?? verification.validationIssue ?? resetIssue
         )
     }

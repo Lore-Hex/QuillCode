@@ -16,8 +16,8 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contractID: "command.settings",
         name: "Settings",
         titleIdentifier: "quillcode-settings-title",
-        requiredControlIdentifier: "quillcode-notifications-agent-runs",
-        requiredControlDescription: "notifications control",
+        requiredControlIdentifier: "quillcode-settings-api-base-url",
+        requiredControlDescription: "Account API field",
         closeIdentifier: "quillcode-settings-close"
     )
     private static let developerKeySettingsSurfaceContract = DismissibleSurfaceContract(
@@ -174,7 +174,48 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     static func verifySettingsDismissal(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        await verifyDismissibleSurface(settingsSurfaceContract, contentView: contentView)
+        let verification = await verifyDismissibleSurface(
+            settingsSurfaceContract,
+            contentView: contentView,
+            validateBeforeDismiss: {
+                guard let generalButton = await waitForElement(
+                    "quillcode-settings-section-general",
+                    in: contentView
+                ) else {
+                    return .init(
+                        evidence: "Settings rendered without its General section",
+                        validationIssue: "command.settings did not expose General section navigation"
+                    )
+                }
+                guard QuillCodeDesktopAccessibilityTree.performPress(on: generalButton) == .success,
+                      await waitForElement("quillcode-notifications-agent-runs", in: contentView) != nil
+                else {
+                    return .init(
+                        evidence: "General section did not render its notifications control",
+                        validationIssue: "command.settings could not open its General section"
+                    )
+                }
+                guard let accountButton = await waitForElement(
+                    "quillcode-settings-section-account",
+                    in: contentView
+                ),
+                    QuillCodeDesktopAccessibilityTree.performPress(on: accountButton) == .success,
+                    await waitForElement("quillcode-settings-api-base-url", in: contentView) != nil
+                else {
+                    return .init(
+                        evidence: "Settings could not return from General to Account",
+                        validationIssue: "command.settings section navigation did not restore Account"
+                    )
+                }
+                return nil
+            }
+        )
+        guard verification.validationIssue == nil else { return verification }
+        return .init(
+            evidence: verification.evidence
+                + "; switched to General, rendered its notifications control, and returned to Account",
+            validationIssue: nil
+        )
     }
 
     static func verifyDeveloperKeySettingsDismissal(

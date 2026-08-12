@@ -246,6 +246,11 @@ extension QuillCodeParityTestCase {
             ],
             "skippedContractIDs": [],
             "checkCount": \(requiredLiveAccessibilityActivationContractIDs.count),
+            "resourceMeasurement": "physical-footprint",
+            "peakPresentedContractID": "command.settings",
+            "peakPresentedResidentMemoryBytes": 117440512,
+            "maximumPresentedResidentMemoryGrowthBytes": 16777216,
+            "peakPresentedThreadCount": 20,
             "checks": [
         \(checks)
             ],
@@ -257,6 +262,10 @@ extension QuillCodeParityTestCase {
     static func accessibilityActivationCheckJSON(contractID: String) -> String {
         let selector = accessibilityActivationSelector(contractID: contractID)
         let values = accessibilityActivationValues(contractID: contractID)
+        let presentedMemoryBytes = contractID == "command.settings"
+            ? 117_440_512
+            : 109_051_904
+        let presentedThreadCount = contractID == "command.settings" ? 20 : 19
         return """
               {
                 "contractID": "\(contractID)",
@@ -271,6 +280,11 @@ extension QuillCodeParityTestCase {
                 "afterValue": "\(values.after)",
                 "axError": "success",
                 "interactionEvidence": "\(accessibilityActivationEvidence(contractID: contractID))",
+                "baselineResidentMemoryBytes": 100663296,
+                "presentedResidentMemoryBytes": \(presentedMemoryBytes),
+                "presentedResidentMemoryGrowthBytes": \(presentedMemoryBytes - 100_663_296),
+                "baselineThreadCount": 18,
+                "presentedThreadCount": \(presentedThreadCount),
                 "ok": true,
                 "validationIssue": ""
               }
