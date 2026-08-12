@@ -40,12 +40,18 @@ public struct FileSecretStore: QuillSecretStore {
     }
 
     public func read(_ key: String) throws -> String? {
-        guard let data = try FileSecretStoreFileSystem.read(
-            directory: directory,
-            filename: filename(for: key),
-            maximumBytes: Self.maximumValueBytes
-        ) else {
-            return nil
+        let data: Data
+        do {
+            guard let stored = try PrivateFileStoreFileSystem.read(
+                directory: directory,
+                filename: filename(for: key),
+                maximumBytes: Self.maximumValueBytes
+            ) else {
+                return nil
+            }
+            data = stored
+        } catch {
+            throw mappedFileSystemError(error)
         }
         guard let value = String(data: data, encoding: .utf8) else {
             throw FileSecretStoreError.invalidUTF8
@@ -60,18 +66,26 @@ public struct FileSecretStore: QuillSecretStore {
                 maximumBytes: Self.maximumValueBytes
             )
         }
-        try FileSecretStoreFileSystem.write(
-            data,
-            directory: directory,
-            filename: filename(for: key)
-        )
+        do {
+            try PrivateFileStoreFileSystem.write(
+                data,
+                directory: directory,
+                filename: filename(for: key)
+            )
+        } catch {
+            throw mappedFileSystemError(error)
+        }
     }
 
     public func delete(_ key: String) throws {
-        try FileSecretStoreFileSystem.delete(
-            directory: directory,
-            filename: filename(for: key)
-        )
+        do {
+            try PrivateFileStoreFileSystem.delete(
+                directory: directory,
+                filename: filename(for: key)
+            )
+        } catch {
+            throw mappedFileSystemError(error)
+        }
     }
 
     private func filename(for key: String) -> String {
@@ -85,5 +99,15 @@ public struct FileSecretStore: QuillSecretStore {
         }
         let filename = String(safe).trimmingCharacters(in: CharacterSet(charactersIn: "."))
         return filename.isEmpty ? "secret" : filename
+    }
+
+    private func mappedFileSystemError(_ error: Error) -> Error {
+        guard let error = error as? PrivateFileStoreFileSystemError else { return error }
+        switch error {
+        case .unsafeDirectory:
+            return FileSecretStoreError.unsafeDirectory
+        case .unsafeEntry:
+            return FileSecretStoreError.unsafeSecretEntry
+        }
     }
 }

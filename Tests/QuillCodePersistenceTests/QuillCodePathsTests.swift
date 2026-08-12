@@ -30,6 +30,8 @@ final class QuillCodePathsTests: PersistenceTestCase {
             paths.worktreeSnapshotsDirectory,
             paths.worktreesDirectory,
             paths.secretsDirectory,
+            paths.permissionsDirectory,
+            paths.hookTrustDirectory,
             paths.pluginDataDirectory,
             paths.subagentSessionsDirectory,
             paths.importsDirectory
@@ -41,6 +43,8 @@ final class QuillCodePathsTests: PersistenceTestCase {
         XCTAssertEqual(try posixPermissions(at: paths.composerDraftsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.subagentApprovalPayloadsDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.secretsDirectory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: paths.permissionsDirectory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: paths.hookTrustDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.pluginDataDirectory), 0o700)
         XCTAssertEqual(try posixPermissions(at: paths.importsDirectory), 0o700)
     }

@@ -124,6 +124,133 @@ final class ProjectHookTrustStoreTests: XCTestCase {
         XCTAssertFalse(loaded.records.contains { $0.hookID == "invalid" })
     }
 
+    func testOversizedTrustFileFailsClosedWithoutReplacement() throws {
+        let setup = try makeSetup()
+        let fileURL = setup.store.fileURL(forWorkspaceRoot: setup.root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
+        let handle = try FileHandle(forWritingTo: fileURL)
+        try handle.truncate(atOffset: UInt64(ProjectHookTrustFileStore.maximumBytes + 1))
+        try handle.close()
+
+        let loaded = setup.store.load(forWorkspaceRoot: setup.root)
+
+        XCTAssertTrue(loaded.degraded)
+        XCTAssertEqual(loaded.status(for: makeHook()), .reviewRequired)
+        XCTAssertThrowsError(
+            try setup.store.setDecision(.trusted, for: makeHook(), workspaceRoot: setup.root)
+        ) { error in
+            XCTAssertEqual(error as? ProjectHookTrustStoreError, .degradedFile)
+        }
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber,
+            NSNumber(value: ProjectHookTrustFileStore.maximumBytes + 1)
+        )
+    }
+
+    func testSymbolicLinkFailsClosedAndExplicitSaveDoesNotTouchTarget() throws {
+        let setup = try makeSetup()
+        let fileURL = setup.store.fileURL(forWorkspaceRoot: setup.root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let target = setup.base.appendingPathComponent("outside-hook-trust.json")
+        let targetData = Data(#"{"version":1,"records":[]}"#.utf8)
+        try targetData.write(to: target)
+        try FileManager.default.createSymbolicLink(at: fileURL, withDestinationURL: target)
+
+        XCTAssertTrue(setup.store.load(forWorkspaceRoot: setup.root).degraded)
+        XCTAssertThrowsError(
+            try setup.store.setDecision(.trusted, for: makeHook(), workspaceRoot: setup.root)
+        ) { error in
+            XCTAssertEqual(error as? ProjectHookTrustStoreError, .degradedFile)
+        }
+
+        let record = ProjectHookTrustRecord(
+            hookID: "plugin_hook:replacement",
+            definitionHash: String(repeating: "b", count: 64),
+            decision: .disabled,
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        try setup.store.save([record], forWorkspaceRoot: setup.root)
+
+        XCTAssertEqual(try Data(contentsOf: target), targetData)
+        XCTAssertEqual(setup.store.load(forWorkspaceRoot: setup.root).records, [record])
+        XCTAssertFalse(try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true)
+    }
+
+    func testSymbolicLinkDirectoryCannotInjectTrust() throws {
+        let setup = try makeSetup()
+        let hook = makeHook()
+        let outsideDirectory = setup.base.appendingPathComponent("outside-trust", isDirectory: true)
+        let injectedStore = ProjectHookTrustFileStore(directory: outsideDirectory)
+        try injectedStore.setDecision(.trusted, for: hook, workspaceRoot: setup.root)
+        try FileManager.default.createSymbolicLink(
+            at: setup.store.directory,
+            withDestinationURL: outsideDirectory
+        )
+
+        let loaded = setup.store.load(forWorkspaceRoot: setup.root)
+
+        XCTAssertTrue(loaded.degraded)
+        XCTAssertEqual(loaded.status(for: hook), .reviewRequired)
+        XCTAssertThrowsError(
+            try setup.store.setDecision(.trusted, for: hook, workspaceRoot: setup.root)
+        ) { error in
+            XCTAssertEqual(error as? PrivateFileStoreFileSystemError, .unsafeDirectory)
+        }
+    }
+
+    func testConcurrentDecisionsPreserveEveryHook() async throws {
+        let setup = try makeSetup()
+        let store = setup.store
+        let root = setup.root
+        let count = 100
+        let hooks = (0..<count).map { index -> ProjectPluginHook in
+            var hook = makeHook(hash: String(format: "%064x", index + 1))
+            hook.id = "plugin_hook:concurrent.\(index)"
+            return hook
+        }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (index, hook) in hooks.enumerated() {
+                group.addTask {
+                    try store.setDecision(
+                        index.isMultiple(of: 2) ? .trusted : .disabled,
+                        for: hook,
+                        workspaceRoot: root,
+                        now: Date(timeIntervalSince1970: TimeInterval(index + 1))
+                    )
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        let loaded = store.load(forWorkspaceRoot: root)
+        XCTAssertFalse(loaded.degraded)
+        XCTAssertEqual(Set(loaded.records.map(\.hookID)), Set(hooks.map(\.id)))
+    }
+
+    func testWritesUsePrivateDurableStatePermissions() throws {
+        let setup = try makeSetup()
+        let fileURL = setup.store.fileURL(forWorkspaceRoot: setup.root)
+
+        try setup.store.setDecision(.trusted, for: makeHook(), workspaceRoot: setup.root)
+
+        XCTAssertEqual(try posixPermissions(at: setup.store.directory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: fileURL), 0o600)
+        XCTAssertEqual(
+            try posixPermissions(
+                at: setup.store.directory.appendingPathComponent(".\(fileURL.lastPathComponent).lock")
+            ),
+            0o600
+        )
+    }
+
     private func makeSetup() throws -> (base: URL, root: URL, store: ProjectHookTrustFileStore) {
         let base = FileManager.default.temporaryDirectory
             .appendingPathComponent("ProjectHookTrustStoreTests-\(UUID().uuidString)", isDirectory: true)
@@ -149,5 +276,11 @@ final class ProjectHookTrustStoreTests: XCTestCase {
             definitionHash: hash,
             supportStatus: .supported
         )
+    }
+
+    private func posixPermissions(at url: URL) throws -> Int {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
+        return permissions.intValue & 0o777
     }
 }

@@ -8,6 +8,7 @@ import QuillCodeSafety
 /// spelling of the same project path shares one rule table.
 public struct PermissionRuleFileStore: Sendable {
     public static let currentVersion = 1
+    public static let maximumBytes = 4 * 1_024 * 1_024
 
     public var directory: URL
 
@@ -23,12 +24,18 @@ public struct PermissionRuleFileStore: Sendable {
     /// newer-versioned file → empty table + diagnostics (the file itself is left untouched).
     public func load(forWorkspaceRoot root: URL) -> PermissionRuleLoadResult {
         let fileURL = fileURL(forWorkspaceRoot: root)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return PermissionRuleLoadResult()
-        }
         let data: Data
         do {
-            data = try Data(contentsOf: fileURL)
+            guard let stored = try PrivateFileStoreFileSystem.read(
+                directory: directory,
+                filename: fileURL.lastPathComponent,
+                maximumBytes: Self.maximumBytes,
+                requiresPrivateFilePermissions: false,
+                repairDirectoryPermissions: true
+            ) else {
+                return PermissionRuleLoadResult()
+            }
+            data = stored
         } catch {
             // The file exists but is unreadable: fail safe (degraded), do NOT report "no rules".
             return PermissionRuleLoadResult(degraded: true, diagnostics: [
@@ -45,11 +52,37 @@ public struct PermissionRuleFileStore: Sendable {
     @discardableResult
     public func append(_ rule: PermissionRule, forWorkspaceRoot root: URL) throws -> [String] {
         let fileURL = fileURL(forWorkspaceRoot: root)
+        return try PrivateFileStoreMutationCoordinator.withExclusiveLock(
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        ) {
+            try appendUnlocked(rule, fileURL: fileURL)
+        }
+    }
+
+    public func save(_ table: PermissionRuleTable, forWorkspaceRoot root: URL) throws {
+        let fileURL = fileURL(forWorkspaceRoot: root)
+        try PrivateFileStoreMutationCoordinator.withExclusiveLock(
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        ) {
+            try saveUnlocked(table, fileURL: fileURL)
+        }
+    }
+
+    private func appendUnlocked(
+        _ rule: PermissionRule,
+        fileURL: URL
+    ) throws -> [String] {
         var diagnostics: [String] = []
         var table = PermissionRuleTable()
 
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            let data = try Data(contentsOf: fileURL)
+        if let data = try PrivateFileStoreFileSystem.read(
+            directory: directory,
+            filename: fileURL.lastPathComponent,
+            maximumBytes: Self.maximumBytes,
+            requiresPrivateFilePermissions: false
+        ) {
             if let version = Self.decodedVersion(data), version > Self.currentVersion {
                 throw PermissionRuleStoreError.newerFileVersion(found: version, supported: Self.currentVersion)
             }
@@ -64,7 +97,11 @@ public struct PermissionRuleFileStore: Sendable {
             diagnostics = loaded.result.diagnostics
             if loaded.wasCorrupt {
                 let backupURL = Self.backupURL(for: fileURL)
-                try? FileManager.default.moveItem(at: fileURL, to: backupURL)
+                try PrivateFileStoreMutationCoordinator.moveAside(
+                    directory: directory,
+                    filename: fileURL.lastPathComponent,
+                    backupFilename: backupURL.lastPathComponent
+                )
                 diagnostics.append(
                     "Backed up the unreadable rules file to \(backupURL.lastPathComponent) and started a fresh one."
                 )
@@ -72,16 +109,23 @@ public struct PermissionRuleFileStore: Sendable {
         }
 
         table.append(rule)
-        try save(table, forWorkspaceRoot: root)
+        try saveUnlocked(table, fileURL: fileURL)
         return diagnostics
     }
 
-    public func save(_ table: PermissionRuleTable, forWorkspaceRoot root: URL) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    private func saveUnlocked(_ table: PermissionRuleTable, fileURL: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let payload = WirePayload(version: Self.currentVersion, rules: table.rules)
-        try encoder.encode(payload).write(to: fileURL(forWorkspaceRoot: root), options: .atomic)
+        let data = try encoder.encode(payload)
+        guard data.count <= Self.maximumBytes else {
+            throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: Self.maximumBytes)
+        }
+        try PrivateFileStoreFileSystem.write(
+            data,
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        )
     }
 
     // MARK: - Tolerant decoding
@@ -279,7 +323,7 @@ public struct PermissionRuleFileStore: Sendable {
         let stamp = ISO8601DateFormatter().string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
         return fileURL.deletingPathExtension()
-            .appendingPathExtension("corrupt-\(stamp).json")
+            .appendingPathExtension("corrupt-\(stamp)-\(UUID().uuidString.lowercased()).json")
     }
 
 }

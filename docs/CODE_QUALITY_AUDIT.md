@@ -1,5 +1,34 @@
 # Code Quality Audit
 
+## 2026-08-12 Bounded Crash-Consistent Policy Persistence
+
+Overall grade after this slice: **A+ policy resilience, A+ bounded memory, A+ concurrency safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory bounds | A+ | Permission rules reject payloads above 4 MiB and hook trust rejects payloads above 1 MiB before allocation; both use bounded descriptor-relative streaming reads. |
+| Concurrent correctness | A+ | Reference-counted local locks serialize sibling app tasks without retaining per-workspace locks, while private `flock` entries protect read-modify-write mutations across app and CLI processes. |
+| Crash consistency | A+ | Policy writes use private exclusive temporary files, file synchronization, atomic replacement, and directory synchronization; corrupt-rule backup failures now stop before replacement instead of silently losing the original. |
+| Fail-closed safety | A+ | File and directory symlinks, non-regular entries, foreign owners, and multiple hard links cannot inject allow or trust decisions; malformed and oversized state remains unchanged and degraded. |
+| Upgrade compatibility | A+ | Legacy user-owned policy files remain readable, policy directories are repaired to mode `0700`, and every new policy or lock entry is mode `0600`. |
+| Architecture | A+ | Bounded filesystem I/O and mutation coordination are focused components shared with credential persistence; every touched production and focused test file grades A+. |
+
+Validation:
+
+- Focused policy, hook-trust, credential, and path boundary: 52 tests, 0 failures.
+- Dependent permission reviewer, agent gate, workspace, and hook workflows: 66 tests, 1 expected
+  case-sensitive-volume skip, 0 failures.
+- Full Swift suite: 6,238 tests, 5 skipped, 0 failures.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, live-window,
+  Accessibility, native interaction, coworker, browser, computer-use, and 100-chat smokes passed.
+- Three fresh optimized packaged processes passed their performance budgets: 293.93 ms median
+  launch-ready, 40.91 MiB initial footprint, 85.13 MiB after interaction, and 84.33 MiB after the
+  repeated sweep, releasing 0.80 MiB with one fewer thread during repeated use.
+- The exact-commit arm64 DMG passed read-only mount, architecture, signature, move, relaunch,
+  first-window readiness, and cleanup checks.
+- `python3 scripts/grade-code-quality.py --root .`: every touched production and focused test file
+  grades A+; `git diff --check` passed and the supplied live credential is absent from source.
+
 ## 2026-08-11 Bounded Crash-Consistent Credential Persistence
 
 Overall grade after this slice: **A+ credential resilience, A+ bounded memory, A+ upgrade compatibility**.

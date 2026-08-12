@@ -6,8 +6,22 @@ import Darwin
 import Glibc
 #endif
 
-/// Owns descriptor-relative secret I/O so an entry can never escape through a final-component link.
-enum FileSecretStoreFileSystem {
+enum PrivateFileStoreFileSystemError: LocalizedError, Equatable, Sendable {
+    case unsafeDirectory
+    case unsafeEntry
+
+    var errorDescription: String? {
+        switch self {
+        case .unsafeDirectory:
+            "The private state directory is not owned by this user or has unsafe permissions."
+        case .unsafeEntry:
+            "The private state entry is not a private regular file owned by this user."
+        }
+    }
+}
+
+/// Owns descriptor-relative, bounded private-state reads and durable atomic writes.
+enum PrivateFileStoreFileSystem {
     private static let directoryPermissions = mode_t(0o700)
     private static let filePermissions = mode_t(0o600)
     private static let readChunkBytes = 64 * 1_024
@@ -15,12 +29,18 @@ enum FileSecretStoreFileSystem {
     static func read(
         directory: URL,
         filename: String,
-        maximumBytes: Int
+        maximumBytes: Int,
+        requiresPrivateFilePermissions: Bool = true,
+        repairDirectoryPermissions: Bool = false
     ) throws -> Data? {
         guard maximumBytes >= 0 else {
             throw BoundedFileDataError.invalidSizeLimit
         }
-        guard let directoryDescriptor = try openDirectory(at: directory, createIfMissing: false) else {
+        guard let directoryDescriptor = try openDirectory(
+            at: directory,
+            createIfMissing: false,
+            repairPermissions: repairDirectoryPermissions
+        ) else {
             return nil
         }
         defer { closeIgnoringErrors(directoryDescriptor) }
@@ -41,7 +61,7 @@ enum FileSecretStoreFileSystem {
         defer { closeIgnoringErrors(descriptor) }
 
         let metadata = try fileMetadata(descriptor)
-        try validateSecretEntry(metadata)
+        try validateEntry(metadata, requiresPrivatePermissions: requiresPrivateFilePermissions)
         guard metadata.st_size >= 0,
               UInt64(metadata.st_size) <= UInt64(maximumBytes)
         else {
@@ -75,11 +95,11 @@ enum FileSecretStoreFileSystem {
 
     static func write(_ data: Data, directory: URL, filename: String) throws {
         guard let directoryDescriptor = try openDirectory(at: directory, createIfMissing: true) else {
-            throw FileSecretStoreError.unsafeDirectory
+            throw PrivateFileStoreFileSystemError.unsafeDirectory
         }
         defer { closeIgnoringErrors(directoryDescriptor) }
 
-        let temporaryFilename = ".quill-secret-\(UUID().uuidString.lowercased()).tmp"
+        let temporaryFilename = ".quill-private-\(UUID().uuidString.lowercased()).tmp"
         let descriptor = temporaryFilename.withCString {
             openat(
                 directoryDescriptor,
@@ -142,7 +162,7 @@ enum FileSecretStoreFileSystem {
         }
         let type = metadata.st_mode & mode_t(S_IFMT)
         guard type == mode_t(S_IFREG) || type == mode_t(S_IFLNK) else {
-            throw FileSecretStoreError.unsafeSecretEntry
+            throw PrivateFileStoreFileSystemError.unsafeEntry
         }
         guard filename.withCString({ unlinkat(directoryDescriptor, $0, 0) }) == 0 else {
             if errno == ENOENT { return }
@@ -151,9 +171,10 @@ enum FileSecretStoreFileSystem {
         try synchronize(directoryDescriptor)
     }
 
-    private static func openDirectory(
+    static func openDirectory(
         at directory: URL,
-        createIfMissing: Bool
+        createIfMissing: Bool,
+        repairPermissions: Bool = false
     ) throws -> Int32? {
         if createIfMissing {
             let parent = directory.deletingLastPathComponent()
@@ -161,7 +182,11 @@ enum FileSecretStoreFileSystem {
                 at: parent,
                 withIntermediateDirectories: true
             )
-            try PrivateDirectory.ensureExists(at: directory)
+            do {
+                try PrivateDirectory.ensureExists(at: directory)
+            } catch let error as CocoaError where error.code == .fileWriteInvalidFileName {
+                throw PrivateFileStoreFileSystemError.unsafeDirectory
+            }
         }
 
         let descriptor = directory.path.withCString {
@@ -172,7 +197,7 @@ enum FileSecretStoreFileSystem {
                 return nil
             }
             if errno == ELOOP || errno == ENOTDIR {
-                throw FileSecretStoreError.unsafeDirectory
+                throw PrivateFileStoreFileSystemError.unsafeDirectory
             }
             throw posixError()
         }
@@ -182,16 +207,16 @@ enum FileSecretStoreFileSystem {
             guard metadata.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
                   metadata.st_uid == geteuid()
             else {
-                throw FileSecretStoreError.unsafeDirectory
+                throw PrivateFileStoreFileSystemError.unsafeDirectory
             }
-            if createIfMissing {
+            if createIfMissing || repairPermissions {
                 guard fchmod(descriptor, directoryPermissions) == 0 else {
                     throw posixError()
                 }
                 metadata = try fileMetadata(descriptor)
             }
             guard metadata.st_mode & mode_t(0o077) == 0 else {
-                throw FileSecretStoreError.unsafeDirectory
+                throw PrivateFileStoreFileSystemError.unsafeDirectory
             }
             return descriptor
         } catch {
@@ -200,21 +225,24 @@ enum FileSecretStoreFileSystem {
         }
     }
 
-    private static func validateSecretEntry(_ metadata: stat) throws {
+    private static func validateEntry(
+        _ metadata: stat,
+        requiresPrivatePermissions: Bool
+    ) throws {
         guard metadata.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG) else {
-            throw FileSecretStoreError.unsafeSecretEntry
+            throw PrivateFileStoreFileSystemError.unsafeEntry
         }
         // A concurrent atomic replacement can unlink this already-open inode before fstat, which
         // safely produces link count zero. More than one link can expose the secret elsewhere.
         guard metadata.st_uid == geteuid(), metadata.st_nlink <= 1 else {
-            throw FileSecretStoreError.unsafeSecretEntry
+            throw PrivateFileStoreFileSystemError.unsafeEntry
         }
-        guard metadata.st_mode & mode_t(0o077) == 0 else {
-            throw FileSecretStoreError.unsafeSecretEntry
+        guard !requiresPrivatePermissions || metadata.st_mode & mode_t(0o077) == 0 else {
+            throw PrivateFileStoreFileSystemError.unsafeEntry
         }
     }
 
-    private static func fileMetadata(_ descriptor: Int32) throws -> stat {
+    static func fileMetadata(_ descriptor: Int32) throws -> stat {
         var metadata = stat()
         guard fstat(descriptor, &metadata) == 0 else {
             throw posixError()
@@ -242,18 +270,18 @@ enum FileSecretStoreFileSystem {
         }
     }
 
-    private static func synchronize(_ descriptor: Int32) throws {
+    static func synchronize(_ descriptor: Int32) throws {
         guard fsync(descriptor) == 0 else {
             throw posixError()
         }
     }
 
-    private static func closeIgnoringErrors(_ descriptor: Int32) {
+    static func closeIgnoringErrors(_ descriptor: Int32) {
         guard descriptor >= 0 else { return }
         _ = close(descriptor)
     }
 
-    private static func posixError(_ code: Int32 = errno) -> NSError {
+    static func posixError(_ code: Int32 = errno) -> NSError {
         NSError(domain: NSPOSIXErrorDomain, code: Int(code))
     }
 
