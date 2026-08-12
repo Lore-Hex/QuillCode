@@ -70,6 +70,7 @@ public enum ProjectHookTrustStoreError: LocalizedError, Sendable, Equatable {
 public struct ProjectHookTrustFileStore: Sendable {
     public static let currentVersion = 1
     public static let maxRecords = 256
+    public static let maximumBytes = 1 * 1_024 * 1_024
 
     public var directory: URL
 
@@ -83,11 +84,17 @@ public struct ProjectHookTrustFileStore: Sendable {
 
     public func load(forWorkspaceRoot root: URL) -> ProjectHookTrustLoadResult {
         let fileURL = fileURL(forWorkspaceRoot: root)
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .init() }
         do {
+            guard let data = try PrivateFileStoreFileSystem.read(
+                directory: directory,
+                filename: fileURL.lastPathComponent,
+                maximumBytes: Self.maximumBytes,
+                requiresPrivateFilePermissions: false,
+                repairDirectoryPermissions: true
+            ) else { return .init() }
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            let payload = try decoder.decode(WirePayload.self, from: Data(contentsOf: fileURL))
+            let payload = try decoder.decode(WirePayload.self, from: data)
             guard payload.version == Self.currentVersion else {
                 return .init(
                     degraded: true,
@@ -112,28 +119,51 @@ public struct ProjectHookTrustFileStore: Sendable {
         guard !hook.isManaged else {
             throw ProjectHookTrustStoreError.managedHook
         }
-        let existing = load(forWorkspaceRoot: workspaceRoot)
-        guard !existing.degraded else {
-            throw ProjectHookTrustStoreError.degradedFile
+        let fileURL = fileURL(forWorkspaceRoot: workspaceRoot)
+        try PrivateFileStoreMutationCoordinator.withExclusiveLock(
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        ) {
+            let existing = load(forWorkspaceRoot: workspaceRoot)
+            guard !existing.degraded else {
+                throw ProjectHookTrustStoreError.degradedFile
+            }
+            var records = existing.records
+            records.removeAll { $0.hookID == hook.id }
+            records.append(ProjectHookTrustRecord(
+                hookID: hook.id,
+                definitionHash: hook.definitionHash,
+                decision: decision,
+                updatedAt: now
+            ))
+            try saveUnlocked(records, fileURL: fileURL)
         }
-        var records = existing.records
-        records.removeAll { $0.hookID == hook.id }
-        records.append(ProjectHookTrustRecord(
-            hookID: hook.id,
-            definitionHash: hook.definitionHash,
-            decision: decision,
-            updatedAt: now
-        ))
-        try save(records, forWorkspaceRoot: workspaceRoot)
     }
 
     public func save(_ records: [ProjectHookTrustRecord], forWorkspaceRoot root: URL) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fileURL = fileURL(forWorkspaceRoot: root)
+        try PrivateFileStoreMutationCoordinator.withExclusiveLock(
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        ) {
+            try saveUnlocked(records, fileURL: fileURL)
+        }
+    }
+
+    private func saveUnlocked(_ records: [ProjectHookTrustRecord], fileURL: URL) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let payload = WirePayload(version: Self.currentVersion, records: Self.normalized(records))
-        try encoder.encode(payload).write(to: fileURL(forWorkspaceRoot: root), options: .atomic)
+        let data = try encoder.encode(payload)
+        guard data.count <= Self.maximumBytes else {
+            throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: Self.maximumBytes)
+        }
+        try PrivateFileStoreFileSystem.write(
+            data,
+            directory: directory,
+            filename: fileURL.lastPathComponent
+        )
     }
 
     private struct WirePayload: Codable {

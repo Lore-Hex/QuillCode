@@ -123,9 +123,143 @@ final class PermissionRuleStoreTests: XCTestCase {
             at: fileURL.deletingLastPathComponent(),
             includingPropertiesForKeys: nil
         )
-        XCTAssertTrue(
-            siblings.contains { $0.lastPathComponent.contains("corrupt") },
-            "expected a corrupt-file backup, found \(siblings.map(\.lastPathComponent))"
+        let backups = siblings.filter { $0.lastPathComponent.contains("corrupt") }
+        XCTAssertEqual(backups.count, 1, "expected one corrupt-file backup")
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(backups.first)), Data("garbage".utf8))
+    }
+
+    func testOversizedFileFailsClosedWithoutLoadingOrReplacingIt() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
+        let handle = try FileHandle(forWritingTo: fileURL)
+        try handle.truncate(atOffset: UInt64(PermissionRuleFileStore.maximumBytes + 1))
+        try handle.close()
+
+        let loaded = store.load(forWorkspaceRoot: root)
+
+        XCTAssertTrue(loaded.degraded)
+        XCTAssertTrue(loaded.table.isEmpty)
+        XCTAssertThrowsError(try store.append(
+            PermissionRule(action: "host.shell.run", resource: "swift test", decision: .allow),
+            forWorkspaceRoot: root
+        )) { error in
+            XCTAssertEqual(
+                error as? BoundedFileDataError,
+                .exceedsSizeLimit(maximumBytes: PermissionRuleFileStore.maximumBytes)
+            )
+        }
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber,
+            NSNumber(value: PermissionRuleFileStore.maximumBytes + 1)
+        )
+    }
+
+    func testSymbolicLinkFailsClosedAndExplicitSaveRepairsWithoutTouchingTarget() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let target = fileURL.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("outside-rules.json")
+        let targetData = Data(#"{"version":1,"rules":[]}"#.utf8)
+        try targetData.write(to: target)
+        try FileManager.default.createSymbolicLink(at: fileURL, withDestinationURL: target)
+
+        XCTAssertTrue(store.load(forWorkspaceRoot: root).degraded)
+        XCTAssertThrowsError(try store.append(
+            PermissionRule(action: "host.shell.run", resource: "swift test", decision: .allow),
+            forWorkspaceRoot: root
+        )) { error in
+            XCTAssertEqual(error as? BoundedFileDataError, .symbolicLink)
+        }
+
+        let replacement = PermissionRule(
+            action: "host.git.push",
+            resource: "**",
+            decision: .deny
+        )
+        try store.save(PermissionRuleTable(rules: [replacement]), forWorkspaceRoot: root)
+
+        XCTAssertEqual(try Data(contentsOf: target), targetData)
+        XCTAssertEqual(store.load(forWorkspaceRoot: root).table.rules, [replacement])
+        XCTAssertFalse(try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true)
+    }
+
+    func testSymbolicLinkDirectoryCannotInjectRules() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let outsideDirectory = store.directory.deletingLastPathComponent()
+            .appendingPathComponent("outside-permissions", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        let injectedStore = PermissionRuleFileStore(directory: outsideDirectory)
+        try injectedStore.save(
+            PermissionRuleTable(rules: [
+                PermissionRule(action: "host.shell.run", resource: "**", decision: .allow)
+            ]),
+            forWorkspaceRoot: root
+        )
+        try FileManager.default.createSymbolicLink(
+            at: store.directory,
+            withDestinationURL: outsideDirectory
+        )
+
+        let loaded = store.load(forWorkspaceRoot: root)
+
+        XCTAssertTrue(loaded.degraded)
+        XCTAssertTrue(loaded.table.isEmpty)
+        XCTAssertThrowsError(try store.append(
+            PermissionRule(action: "host.git.push", resource: "**", decision: .allow),
+            forWorkspaceRoot: root
+        )) { error in
+            XCTAssertEqual(error as? PrivateFileStoreFileSystemError, .unsafeDirectory)
+        }
+    }
+
+    func testConcurrentAppendsPreserveEveryRule() async throws {
+        let (store, root) = try makeStoreAndRoot()
+        let count = 100
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<count {
+                group.addTask {
+                    try store.append(
+                        PermissionRule(
+                            action: "host.shell.run",
+                            resource: "command-\(index)",
+                            match: .exact,
+                            decision: .allow
+                        ),
+                        forWorkspaceRoot: root
+                    )
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        let resources = Set(store.load(forWorkspaceRoot: root).table.rules.map(\.resource))
+        XCTAssertEqual(resources, Set((0..<count).map { "command-\($0)" }))
+    }
+
+    func testWritesUsePrivateDurableStatePermissions() throws {
+        let (store, root) = try makeStoreAndRoot()
+        let fileURL = store.fileURL(forWorkspaceRoot: root)
+
+        try store.append(
+            PermissionRule(action: "host.shell.run", resource: "swift test", decision: .allow),
+            forWorkspaceRoot: root
+        )
+
+        XCTAssertEqual(try posixPermissions(at: store.directory), 0o700)
+        XCTAssertEqual(try posixPermissions(at: fileURL), 0o600)
+        XCTAssertEqual(
+            try posixPermissions(at: store.directory.appendingPathComponent(".\(fileURL.lastPathComponent).lock")),
+            0o600
         )
     }
 
@@ -342,5 +476,11 @@ final class PermissionRuleStoreTests: XCTestCase {
             .clarify,
             "an unknown-decision rule (possibly a deny) must force ask, not auto-approve"
         )
+    }
+
+    private func posixPermissions(at url: URL) throws -> Int {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
+        return permissions.intValue & 0o777
     }
 }
