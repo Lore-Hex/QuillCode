@@ -30,7 +30,7 @@ extension AppServerSession {
             explicit: request.apiKey,
             environment: environment,
             sessionStore: SecretTrustedRouterSessionStore(
-                secretStore: FileSecretStore(directory: paths.secretsDirectory)
+                secretStore: QuillSecretStoreFactory.make(for: paths)
             )
         )
     }

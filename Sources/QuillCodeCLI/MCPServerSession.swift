@@ -61,7 +61,7 @@ actor MCPServerSession {
         self.attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
         self.mcpRegistry = AppServerMCPRegistry(
             launcher: mcpLauncher,
-            secretStore: AppServerMCPSecretStore(directory: paths.secretsDirectory),
+            secretStore: AppServerMCPSecretStore(paths: paths),
             httpClient: mcpHTTPClient
         )
         self.runnerFactory = runnerFactory

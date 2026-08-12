@@ -75,6 +75,20 @@ For a bug report, include the warning title, affected data labels, app version, 
 Do not include API keys, account details, filesystem paths, URLs, or raw private content. The
 in-app diagnostic is deliberately content-free and should report `Private content included: No`.
 
+## Credential Storage
+
+Developer ID builds store desktop TrustedRouter credentials and MCP OAuth tokens in macOS Keychain.
+On first access, the app copies an existing private-file credential into Keychain only after the
+protected write succeeds, then attempts to remove the old copy. A transient cleanup failure does not
+hide the valid credential and cleanup is retried on the next read. Replacing or clearing a credential
+follows the same ordered migration boundary so interruption cannot silently lose or restore a key.
+
+The `tester-latest` app is currently ad-hoc signed. Because an ad-hoc identity changes with each
+binary, tester builds intentionally retain the update-safe private `0600` file backend rather than
+creating a Keychain item that the next build cannot access silently. The standalone CLI also keeps
+an independent private store; configure it with `quill-code auth set-key KEY`. Keychain migration
+activates automatically for the desktop when the Apple Developer ID signing secrets are configured.
+
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven

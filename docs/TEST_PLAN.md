@@ -34,7 +34,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   exact performance asset, production schema and limits, three attempts, median headline, recomputed
   deltas/flags, and a passing launch majority after file-integrity checks succeed.
 - Record & Replay contracts: request/status/capture encoding, event and snapshot bounds, skill-drafting prompt shape, empty-goal rejection, generic-backend unavailability, permission preflight, owner task/project/workspace propagation, stop-after-permission-revocation, event rejection once stop begins, protected-field redaction, and owner-only artifact permissions.
-- Config parsing, model catalog, auth state, secret store.
+- Config parsing, model catalog, auth state, private file storage, real macOS Keychain CRUD,
+  Developer ID eligibility, isolated-home selection, and ordered legacy credential migration.
 - Non-interactive CLI parsing and contracts: legacy/exec routing, relative path resolution, stdin
   framing and byte/UTF-8 bounds, resume targets, JSON value coding, bounded JSON Schema keywords and
   local references, repository-root termination, event projection, and secret-free auth output.

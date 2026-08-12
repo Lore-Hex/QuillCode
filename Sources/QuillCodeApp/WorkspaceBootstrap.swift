@@ -181,7 +181,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             subagentApprovalPayloadStore: payloadStore,
             managedWorktreeDefaultRoot: paths.worktreesDirectory,
             mcpSecretStore: MCPSecretStoreAdapter(
-                backing: FileSecretStore(directory: paths.secretsDirectory)
+                backing: QuillSecretStoreFactory.make(for: paths)
             )
         )
         if automaticStartupPolicy == .startImmediately {
@@ -228,7 +228,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             )
         }
 
-        let credentialStore = FileSecretStore(directory: paths.secretsDirectory)
+        let credentialStore = QuillSecretStoreFactory.make(for: paths)
         let transaction = WorkspaceSettingsPersistenceTransaction(
             saveConfiguration: { config in
                 try ConfigStore(fileURL: paths.configFile).save(config)
@@ -262,13 +262,13 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         try paths.ensure()
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        try FileSecretStore(directory: paths.secretsDirectory)
+        try QuillSecretStoreFactory.make(for: paths)
             .write(trimmed, for: QuillSecretKeys.trustedRouterAPIKey)
     }
 
     public func clearTrustedRouterAPIKey() throws {
         try paths.ensure()
-        try FileSecretStore(directory: paths.secretsDirectory)
+        try QuillSecretStoreFactory.make(for: paths)
             .delete(QuillSecretKeys.trustedRouterAPIKey)
     }
 

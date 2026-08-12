@@ -1,5 +1,6 @@
 import Foundation
 @testable import QuillCodeCLI
+import QuillCodePersistence
 import QuillCodeTools
 import XCTest
 
@@ -256,9 +257,7 @@ final class AppServerMCPConfigurationTests: XCTestCase {
             fallbackCWD: root,
             environment: ["MCP_TOKEN": "configured-token"]
         )
-        let secretStore = AppServerMCPSecretStore(
-            directory: root.appendingPathComponent("secrets", isDirectory: true)
-        )
+        let secretStore = AppServerMCPSecretStore(paths: QuillCodePaths(home: root))
         try MCPTokenStore(serverID: "mcp_server:oauth", secretStore: secretStore).saveTokens(
             MCPOAuthTokens(accessToken: "stored-oauth-token")
         )

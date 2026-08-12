@@ -1,6 +1,11 @@
 import Foundation
 import QuillCodeCore
 
+public enum QuillCodeSecretStorageScope: String, Sendable, Hashable {
+    case userAccount
+    case isolatedFile
+}
+
 public struct HookConfigurationPaths: Sendable, Hashable {
     public var userQuillCodeDirectory: URL?
     public var userCodexDirectory: URL?
@@ -47,6 +52,12 @@ public struct HookConfigurationPaths: Sendable, Hashable {
 public struct QuillCodePaths: Sendable, Hashable {
     public var home: URL
     public var hookConfigurationPaths: HookConfigurationPaths
+    public var secretStorageScope: QuillCodeSecretStorageScope {
+        let liveHome = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".quillcode", isDirectory: true)
+            .standardizedFileURL
+        return home.standardizedFileURL == liveHome ? .userAccount : .isolatedFile
+    }
     public var configFile: URL { home.appendingPathComponent("config.toml") }
     public var automationsFile: URL { home.appendingPathComponent("automations.json") }
     public var projectsFile: URL { home.appendingPathComponent("projects.json") }
@@ -78,8 +89,8 @@ public struct QuillCodePaths: Sendable, Hashable {
         self.hookConfigurationPaths = .live(quillCodeHome: home)
     }
 
-    /// Explicit homes are isolated by default so tests and portable installations never read the
-    /// host user's Codex or system configuration accidentally.
+    /// Explicit non-live homes are isolated so tests and portable installations never read the
+    /// host user's Codex, system configuration, or account credential store accidentally.
     public init(home: URL, hookConfigurationPaths: HookConfigurationPaths? = nil) {
         self.home = home
         self.hookConfigurationPaths = hookConfigurationPaths ?? .isolated(home: home)

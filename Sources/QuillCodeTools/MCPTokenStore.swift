@@ -40,7 +40,7 @@ public struct MCPOAuthTokens: Codable, Sendable, Hashable {
 
 /// Minimal key→value string persistence for MCP OAuth tokens and dynamic-registration client
 /// credentials. Mirrors `QuillCodePersistence.QuillSecretStore` (which `QuillCodeTools` cannot
-/// import) so the wiring layer can adapt its `FileSecretStore` to this protocol.
+/// import) so the wiring layer can adapt the active platform store to this protocol.
 public protocol MCPSecretStore: Sendable {
     func read(_ key: String) throws -> String?
     func write(_ value: String, for key: String) throws

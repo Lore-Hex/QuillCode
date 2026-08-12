@@ -89,9 +89,7 @@ final class CLIDoctorTests: XCTestCase {
         let mcpToken = "mcp-oauth-private-token"
         try MCPTokenStore(
             serverID: "mcp_server:oauth-fixture",
-            secretStore: AppServerMCPSecretStore(
-                directory: home.appendingPathComponent("secrets", isDirectory: true)
-            )
+            secretStore: AppServerMCPSecretStore(paths: QuillCodePaths(home: home))
         ).saveTokens(MCPOAuthTokens(accessToken: mcpToken))
         let apiKey = "sk-tr-doctor-private"
         let doctor = fixture.doctor(networkResult: CLIDoctorNetworkResult(

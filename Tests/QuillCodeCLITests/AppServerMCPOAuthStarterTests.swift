@@ -3,6 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 @testable import QuillCodeCLI
+import QuillCodePersistence
 import QuillCodeTools
 import XCTest
 
@@ -11,9 +12,7 @@ final class AppServerMCPOAuthStarterTests: XCTestCase {
         let httpClient = MCPOAuthStarterHTTPClient()
         let starter = DefaultAppServerMCPOAuthLoginStarter(httpClient: httpClient)
         let root = try temporaryDirectory()
-        let secretStore = AppServerMCPSecretStore(
-            directory: root.appendingPathComponent("secrets", isDirectory: true)
-        )
+        let secretStore = AppServerMCPSecretStore(paths: QuillCodePaths(home: root))
         let configuration = AppServerMCPServerConfiguration(
             name: "remote",
             transport: .remote(

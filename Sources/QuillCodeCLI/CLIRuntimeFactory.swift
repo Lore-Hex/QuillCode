@@ -46,7 +46,7 @@ public enum CLIRuntimeFactory {
         var runner: AgentRunner
         if request.live {
             let sessionStore = SecretTrustedRouterSessionStore(
-                secretStore: FileSecretStore(directory: configuration.paths.secretsDirectory),
+                secretStore: QuillSecretStoreFactory.make(for: configuration.paths),
                 key: QuillSecretKeys.trustedRouterAPIKey
             )
             let key = try CLITrustedRouterCredentials.resolve(

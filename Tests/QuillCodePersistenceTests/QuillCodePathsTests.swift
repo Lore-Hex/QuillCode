@@ -2,6 +2,14 @@ import XCTest
 @testable import QuillCodePersistence
 
 final class QuillCodePathsTests: PersistenceTestCase {
+    func testDefaultAndExplicitHomesChooseIntentionalSecretStorageScopes() throws {
+        XCTAssertEqual(QuillCodePaths().secretStorageScope, .userAccount)
+        XCTAssertEqual(
+            QuillCodePaths(home: try makeTempDirectory()).secretStorageScope,
+            .isolatedFile
+        )
+    }
+
     func testExplicitHomeUsesAnIsolatedHookConfigurationPathSet() throws {
         let home = try makeTempDirectory().appendingPathComponent("portable")
         let paths = QuillCodePaths(home: home)
