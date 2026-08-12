@@ -129,6 +129,12 @@
 
 ## Latest Quality Pass
 
+- Structured JSON artifact previews now share one metadata-keyed document reader instead of mapping
+  and parsing the same file independently for each candidate format. Successful and invalid parses
+  are purgeable and bounded to four entries / 4 MiB estimated residency; same-key concurrent reads
+  coalesce, file identity/size/mtime changes invalidate immediately, caller byte caps still apply
+  before I/O, and documents deeper than 64 levels or larger than 16,384 JSON nodes fail closed before
+  any format renderer walks them.
 - Model streaming now separates provider-token cadence from presentation cadence: visible answer
   drafts and bounded reasoning summaries publish at most every 50 milliseconds, with immediate first
   text and an exact final flush on success or provider failure. A shared 16 MiB UTF-8 action limit

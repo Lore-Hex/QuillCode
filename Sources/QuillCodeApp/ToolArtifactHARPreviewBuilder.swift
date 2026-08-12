@@ -12,15 +12,12 @@ enum ToolArtifactHARPreviewBuilder {
         }
 
         do {
-            let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            guard resourceValues.isRegularFile == true else { return nil }
-            let fileSize = max(resourceValues.fileSize ?? 0, 0)
-            guard fileSize > 0, fileSize <= byteLimit else { return nil }
-
-            let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
-            guard !data.contains(0) else { return nil }
-            let root = try JSONSerialization.jsonObject(with: data, options: [])
-            guard let preview = preview(from: root, fileSize: fileSize) else { return nil }
+            guard let document = try ToolArtifactJSONDocumentReader.document(
+                for: fileURL,
+                byteLimit: byteLimit
+            ),
+                  let preview = preview(from: document.root, fileSize: document.byteSize)
+            else { return nil }
             return preview.hasDisplayContent ? preview : nil
         } catch {
             return nil

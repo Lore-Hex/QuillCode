@@ -12,13 +12,12 @@ enum ToolArtifactAllureJSONPreviewBuilder {
         }
 
         do {
-            let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            guard resourceValues.isRegularFile == true else { return nil }
-            let fileSize = max(resourceValues.fileSize ?? 0, 0)
-            guard fileSize > 0, fileSize <= byteLimit else { return nil }
-            let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
-            guard !data.contains(0) else { return nil }
-            let root = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let document = try ToolArtifactJSONDocumentReader.document(
+                for: fileURL,
+                byteLimit: byteLimit
+            ) else { return nil }
+            let fileSize = document.byteSize
+            let root = document.root
             guard let object = root as? [String: Any] else { return nil }
             return preview(
                 from: object,

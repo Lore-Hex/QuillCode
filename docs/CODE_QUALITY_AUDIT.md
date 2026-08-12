@@ -17433,3 +17433,26 @@ Validation:
 - Final three-launch physical-footprint evidence: 292.07 ms median launch-ready, 41.02 MiB initial, 86.45 MiB post-interaction, 87.67 MiB repeated-interaction, and 1.22 MiB repeated growth
 - `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
 - `git diff --check`
+
+## 2026-08-11 Bounded JSON Artifact Parsing
+
+Overall grade after this slice: **A+ responsiveness, A+ memory architecture, A+ malformed-input resilience**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Parse ownership | A+ | Forty structured JSON preview builders now share one metadata-keyed document reader; one artifact projection no longer maps and parses the same bytes independently for each candidate format. |
+| Residency | A+ | Successful and invalid results use a purgeable four-entry cache capped at 4 MiB estimated decoded cost, with per-document byte and 16,384-node limits. |
+| Concurrency | A+ | Same-key requests coalesce under a synchronized read/parse boundary, so concurrent SwiftUI or parity projections perform one file read and one parse. |
+| Invalidation | A+ | Fresh file identity, size, and modification metadata form the key; same-path, same-size rewrites invalidate deterministically instead of serving stale preview data. |
+| Failure behavior | A+ | Malformed JSON is negatively cached, over-depth or over-node documents fail closed, caller byte limits run before I/O, and format-specific cards preserve their prior typed output. |
+| Regression evidence | A+ | Six focused cache tests cover reuse, malformed input, mutation, concurrency, structural limits, and byte limits; the architecture gate rejects new direct whole-document JSON parsers outside the explicit JSONL/JSONC adapters. |
+
+Validation:
+
+- Focused reader, architecture, and complete artifact-surface suite (105 tests, 0 failures)
+- `swift test` (6,206 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live native interaction, Accessibility, browser/computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 305.24 ms median launch-ready, 41.17 MiB initial, 86.88 MiB post-interaction, 85.69 MiB repeated-interaction, and -1.19 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (new production and test files A+; all production modules A+)
+- `git diff --check`
