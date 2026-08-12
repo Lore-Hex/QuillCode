@@ -284,7 +284,9 @@ version/build/commit identity, retain the expected native architecture, and pass
 strict recursive code-signature check.
 
 Installation stages the verified app beside the running bundle, then uses a
-detached helper for the final rename and relaunch. The new app must complete a
+detached helper for the final rename. It opens that exact bundle through Launch
+Services as a new foreground instance, with running-app substitution disabled.
+The new app must complete a
 launch handshake within 45 seconds and remain running for a three-second startup
 observation window. If either check fails, the helper restores and reopens the
 previous bundle. The one-shot install result is read only when it is a regular,
@@ -362,17 +364,19 @@ or already published. It creates the stable release as a draft, uploads every
 asset, and exposes it first as a non-latest prerelease candidate. The public
 consumer verifier must accept the candidate's exact inventory, hashes, bundle
 metadata, CPU architectures, performance evidence, signing identity, and
-notarization declaration before GitHub promotes it to the stable latest feed.
-Both native updater runners then install and relaunch through that live feed.
-A final verifier requires GitHub's `releases/latest` API object to identify the
-same release and requires the moving `latest-stable-build.json` bytes to match
-the versioned manifest exactly.
+notarization declaration. Both native updater runners then install the previous
+stable app, consume the candidate's versioned manifest, and prove update,
+activation, relaunch, and launch stability while the candidate remains
+non-latest. Only after both architectures pass does GitHub promote the candidate
+to the stable latest feed. A final verifier requires GitHub's `releases/latest`
+API object to identify the same release and requires the moving
+`latest-stable-build.json` bytes to match the versioned manifest exactly.
 
-If candidate verification fails, the workflow returns the new release to draft
-without changing the previous stable feed. If either native updater gate or the
-final feed verification fails after promotion, the workflow also returns the new
-release to draft so GitHub falls back to the previous stable feed. Inspect and
-delete that failed draft before retrying; an existing stable release is never
+If candidate verification or either native updater gate fails, the workflow
+returns the new release to draft without changing the previous stable feed. If
+the final feed verification fails after promotion, the workflow also returns the
+new release to draft so GitHub falls back to the previous stable feed. Inspect
+and delete that failed draft before retrying; an existing stable release is never
 edited or clobbered automatically. Treat a versioned release as announced only
 after the complete **Download Builds** run is green.
 Pre-existing stable releases remain untouched throughout this recovery flow.

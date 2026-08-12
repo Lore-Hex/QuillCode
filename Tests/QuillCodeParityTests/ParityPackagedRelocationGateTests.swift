@@ -10,6 +10,9 @@ final class ParityPackagedRelocationGateTests: QuillCodeParityTestCase {
             named: "QuillCodeDesktopApplicationRelocator.swift"
         )
         let helper = try Self.desktopSourceText(named: "QuillCodeDesktopUpdateHelper.swift")
+        let launcher = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateApplicationLauncher.swift"
+        )
         let runner = try Self.desktopSourceText(
             named: "QuillCodeDesktopRelocationSmokeRunner.swift"
         )
@@ -38,7 +41,14 @@ final class ParityPackagedRelocationGateTests: QuillCodeParityTestCase {
             "UInt32(RENAME_EXCL)",
             ".isSymbolicLinkKey",
             "try fileManager.removeItem(at: request.destinationApplicationURL)",
-            "_ = try launch(rollbackApplicationURL, handshakeURL: nil)"
+            "QuillCodeDesktopUpdateApplicationLauncher.launch(",
+            "rollbackApplicationURL,",
+            "mode: environment.applicationLaunchMode"
+        ])
+        Self.assertSource(launcher, containsAll: [
+            "NSWorkspace.shared.openApplication(",
+            "configuration.createsNewApplicationInstance = true",
+            "configuration.allowsRunningApplicationSubstitution = false"
         ])
         Self.assertSource(runner, containsAll: [
             "--native-relocation-smoke",

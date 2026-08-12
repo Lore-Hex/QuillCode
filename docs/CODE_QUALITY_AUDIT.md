@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-08-11 Stable Candidate Updater Proof Before Promotion
+
+Overall grade after this slice: **A+ release isolation, A+ relaunch resilience, A+ evidence quality**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Promotion ordering | A+ | A stable candidate remains non-latest until public inventory checks and native updater/relaunch gates pass on Apple Silicon and Intel. |
+| Failure isolation | A+ | Candidate or updater failure drafts only the candidate; the prior stable feed stays unchanged. Post-promotion quarantine is reserved for final latest-feed identity failure. |
+| Candidate fidelity | A+ | Updater smoke consumes the candidate's bounded regular manifest file through the ordinary checker and validator while preserving the production channel, repository, signature, team, asset, SHA-256, and app validation contracts. |
+| Relaunch correctness | A+ | Production activation and rollback reopen the exact app bundle through Launch Services, disable running-app substitution, preserve arguments and environment, and wait for real first-window readiness. |
+| Architecture | A+ | Transaction ownership, application launch, and PID/file/stability monitoring live in focused components; deterministic fixture launches remain explicit test-only policy. |
+| Failure evidence | A+ | Smoke artifacts retain bounded stage, source, install-result, and detached-helper evidence for both candidate and updater failures. |
+
+Validation:
+
+- Focused updater, relocation, candidate-manifest, and release-order boundary: 49 tests, 0 failures.
+- Full Swift suite: 6,217 tests, 5 skipped, 0 failures.
+- Real packaged synthetic-first-release update: public build 729 to 730, exact commit
+  `947324195a579190ae4735ebcc59115aec58bc6b`, successful first-window handshake and cleanup.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, live-window,
+  Accessibility, native interaction, browser, computer-use, and 100-chat daily-driver smokes passed.
+- Dedicated packaged performance gate: 3/3 launches within budget; 299.16 ms median launch-ready,
+  40.63 MiB initial footprint, 91.67 MiB after the first interaction sweep, and 93.05 MiB after the
+  repeated sweep.
+- `python3 scripts/grade-code-quality.py --root .`: every production module and every touched
+  production, script, and focused test file grades A+.
+- Workflow YAML parse, shell syntax validation, and `git diff --check` passed.
+
 ## 2026-08-11 Idempotent Tester Publication Recovery
 
 Overall grade after this slice: **A+ transaction safety, A+ outage resilience, A+ failure evidence**.

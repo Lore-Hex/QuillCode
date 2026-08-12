@@ -10,6 +10,12 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         let updateSupport = try Self.desktopSourceText(
             named: "QuillCodeDesktopUpdateSupport.swift"
         )
+        let helper = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateHelper.swift"
+        )
+        let launcher = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateApplicationLauncher.swift"
+        )
         let bootstrap = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
         let runner = try Self.desktopSourceText(named: "QuillCodeDesktopUpdaterSmokeRunner.swift")
         let script = try Self.scriptText(named: "packaged-macos-updater-smoke.sh")
@@ -69,11 +75,29 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "try Task.checkCancellation()",
             "guard self.generation == generation else { return }"
         ])
+        Self.assertSource(helper, containsAll: [
+            "QuillCodeDesktopUpdateApplicationLauncher.launch(",
+            "applicationLaunchMode: .launchServices"
+        ])
+        Self.assertSource(launcher, containsAll: [
+            "NSWorkspace.shared.openApplication(",
+            "configuration.activates = true",
+            "configuration.createsNewApplicationInstance = true",
+            "configuration.allowsRunningApplicationSubstitution = false",
+            "configuration.arguments = arguments",
+            "configuration.environment = ProcessInfo.processInfo.environment",
+            "processIdentifier: application.processIdentifier",
+            "isRunning: { !application.isTerminated }"
+        ])
         Self.assertSource(runner, containsAll: [
-            "waitForAvailableUpdate(configuration: configuration)",
-            "feedPropagationAttemptLimit = 6",
-            "if case .updateAvailable(let release) = result",
-            "try await retryDelay()",
+            "--updater-smoke-manifest",
+            "QuillCodeDesktopUpdaterSmokeManifestLoader",
+            "values.isRegularFile == true",
+            "values.isSymbolicLink != true",
+            "read(upToCount: byteLimit + 1)",
+            "loader: QuillCodeDesktopUpdaterSmokeManifestLoader(manifestURL: manifestURL)",
+            "candidateUpdate(",
+            "the verified candidate manifest did not advance beyond the smoke fixture",
             "QuillCodeDesktopUpdatePreparer().prepare",
             "QuillCodeDesktopUpdateInstaller().stageAndLaunch",
             "targetCommit: release.commit"
@@ -81,9 +105,12 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         Self.assertSource(script, containsAll: [
             "--native-updater-smoke",
             "--updater-smoke-report",
+            "--updater-smoke-manifest \"$MANIFEST_PATH\"",
             "--source-manifest",
             "SOURCE_MODE=\"previous-public-build\"",
             "SOURCE_MODE=\"synthetic-first-release\"",
+            "install-result.json",
+            "install-helper.log",
             "Previous public app metadata disagrees with its captured manifest.",
             "codesign --verify --deep --strict",
             "CFBundleVersion $SOURCE_BUILD",
@@ -107,13 +134,21 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "runs-on: ${{ matrix.runner }}",
             "arch: arm64",
             "arch: x86_64",
-            "needs: [publish, verify-published, promote-stable, capture-updater-source]",
+            "needs: [publish, verify-published, capture-updater-source]",
             "needs.capture-updater-source.result == 'success'",
-            "needs.promote-stable.result == 'success'",
+            "needs: [publish, verify-published, verify-updater]",
+            "needs.verify-updater.result == 'success'",
             "sourceAvailable raw",
             "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
             "scripts/packaged-macos-updater-smoke.sh",
             "quillcode-public-updater-smoke-${{ matrix.arch }}"
         ])
+        let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))
+        let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
+        XCTAssertLessThan(
+            updaterIndex.lowerBound,
+            promotionIndex.lowerBound,
+            "stable candidates must prove updater activation before becoming latest stable"
+        )
     }
 }

@@ -2,22 +2,105 @@ import XCTest
 @testable import quill_code_desktop
 
 final class QuillCodeDesktopUpdaterSmokeTests: XCTestCase {
-    func testRequestRequiresModeAndAbsoluteReportPath() throws {
+    func testRequestRequiresModeAndAbsoluteReportAndManifestPaths() throws {
         let request = try XCTUnwrap(QuillCodeDesktopUpdaterSmokeRequest(arguments: [
             "Quill Cowork",
             "--native-updater-smoke",
             "--updater-smoke-report",
             "/tmp/updater-smoke.json",
+            "--updater-smoke-manifest",
+            "/tmp/latest-candidate-build.json",
         ]))
 
         XCTAssertEqual(request.reportURL.path, "/tmp/updater-smoke.json")
+        XCTAssertEqual(request.manifestURL.path, "/tmp/latest-candidate-build.json")
         XCTAssertNil(QuillCodeDesktopUpdaterSmokeRequest(arguments: ["Quill Cowork"]))
         XCTAssertNil(QuillCodeDesktopUpdaterSmokeRequest(arguments: [
             "Quill Cowork",
             "--native-updater-smoke",
             "--updater-smoke-report",
             "relative.json",
+            "--updater-smoke-manifest",
+            "/tmp/latest-candidate-build.json",
         ]))
+        XCTAssertNil(QuillCodeDesktopUpdaterSmokeRequest(arguments: [
+            "Quill Cowork",
+            "--native-updater-smoke",
+            "--updater-smoke-report",
+            "/tmp/updater-smoke.json",
+            "--updater-smoke-manifest",
+            "relative.json",
+        ]))
+    }
+
+    func testRequestRejectsMissingOrAmbiguousManifestFixture() {
+        XCTAssertNil(QuillCodeDesktopUpdaterSmokeRequest(arguments: [
+            "Quill Cowork",
+            "--native-updater-smoke",
+            "--updater-smoke-report",
+            "/tmp/updater-smoke.json",
+        ]))
+        XCTAssertNil(QuillCodeDesktopUpdaterSmokeRequest(arguments: [
+            "Quill Cowork",
+            "--native-updater-smoke",
+            "--updater-smoke-report",
+            "/tmp/updater-smoke.json",
+            "--updater-smoke-manifest",
+            "/tmp/first.json",
+            "--updater-smoke-manifest",
+            "/tmp/second.json",
+        ]))
+    }
+
+    func testFixtureManifestLoaderReadsOnlyBoundedRegularFiles() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-updater-smoke-loader")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fixture = root.appendingPathComponent("manifest.json")
+        let payload = Data(#"{"build":"731"}"#.utf8)
+        try payload.write(to: fixture)
+        let loader = QuillCodeDesktopUpdaterSmokeManifestLoader(manifestURL: fixture)
+
+        let loaded = try await loader.loadManifest(
+            from: URL(string: "https://example.com/ignored.json")!,
+            byteLimit: payload.count
+        )
+
+        XCTAssertEqual(loaded, payload)
+    }
+
+    func testFixtureManifestLoaderRejectsOversizedSymlinkAndMissingInputs() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-updater-smoke-loader")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fixture = root.appendingPathComponent("manifest.json")
+        try Data("candidate".utf8).write(to: fixture)
+        let symlink = root.appendingPathComponent("manifest-link.json")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: fixture)
+
+        await assertLoaderError(
+            QuillCodeDesktopUpdaterSmokeManifestLoader(manifestURL: fixture),
+            byteLimit: 4,
+            expected: .manifestTooLarge
+        )
+        await assertLoaderError(
+            QuillCodeDesktopUpdaterSmokeManifestLoader(manifestURL: symlink),
+            byteLimit: 32,
+            expected: .invalidResponse
+        )
+        await assertLoaderError(
+            QuillCodeDesktopUpdaterSmokeManifestLoader(
+                manifestURL: root.appendingPathComponent("missing.json")
+            ),
+            byteLimit: 32,
+            expected: .invalidResponse
+        )
     }
 
     func testReportEncodesReleaseProvenance() throws {
@@ -39,55 +122,43 @@ final class QuillCodeDesktopUpdaterSmokeTests: XCTestCase {
     }
 
     @MainActor
-    func testAvailableUpdateRetriesAStalePublishedFeed() async throws {
+    func testCandidateUpdateReturnsAnAvailableRelease() async throws {
         let release = makeRelease()
-        let checker = UpdaterSmokeCheckerStub(results: [
-            .upToDate(latestVersion: "0.1.0", latestBuild: "680"),
-            .upToDate(latestVersion: "0.1.0", latestBuild: "680"),
-            .updateAvailable(release),
-        ])
-        let delay = UpdaterSmokeRetryDelaySpy()
+        let checker = UpdaterSmokeCheckerStub(result: .updateAvailable(release))
 
-        let result = try await QuillCodeDesktopUpdaterSmokeRunner.waitForAvailableUpdate(
+        let result = try await QuillCodeDesktopUpdaterSmokeRunner.candidateUpdate(
             configuration: makeConfiguration(),
-            checker: checker,
-            retryDelay: { await delay.record() }
+            checker: checker
         )
 
         XCTAssertEqual(result, release)
         let checkCallCount = await checker.callCount
-        let delayCallCount = await delay.callCount
-        XCTAssertEqual(checkCallCount, 3)
-        XCTAssertEqual(delayCallCount, 2)
+        XCTAssertEqual(checkCallCount, 1)
     }
 
     @MainActor
-    func testAvailableUpdateFailsAfterBoundedStaleFeedRetries() async throws {
-        let checker = UpdaterSmokeCheckerStub(results: [
-            .upToDate(latestVersion: "0.1.0", latestBuild: "680"),
-        ])
-        let delay = UpdaterSmokeRetryDelaySpy()
+    func testCandidateUpdateRejectsANonadvancingFixtureWithoutRetrying() async throws {
+        let checker = UpdaterSmokeCheckerStub(
+            result: .upToDate(latestVersion: "0.1.0", latestBuild: "680")
+        )
 
         do {
-            _ = try await QuillCodeDesktopUpdaterSmokeRunner.waitForAvailableUpdate(
+            _ = try await QuillCodeDesktopUpdaterSmokeRunner.candidateUpdate(
                 configuration: makeConfiguration(),
-                checker: checker,
-                retryDelay: { await delay.record() }
+                checker: checker
             )
-            XCTFail("Expected a stale feed to fail after bounded retries")
+            XCTFail("Expected a nonadvancing candidate fixture to fail")
         } catch {
             XCTAssertEqual(
                 error as? QuillCodeDesktopUpdateError,
                 .installationFailed(
-                    "the published update feed did not advance beyond the smoke fixture after bounded retries"
+                    "the verified candidate manifest did not advance beyond the smoke fixture"
                 )
             )
         }
 
         let checkCallCount = await checker.callCount
-        let delayCallCount = await delay.callCount
-        XCTAssertEqual(checkCallCount, QuillCodeDesktopUpdaterSmokeRunner.feedPropagationAttemptLimit)
-        XCTAssertEqual(delayCallCount, QuillCodeDesktopUpdaterSmokeRunner.feedPropagationAttemptLimit - 1)
+        XCTAssertEqual(checkCallCount, 1)
     }
 
     private func makeConfiguration() -> QuillCodeDesktopUpdateConfiguration {
@@ -103,6 +174,22 @@ final class QuillCodeDesktopUpdaterSmokeTests: XCTestCase {
             applicationURL: URL(fileURLWithPath: "/Applications/Quill Cowork.app"),
             expectedSigningTeamIdentifier: nil
         )
+    }
+
+    private func assertLoaderError(
+        _ loader: QuillCodeDesktopUpdaterSmokeManifestLoader,
+        byteLimit: Int,
+        expected: QuillCodeDesktopUpdateError
+    ) async {
+        do {
+            _ = try await loader.loadManifest(
+                from: URL(string: "https://example.com/ignored.json")!,
+                byteLimit: byteLimit
+            )
+            XCTFail("Expected fixture loader to fail with \(expected)")
+        } catch {
+            XCTAssertEqual(error as? QuillCodeDesktopUpdateError, expected)
+        }
     }
 
     private func makeRelease() -> QuillCodeDesktopUpdateRelease {
@@ -129,31 +216,17 @@ final class QuillCodeDesktopUpdaterSmokeTests: XCTestCase {
 }
 
 private actor UpdaterSmokeCheckerStub: QuillCodeDesktopUpdateChecking {
-    private var results: [QuillCodeDesktopUpdateCheckResult]
+    private let result: QuillCodeDesktopUpdateCheckResult
     private(set) var callCount = 0
 
-    init(results: [QuillCodeDesktopUpdateCheckResult]) {
-        self.results = results
+    init(result: QuillCodeDesktopUpdateCheckResult) {
+        self.result = result
     }
 
     func check(
         configuration: QuillCodeDesktopUpdateConfiguration
     ) async throws -> QuillCodeDesktopUpdateCheckResult {
         callCount += 1
-        guard let result = results.first else {
-            throw QuillCodeDesktopUpdateError.invalidResponse
-        }
-        if results.count > 1 {
-            results.removeFirst()
-        }
         return result
-    }
-}
-
-private actor UpdaterSmokeRetryDelaySpy {
-    private(set) var callCount = 0
-
-    func record() {
-        callCount += 1
     }
 }

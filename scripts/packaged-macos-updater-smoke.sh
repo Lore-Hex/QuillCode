@@ -14,6 +14,8 @@ UPDATED_PID=""
 
 cleanup() {
   local status=$?
+  local install_result_path
+  local -a helper_log_candidates
   set +e
   if [[ -n "$UPDATED_PID" ]]; then
     kill "$UPDATED_PID" 2>/dev/null || true
@@ -25,6 +27,15 @@ cleanup() {
     [[ -f "$LOG_PATH" ]] && cp "$LOG_PATH" "$ARTIFACT_DIR/updater.log"
     [[ -n "$SOURCE_MANIFEST_PATH" && -f "$SOURCE_MANIFEST_PATH" ]] &&
       cp "$SOURCE_MANIFEST_PATH" "$ARTIFACT_DIR/source-manifest.json"
+    install_result_path="$SMOKE_ROOT/home/Library/Application Support/co.lorehex.QuillCowork/UpdateResult.json"
+    [[ -f "$install_result_path" ]] &&
+      cp "$install_result_path" "$ARTIFACT_DIR/install-result.json"
+    helper_log_candidates=(
+      "$SMOKE_ROOT"/home/Library/Caches/co.lorehex.QuillCowork/Updates/*/install-*.log
+    )
+    if [[ ${#helper_log_candidates[@]} -eq 1 && -f "${helper_log_candidates[0]}" ]]; then
+      cp "${helper_log_candidates[0]}" "$ARTIFACT_DIR/install-helper.log"
+    fi
     printf 'status=%s\nsource_mode=%s\n' \
       "$status" "${SOURCE_MODE:-unknown}" > "$ARTIFACT_DIR/manifest.txt"
   fi
@@ -61,6 +72,10 @@ fi
 if [[ ! -f "$APP_ZIP" || ! -f "$MANIFEST_PATH" ||
       ( -n "$SOURCE_MANIFEST_PATH" && ! -f "$SOURCE_MANIFEST_PATH" ) ]]; then
   echo "Usage: packaged-macos-updater-smoke.sh --app-zip APP_ZIP --manifest TARGET_JSON [--source-manifest SOURCE_JSON]" >&2
+  exit 2
+fi
+if [[ "$MANIFEST_PATH" != /* ]]; then
+  echo "Packaged updater smoke requires an absolute candidate manifest path." >&2
   exit 2
 fi
 
@@ -133,6 +148,7 @@ CFFIXED_USER_HOME="$SMOKE_ROOT/home" HOME="$SMOKE_ROOT/home" \
   "$APP_EXECUTABLE" \
     --native-updater-smoke \
     --updater-smoke-report "$REPORT_PATH" \
+    --updater-smoke-manifest "$MANIFEST_PATH" \
     >"$LOG_PATH" 2>&1 &
 SMOKE_PID="$!"
 
