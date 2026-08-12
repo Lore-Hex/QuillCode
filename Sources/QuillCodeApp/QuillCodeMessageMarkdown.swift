@@ -183,14 +183,16 @@ enum MessageMarkdownBlocks {
     }
 }
 
-/// Per-message parsed Markdown retained by SwiftUI for the lifetime of a lazy transcript row.
-/// Long assistant replies should be parsed when their text changes, not whenever scrolling asks the
-/// row for its body again.
+/// Per-message Markdown state owned by one lazy transcript row. Parsed blocks and inline styling are
+/// reused while visible, then released when the row leaves the viewport and rebuilt on demand.
 final class QuillCodeMessageMarkdownDocument: ObservableObject {
-    private var sourceText: String
+    private var sourceText: String?
     private var inlineCache: [String: AttributedString] = [:]
     private var plainInlineText: Set<String> = []
     private(set) var blocks: [MessageMarkdownBlocks.Block]
+    var retainedInlineEntryCount: Int {
+        inlineCache.count + plainInlineText.count
+    }
 
     init(text: String) {
         let displayText = MessageMarkdownBlocks.strippingReplacementCharacters(text)
@@ -203,9 +205,18 @@ final class QuillCodeMessageMarkdownDocument: ObservableObject {
         sourceText = text
         let displayText = MessageMarkdownBlocks.strippingReplacementCharacters(text)
         blocks = MessageMarkdownBlocks.parse(displayText)
-        inlineCache.removeAll(keepingCapacity: true)
-        plainInlineText.removeAll(keepingCapacity: true)
+        inlineCache.removeAll(keepingCapacity: false)
+        plainInlineText.removeAll(keepingCapacity: false)
         return blocks
+    }
+
+    /// Lazy transcript rows can keep their state object after leaving the viewport. Drop rendered
+    /// message copies until the row is visible again; the durable message text remains in its surface.
+    func releaseRenderedContent() {
+        sourceText = nil
+        blocks.removeAll(keepingCapacity: false)
+        inlineCache.removeAll(keepingCapacity: false)
+        plainInlineText.removeAll(keepingCapacity: false)
     }
 
     func inlineAttributed(for text: String) -> AttributedString? {
@@ -241,6 +252,7 @@ struct QuillCodeMessageMarkdownView: View {
                 blockView(block)
             }
         }
+        .onDisappear(perform: document.releaseRenderedContent)
     }
 
     @ViewBuilder

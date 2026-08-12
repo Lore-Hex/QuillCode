@@ -155,5 +155,25 @@ final class MessageMarkdownBlocksTests: XCTestCase {
         XCTAssertEqual(first, second)
         XCTAssertNil(document.inlineAttributed(for: "Plain text"))
         XCTAssertNil(document.inlineAttributed(for: "Plain text"))
+        XCTAssertEqual(document.retainedInlineEntryCount, 2)
+    }
+
+    func testMarkdownDocumentReleasesAndRehydratesOffscreenRendering() throws {
+        let text = "## Result\n\nUse `swift test`."
+        let document = QuillCodeMessageMarkdownDocument(text: text)
+        _ = try XCTUnwrap(document.inlineAttributed(for: "Use `swift test`."))
+        XCTAssertFalse(document.blocks.isEmpty)
+        XCTAssertEqual(document.retainedInlineEntryCount, 1)
+
+        document.releaseRenderedContent()
+
+        XCTAssertTrue(document.blocks.isEmpty)
+        XCTAssertEqual(document.retainedInlineEntryCount, 0)
+        XCTAssertEqual(document.blocks(for: text), [
+            .heading(level: 2, text: "Result"),
+            .paragraph("Use `swift test`."),
+        ])
+        XCTAssertNotNil(document.inlineAttributed(for: "Use `swift test`."))
+        XCTAssertEqual(document.retainedInlineEntryCount, 1)
     }
 }
