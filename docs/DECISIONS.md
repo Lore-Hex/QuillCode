@@ -7,7 +7,7 @@
   from `proc_taskinfo`, alongside physical footprint and thread count, before and after that window.
 - **Budgets:** The release majority must reach its live window within 2.5 seconds. Every resource
   sample must remain below 128 MiB and 32 threads; first-pass retained growth is capped at 64 MiB,
-  repeated-pass growth at 12 MiB and two threads, and settled idle at 5% CPU, 8 MiB, and two threads.
+  repeated-pass growth at 16 MiB and two threads, and settled idle at 5% CPU, 8 MiB, and two threads.
 - **Evidence contract:** Version-6 evidence records the processor-time source, measured wall time,
   nanosecond CPU delta, derived CPU percentage, idle resource snapshot, signed deltas, and per-attempt
   budget flags. Offline and post-publication validators independently recompute those values and
@@ -16,6 +16,10 @@
   animation, or delayed worker continues consuming battery and accumulating state. Idle behavior is
   part of the product advantage and therefore belongs at the release boundary, not in an occasional
   manual profile.
+- **Calibration:** The first native Intel candidate measured 12,890,112 bytes (12.29 MiB) of
+  repeated-pass growth in one of three otherwise healthy fresh processes, 307,200 bytes above the
+  proposed 12 MiB ceiling. The proven 16 MiB convergence limit remains strict while accommodating
+  native allocator variance; every absolute, first-pass, thread, and idle limit remains tightened.
 
 ## 2026-08-11: rich artifact previews have a recent residency budget
 

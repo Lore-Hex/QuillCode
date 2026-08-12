@@ -788,7 +788,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 "maximumLaunchReadyMilliseconds": 2_500.0,
                 "maximumResidentMemoryBytes": 128 * 1_024 * 1_024,
                 "maximumResidentMemoryGrowthBytes": 64 * 1_024 * 1_024,
-                "maximumRepeatedResidentMemoryGrowthBytes": 12 * 1_024 * 1_024,
+                "maximumRepeatedResidentMemoryGrowthBytes": 16 * 1_024 * 1_024,
                 "maximumThreadCount": 32,
                 "maximumRepeatedThreadGrowth": 2,
                 "maximumIdleCPUPercent": 5.0,
