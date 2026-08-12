@@ -3,9 +3,10 @@
 ## 2026-08-12: Developer ID desktop credentials migrate to macOS Keychain
 
 - **Decision:** The canonical user-account store selects macOS Keychain only when the packaged app
-  carries a valid ten-character `QuillCodeSigningTeamIdentifier`. Ad-hoc tester builds, standalone
-  CLI processes, Linux, explicit `--home` runs, smoke fixtures, and tests keep the bounded private
-  file backend.
+  carries a valid ten-character `QuillCodeSigningTeamIdentifier`, the running process passes macOS
+  signature validation, and its signature reports the same team. Missing, invalid, malformed, or
+  mismatched identity data fails closed. Ad-hoc tester builds, standalone CLI processes, Linux,
+  explicit `--home` runs, smoke fixtures, and tests keep the bounded private file backend.
 - **Migration:** A signed desktop read checks Keychain first, migrates a legacy private-file value
   only after the Keychain write succeeds, and then attempts to retire the old copy. Cleanup failure
   does not hide a valid credential and is retried on the next read. A current Keychain value always
@@ -15,16 +16,20 @@
 - **Why signature-gated:** Current tester apps are ad-hoc signed, so their designated requirement is
   a build-specific code hash. A Keychain item created by one tester build would not provide silent,
   durable access to the next build. Developer ID gives the app a stable signed identity across
-  updates; the sealed team metadata is therefore both the activation and migration boundary.
+  updates. Sealed metadata and independent runtime signature attestation must agree before that
+  stable identity becomes the activation and migration boundary.
 - **CLI boundary:** The separately distributed CLI remains on its existing `0600` private file store.
   Modern noninteractive sharing through a Data Protection Keychain access group requires an
   Apple-authorized entitlement and provisioning profile for every participating executable. The
   desktop does not weaken Keychain ACLs merely to make an ad-hoc or independently installed CLI
   share its item.
 - **Evidence:** Focused tests exercise real Keychain create/read/update/delete, byte and identifier
-  bounds, factory eligibility, isolated-file selection, primary precedence, migration ordering,
-  failed-write preservation, and delete ordering. A parity gate rejects direct production
-  `FileSecretStore` composition outside the persistence factory.
+  bounds, factory eligibility, missing and mismatched runtime identities, isolated-file selection,
+  primary precedence, migration ordering, failed-write preservation, and delete ordering. A parity
+  gate rejects direct production `FileSecretStore` composition outside the persistence factory and
+  pins the runtime signature check. The immutable validated runtime identity is initialized once per
+  process, and ineligible ad-hoc or isolated stores return before initializing it, so multiple
+  credential consumers do not add Security-framework work to the normal tester startup path.
 
 ## 2026-08-12: public performance evidence gates settled idle resources
 

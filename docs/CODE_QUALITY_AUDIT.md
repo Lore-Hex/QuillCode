@@ -1,25 +1,33 @@
 # Code Quality Audit
 
-## 2026-08-12 Signature-Gated macOS Keychain Credential Storage
+## 2026-08-12 Runtime-Attested macOS Keychain Credential Storage
 
 Overall grade after this slice: **A+ credential architecture, A+ update compatibility, A+ migration safety**.
 
 | Area | Grade | Notes |
 | --- | --- | --- |
 | Protected storage | A+ | Developer ID desktop builds store TrustedRouter and MCP OAuth secrets in macOS Keychain with non-synchronizing exact service/account queries and bounded UTF-8 values. |
-| Update compatibility | A+ | Keychain activation requires sealed ten-character signing-team metadata, so ad-hoc builds never create ACLs tied to a one-build code hash. |
+| Update compatibility | A+ | Keychain activation requires sealed ten-character signing-team metadata to match the running macOS signature, so ad-hoc or mispackaged builds never create ACLs tied to an unstable identity. |
 | Migration | A+ | Legacy data moves only after a successful protected write; current Keychain data wins; read cleanup retries without hiding valid data; replacement and clear use failure-safe ordering. |
 | Isolation | A+ | Explicit homes, tests, smoke fixtures, Linux, ad-hoc apps, and the standalone CLI retain the hardened private file backend without touching the user's Keychain. |
 | Architecture | A+ | One factory composes every production credential consumer while the existing `QuillSecretStore` protocol keeps runtime, settings, TrustedRouter, and MCP code backend-agnostic. |
-| Regression evidence | A+ | Behavioral tests exercise real Keychain CRUD and migration failures; a source gate rejects direct live file-store composition outside persistence. |
+| Regression evidence | A+ | Behavioral tests exercise real Keychain CRUD, runtime signer eligibility, and migration failures; a source gate rejects direct live file-store composition and pins signature attestation. |
 
 Validation:
 
-- Focused platform-store and path-policy coverage: 15 tests, 0 failures.
-- Focused credential integration coverage: 74 tests, 0 failures.
-- Full Swift package coverage: 6,266 tests executed, 5 skipped, 0 failures.
+- Focused platform-store and path-policy coverage: 16 tests, 0 failures, including matching,
+  missing, malformed, and mismatched runtime signing identities.
+- Focused credential integration coverage: 96 tests, 0 failures.
+- Full Swift package coverage: 6,267 tests executed, 5 skipped, 0 failures.
 - Real macOS Keychain add, read, replace, delete, and missing-item behavior passed with an isolated
   service and account.
+- The packaged release app passed direct-executable, Launch Services, crash-draft recovery,
+  live-window, Accessibility-frame, repeated-interaction, and settled-idle smoke. Release evidence
+  measured 289.56 ms median launch-ready, 40.88 MiB initial physical footprint, 85.25 MiB after the
+  first interaction sweep, 87.55 MiB after repetition, and 0.0006% settled idle CPU.
+- The ad-hoc package carried no signing-team metadata, proving the tester path returns before runtime
+  signer attestation. The deterministic quality grader scored `PlatformSecretStore.swift` A+ 97,
+  both changed test files A+ 100, and the persistence source module A+ 99.
 - Existing desktop settings rollback, runtime selection, CLI auth/doctor, app-server account, and
   MCP credential suites remain part of the focused integration gate.
 
