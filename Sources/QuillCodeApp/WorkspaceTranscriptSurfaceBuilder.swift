@@ -44,7 +44,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         for event in thread.events {
             reducer.apply(event)
         }
-
+        WorkspaceArtifactPreviewRetention.hydrate(&reducer.state)
         return reducer.state
     }
 
@@ -126,6 +126,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 reducer.state.appendMessage(visibleMessages[visibleSurfaceIndex])
             }
         }
+        WorkspaceArtifactPreviewRetention.hydrate(&reducer.state)
         return WorkspaceTranscriptProjection(
             messages: visibleMessages,
             toolCards: reducer.state.toolCards,

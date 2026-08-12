@@ -30,8 +30,22 @@ enum ToolArtifactTextPreviewBuilder {
         else { return nil }
 
         do {
-            let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            let resourceValues = try fileURL.resourceValues(forKeys: [
+                .contentModificationDateKey,
+                .fileResourceIdentifierKey,
+                .fileSizeKey,
+                .isRegularFileKey
+            ])
             guard resourceValues.isRegularFile == true else { return nil }
+            let cacheKey = TextPreviewCacheKey(
+                path: fileURL.standardizedFileURL.path,
+                fileSize: resourceValues.fileSize ?? 0,
+                modificationDate: resourceValues.contentModificationDate,
+                resourceIdentifier: resourceValues.fileResourceIdentifier
+            )
+            if let cached = cache.value(for: cacheKey) {
+                return cached
+            }
 
             let handle = try FileHandle(forReadingFrom: fileURL)
             defer { try? handle.close() }
@@ -60,13 +74,15 @@ enum ToolArtifactTextPreviewBuilder {
                 text += "..."
             }
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            return TextPreviewPayload(
+            let payload = TextPreviewPayload(
                 text: text,
                 typeLabel: typeLabel(for: fileURL),
                 lineCountLabel: lineCountLabel(for: text, wasTruncated: wasTruncated),
                 byteSizeLabel: resourceValues.fileSize.flatMap(ToolArtifactByteSizeFormatter.label),
                 wasTruncated: wasTruncated
             )
+            cache.insert(payload, for: cacheKey)
+            return payload
         } catch {
             return nil
         }
@@ -116,7 +132,77 @@ enum ToolArtifactTextPreviewBuilder {
         var lineCountLabel: String
         var byteSizeLabel: String?
         var wasTruncated: Bool
+
+        var estimatedByteCount: Int {
+            text.utf8.count
+                + typeLabel.utf8.count
+                + lineCountLabel.utf8.count
+                + (byteSizeLabel?.utf8.count ?? 0)
+        }
     }
+
+    private final class TextPreviewCacheKey: NSObject {
+        private let path: String
+        private let fileSize: Int
+        private let modificationTime: TimeInterval
+        private let resourceIdentifier: String
+
+        init(path: String, fileSize: Int, modificationDate: Date?, resourceIdentifier: Any?) {
+            self.path = path
+            self.fileSize = fileSize
+            self.modificationTime = modificationDate?.timeIntervalSinceReferenceDate ?? 0
+            self.resourceIdentifier = resourceIdentifier.map(String.init(describing:)) ?? ""
+        }
+
+        override var hash: Int {
+            var hasher = Hasher()
+            hasher.combine(path)
+            hasher.combine(fileSize)
+            hasher.combine(modificationTime)
+            hasher.combine(resourceIdentifier)
+            return hasher.finalize()
+        }
+
+        override func isEqual(_ object: Any?) -> Bool {
+            guard let other = object as? TextPreviewCacheKey else { return false }
+            return path == other.path
+                && fileSize == other.fileSize
+                && modificationTime == other.modificationTime
+                && resourceIdentifier == other.resourceIdentifier
+        }
+    }
+
+    private final class TextPreviewCache: @unchecked Sendable {
+        private final class Box: NSObject {
+            let payload: TextPreviewPayload
+
+            init(_ payload: TextPreviewPayload) {
+                self.payload = payload
+            }
+        }
+
+        private let storage: NSCache<TextPreviewCacheKey, Box>
+
+        init() {
+            let storage = NSCache<TextPreviewCacheKey, Box>()
+            storage.countLimit = ToolArtifactTextPreviewBuilder.cacheEntryLimit
+            storage.totalCostLimit = ToolArtifactTextPreviewBuilder.cacheByteLimit
+            self.storage = storage
+        }
+
+        func value(for key: TextPreviewCacheKey) -> TextPreviewPayload? {
+            storage.object(forKey: key)?.payload
+        }
+
+        func insert(_ payload: TextPreviewPayload, for key: TextPreviewCacheKey) {
+            storage.setObject(Box(payload), forKey: key, cost: payload.estimatedByteCount)
+        }
+
+    }
+
+    private static let cache = TextPreviewCache()
+    private static let cacheEntryLimit = 16
+    private static let cacheByteLimit = 128 * 1024
 
     private static let byteLimit = 6 * 1024
     private static let lineLimit = 80

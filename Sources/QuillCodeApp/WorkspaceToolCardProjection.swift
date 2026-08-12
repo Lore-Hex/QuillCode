@@ -263,9 +263,7 @@ enum WorkspaceToolCardProjection {
         }
         return result.artifacts
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { value in
-                ToolArtifactState(value: value, textPreview: ToolArtifactTextPreviewBuilder.textPreview(for: value))
-            }
+            .map { ToolArtifactState(value: $0) }
     }
 
     private static func toolSubtitle(stateLabel: String, title: String, inputJSON: String?) -> String {

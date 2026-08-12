@@ -28,6 +28,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
         let toolCardReducerText = try Self.appSourceText(named: "WorkspaceToolCardEventReducer.swift")
         let toolCardProjectionText = try Self.appSourceText(named: "WorkspaceToolCardProjection.swift")
+        let artifactPreviewRetentionText = try Self.appSourceText(named: "WorkspaceArtifactPreviewRetention.swift")
 
         Self.assertSource(toolCardSurfaceText, contains: "public struct ToolCardState")
         Self.assertSource(toolArtifactSurfaceText, containsAll: [
@@ -231,11 +232,16 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "struct WorkspaceToolCardEventReducer",
             "WorkspaceToolCardProjection"
         ])
-        Self.assertSource(toolCardProjectionText, containsAll: [
-            "enum WorkspaceToolCardProjection",
+        Self.assertSource(toolCardProjectionText, contains: "enum WorkspaceToolCardProjection")
+        Self.assertSource(toolCardProjectionText, excludes: "ToolArtifactTextPreviewBuilder.textPreview")
+        Self.assertSource(artifactPreviewRetentionText, containsAll: [
+            "enum WorkspaceArtifactPreviewRetention",
             "ToolArtifactTextPreviewBuilder.textPreview"
         ])
-        Self.assertSource(transcriptBuilderText, contains: "WorkspaceToolCardEventReducer")
+        Self.assertSource(transcriptBuilderText, containsAll: [
+            "WorkspaceToolCardEventReducer",
+            "WorkspaceArtifactPreviewRetention.hydrate"
+        ])
         Self.assertSource(modelText, excludesAll: [
             "public struct ToolCardState",
             "public enum ToolCardStatus",

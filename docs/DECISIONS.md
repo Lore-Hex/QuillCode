@@ -1,5 +1,26 @@
 # QuillCode Decisions
 
+## 2026-08-11: rich artifact previews have a recent residency budget
+
+- **Decision:** Durable tool events retain every artifact reference, but transcript projection no
+  longer reads local artifact files while reducing each historical tool completion. After reduction,
+  only the newest 12 tool cards may be inspected for rich text; inspection stops after 48 artifacts,
+  eight successful previews, or 64 KiB of preview text.
+- **Cache boundary:** Unchanged text previews reuse a purgeable cache limited to 16 entries and
+  128 KiB. Cache identity includes the standardized path, file size, modification time, and resource
+  identifier. Changed, replaced, deleted, nonregular, unreadable, and no-longer-authorized files are
+  revalidated before cached content can be returned.
+- **Usability boundary:** Older cards keep their artifact chip, path or URL, type classification,
+  open action, and durable tool output; only their disposable inline text copy is released. Timeline
+  and tool-card projections receive the same hydrated values through the reducer's positional index,
+  including malformed histories that reuse a tool-call ID.
+- **Why:** Rebuilding the desktop surface reopened every historical text artifact and retained a
+  separate preview string for each card. Long coding sessions therefore paid filesystem and memory
+  costs for content that was usually far offscreen.
+- **Evidence:** Focused tests cover card, artifact-count, preview-count, byte, cache-invalidation, and
+  duplicate-ID boundaries. A source parity gate rejects eager preview reads in tool-event projection
+  and pins both cache limits.
+
 ## 2026-08-11: updater success waits for first-window readiness
 
 - **Decision:** Parsing the updater or relocation launch-handshake argument remains the first normal

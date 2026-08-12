@@ -222,6 +222,19 @@ struct WorkspaceTranscriptProjectionAccumulator {
         toolCards[index] = card
         timelineItems[timelineIndex] = .toolCard(card)
     }
+
+    mutating func synchronizeToolCardsFromTimeline() {
+        for cardIndex in toolCards.indices {
+            guard timelineIndexByToolCardIndex.indices.contains(cardIndex) else { continue }
+            let timelineIndex = timelineIndexByToolCardIndex[cardIndex]
+            guard timelineItems.indices.contains(timelineIndex),
+                  let timelineCard = timelineItems[timelineIndex].toolCard
+            else {
+                continue
+            }
+            toolCards[cardIndex] = timelineCard
+        }
+    }
 }
 
 extension WorkspaceToolCardEventReducer where State == WorkspaceTranscriptProjectionAccumulator {

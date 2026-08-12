@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-11 Bounded Artifact Text Preview Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ surface responsiveness, A+ data fidelity**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Projection architecture | A+ | Tool-event reduction remains filesystem-free; rich local text is hydrated only after the complete transcript shape is known. |
+| Residency | A+ | The newest 12 tool cards inspect at most 48 artifacts and retain at most eight previews or 64 KiB of text. |
+| Cache ownership | A+ | A purgeable 16-entry, 128 KiB cache reuses unchanged bounded reads without becoming a second transcript history. |
+| Freshness | A+ | Path, size, modification time, and resource identity invalidate changed content; deleted and unreadable files fail closed. |
+| Data fidelity | A+ | Every durable artifact reference, output, chip, type, and open action remains available after old inline text is released. |
+| Correlation safety | A+ | Timeline and card copies synchronize by reducer position, so reused malformed tool IDs cannot cross-contaminate previews. |
+| Regression evidence | A+ | Focused behavior, scale-bound, invalidation, duplicate-ID, transcript, and source-parity coverage is green. |
+
+Validation:
+
+- Focused artifact residency, transcript, and parity suite: 27 tests, 0 failures.
+- Full Swift suite: 6,197 tests, 5 skipped, 0 failures.
+- Release packaged direct-executable, Launch Services, composer `SIGKILL` recovery, live-window,
+  accessibility, native interaction, coworker, browser, computer-use, and 100-chat smokes passed.
+- Dedicated packaged performance gate: 3/3 launches within budget; 290.35 ms median launch-ready,
+  40.95 MiB initial footprint, 85.55 MiB after the first interaction sweep, and 85.24 MiB after the
+  repeated sweep (no retained repeated-interaction growth).
+- `python3 scripts/grade-code-quality.py --root .`: every production module summary remains A+.
+- `git diff --check`: clean.
+
 ## 2026-08-11 Cached Worktree Environment Projection
 
 Overall grade after this slice: **A+ launch isolation, A+ cache ownership, A+ stale-result safety**.
