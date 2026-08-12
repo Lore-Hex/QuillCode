@@ -21,6 +21,22 @@
   duplicate-ID boundaries. A source parity gate rejects eager preview reads in tool-event projection
   and pins both cache limits.
 
+## 2026-08-11: updater activation uses Launch Services
+
+- **Decision:** The production update helper opens both the replacement app and any restored rollback
+  app through `NSWorkspace`. It pins the exact bundle path, requests a new foreground instance,
+  rejects running-application substitution, forwards the launch-handshake arguments and inherited
+  environment, and bounds the asynchronous open request with the existing handshake timeout.
+- **Test boundary:** Fixture helpers retain a direct-process launch mode so unit tests can execute
+  deterministic shell-backed app bundles and inject launch, handshake, and stability failures. The
+  production environment selects Launch Services explicitly, and packaged updater smoke proves that
+  mode against a signed `.app` and its real SwiftUI first-window readiness boundary.
+- **Why:** Directly spawning the executable can leave a healthy AppKit process without the normal
+  application-open event that materializes SwiftUI's primary `Window`. A daily-driver 729-to-730
+  update reproduced that state: staging and signature validation passed, but no window or readiness
+  acknowledgement appeared and the helper correctly rolled back. The same update completed after
+  the helper adopted the system application-launch path.
+
 ## 2026-08-11: updater success waits for first-window readiness
 
 - **Decision:** Parsing the updater or relocation launch-handshake argument remains the first normal
@@ -4620,3 +4636,18 @@
   `ParityTransactionalTesterPublicationTests` cover transient reads, pre- and post-mutation upload
   failures, conflicting bytes, bounded exhaustion, PATCH/tag retries, deletion response loss,
   permanent failures, exact rollback, and tag-last success ordering.
+
+## 2026-08-11: stable candidates prove native updates before promotion
+
+- **Decision:** A versioned stable release remains a non-latest prerelease candidate through public
+  asset verification and updater/relaunch smoke on native arm64 and Intel runners. Promotion to
+  latest stable requires both updater matrix entries to pass.
+- **Why:** Promoting before updater validation briefly exposed an unproven release through
+  `releases/latest` and the moving stable feed. Drafting it after a failure restored the prior feed,
+  but could not eliminate that avoidable exposure window.
+- **Recovery boundary:** Candidate verification or updater failure returns only the new candidate to
+  draft while the previous stable release and feed remain untouched. Post-promotion verification is
+  now limited to proving GitHub's latest-release and moving-feed views; a failure still drafts the
+  new release so GitHub falls back to the previous stable version.
+- **Evidence:** `download-builds.yml`, `ParityDownloadBuildsGateTests`,
+  `ParityPackagedUpdaterGateTests`, and the stable publication contract in `docs/DOWNLOADS.md`.

@@ -346,10 +346,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "quarantine-stable-candidate:",
             "Return failed stable candidate to draft",
             "needs.verify-published.result != 'success'",
+            "needs.verify-updater.result != 'success'",
             "promote-stable:",
             "Promote verified stable candidate",
             "--prerelease=false",
-            "needs: [publish, verify-published, promote-stable, capture-updater-source]",
+            "needs: [publish, verify-published, capture-updater-source]",
+            "needs: [publish, verify-published, verify-updater]",
             "needs.capture-updater-source.result == 'success'",
             "Download previous public updater source",
             "sourceAvailable raw",
@@ -359,7 +361,6 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "Verify promoted stable release",
             "quarantine-promoted-stable:",
             "Return failed promoted stable release to draft",
-            "needs.verify-updater.result != 'success'",
             "needs.verify-stable-promotion.result != 'success'",
             "--draft --latest=false"
         ])
@@ -391,9 +392,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(sourceCaptureIndex.lowerBound, publishIndex.lowerBound)
         XCTAssertLessThan(publishIndex.lowerBound, publicVerificationIndex.lowerBound)
         XCTAssertLessThan(freshnessIndex.lowerBound, releaseMutationIndex.lowerBound)
-        XCTAssertLessThan(publicVerificationIndex.lowerBound, promotionIndex.lowerBound)
-        XCTAssertLessThan(promotionIndex.lowerBound, updaterIndex.lowerBound)
+        XCTAssertLessThan(publicVerificationIndex.lowerBound, updaterIndex.lowerBound)
+        XCTAssertLessThan(updaterIndex.lowerBound, promotionIndex.lowerBound)
         XCTAssertLessThan(updaterIndex.lowerBound, finalVerificationIndex.lowerBound)
+        XCTAssertLessThan(promotionIndex.lowerBound, finalVerificationIndex.lowerBound)
     }
 
     func testDownloadDocsExposeStableManifestLink() throws {

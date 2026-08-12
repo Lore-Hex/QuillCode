@@ -19,7 +19,7 @@ enum QuillCodeDesktopUpdateHelper {
             try validateStaging(request, environment: environment)
             didValidate = true
             try validateActivation(request)
-            guard waitForProcessToExit(
+            guard QuillCodeDesktopUpdateProcessMonitor.waitForExit(
                 request.parentProcessID,
                 timeout: environment.parentExitTimeout
             ) else {
@@ -134,31 +134,33 @@ enum QuillCodeDesktopUpdateHelper {
         let fileManager = FileManager.default
         try activate(request)
 
-        let launchedProcess: Process
+        let launchedProcess: QuillCodeDesktopLaunchedApplication
         do {
-            launchedProcess = try launch(
+            launchedProcess = try QuillCodeDesktopUpdateApplicationLauncher.launch(
                 request.destinationApplicationURL,
-                handshakeURL: request.handshakeURL
+                handshakeURL: request.handshakeURL,
+                mode: environment.applicationLaunchMode,
+                timeout: environment.launchHandshakeTimeout
             )
         } catch {
-            try rollback(request)
+            try rollback(request, environment: environment)
             throw recoveredFailure("could not be launched", request: request)
         }
 
-        guard waitForFile(
+        guard QuillCodeDesktopUpdateProcessMonitor.waitForFile(
             request.handshakeURL,
             timeout: environment.launchHandshakeTimeout
         ) else {
-            terminateProcess(launchedProcess.processIdentifier)
-            try rollback(request)
+            QuillCodeDesktopUpdateProcessMonitor.terminate(launchedProcess.processIdentifier)
+            try rollback(request, environment: environment)
             throw recoveredFailure("did not finish launching", request: request)
         }
-        guard remainsRunning(
+        guard QuillCodeDesktopUpdateProcessMonitor.remainsRunning(
             launchedProcess,
             for: environment.launchStabilityDuration
         ) else {
-            terminateProcess(launchedProcess.processIdentifier)
-            try rollback(request)
+            QuillCodeDesktopUpdateProcessMonitor.terminate(launchedProcess.processIdentifier)
+            try rollback(request, environment: environment)
             throw recoveredFailure("stopped during startup", request: request)
         }
 
@@ -188,7 +190,10 @@ enum QuillCodeDesktopUpdateHelper {
         try? FileManager.default.removeItem(at: workspace)
     }
 
-    private static func rollback(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
+    private static func rollback(
+        _ request: QuillCodeDesktopUpdateHelperRequest,
+        environment: QuillCodeDesktopUpdateHelperEnvironment
+    ) throws {
         let fileManager = FileManager.default
         switch request.activationMode {
         case .replaceExisting:
@@ -203,7 +208,12 @@ enum QuillCodeDesktopUpdateHelper {
                 request.destinationApplicationURL,
                 request.incomingApplicationURL
             )
-            _ = try launch(request.destinationApplicationURL, handshakeURL: nil)
+            _ = try QuillCodeDesktopUpdateApplicationLauncher.launch(
+                request.destinationApplicationURL,
+                handshakeURL: nil,
+                mode: environment.applicationLaunchMode,
+                timeout: environment.launchHandshakeTimeout
+            )
             try? fileManager.removeItem(at: request.incomingApplicationURL)
         case .installNew:
             guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
@@ -222,7 +232,12 @@ enum QuillCodeDesktopUpdateHelper {
                 )
             }
             try fileManager.removeItem(at: request.destinationApplicationURL)
-            _ = try launch(rollbackApplicationURL, handshakeURL: nil)
+            _ = try QuillCodeDesktopUpdateApplicationLauncher.launch(
+                rollbackApplicationURL,
+                handshakeURL: nil,
+                mode: environment.applicationLaunchMode,
+                timeout: environment.launchHandshakeTimeout
+            )
         }
         try? fileManager.removeItem(at: request.handshakeURL)
     }
@@ -286,31 +301,6 @@ enum QuillCodeDesktopUpdateHelper {
         }
     }
 
-    private static func launch(
-        _ applicationURL: URL,
-        handshakeURL: URL?
-    ) throws -> Process {
-        guard let bundle = Bundle(url: applicationURL),
-              let executableURL = bundle.executableURL,
-              FileManager.default.isExecutableFile(atPath: executableURL.path)
-        else {
-            throw QuillCodeDesktopUpdateError.installationFailed("the app executable is missing")
-        }
-        var arguments: [String] = []
-        if let handshakeURL {
-            arguments = [QuillCodeDesktopUpdateLaunchHandshake.argument, handshakeURL.path]
-        }
-        let process = Process()
-        process.executableURL = executableURL
-        process.arguments = arguments
-        do {
-            try process.run()
-        } catch {
-            throw QuillCodeDesktopUpdateError.installationFailed("the updated app could not be launched")
-        }
-        return process
-    }
-
     private static func bundleMatches(
         _ url: URL,
         identifier: String,
@@ -343,43 +333,6 @@ enum QuillCodeDesktopUpdateHelper {
         return true
     }
 
-    private static func waitForProcessToExit(_ processID: Int32, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if kill(processID, 0) == -1 && errno == ESRCH { return true }
-            usleep(100_000)
-        }
-        return kill(processID, 0) == -1 && errno == ESRCH
-    }
-
-    private static func waitForFile(_ url: URL, timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if FileManager.default.fileExists(atPath: url.path) { return true }
-            usleep(100_000)
-        }
-        return FileManager.default.fileExists(atPath: url.path)
-    }
-
-    private static func remainsRunning(_ process: Process, for duration: TimeInterval) -> Bool {
-        guard process.isRunning else { return false }
-        guard duration.isFinite, duration > 0 else { return true }
-        let deadline = Date().addingTimeInterval(duration)
-        while Date() < deadline {
-            usleep(100_000)
-            guard process.isRunning else { return false }
-        }
-        return process.isRunning
-    }
-
-    private static func terminateProcess(_ processID: Int32) {
-        guard processID > 1 else { return }
-        _ = kill(processID, SIGTERM)
-        guard !waitForProcessToExit(processID, timeout: 3) else { return }
-        _ = kill(processID, SIGKILL)
-        _ = waitForProcessToExit(processID, timeout: 2)
-    }
-
     private static func writeResult(
         _ result: QuillCodeDesktopUpdateInstallResult,
         to url: URL,
@@ -401,6 +354,7 @@ struct QuillCodeDesktopUpdateHelperEnvironment: Sendable {
     var parentExitTimeout: TimeInterval
     var launchHandshakeTimeout: TimeInterval
     var launchStabilityDuration: TimeInterval
+    var applicationLaunchMode: QuillCodeDesktopUpdateApplicationLaunchMode = .directProcess
 
     static func production() throws -> Self {
         Self(
@@ -408,7 +362,8 @@ struct QuillCodeDesktopUpdateHelperEnvironment: Sendable {
             resultURL: try QuillCodeDesktopUpdatePaths.installResultURL(),
             parentExitTimeout: 30,
             launchHandshakeTimeout: 45,
-            launchStabilityDuration: 3
+            launchStabilityDuration: 3,
+            applicationLaunchMode: .launchServices
         )
     }
 }

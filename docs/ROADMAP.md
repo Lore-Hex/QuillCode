@@ -129,6 +129,11 @@
 
 ## Latest Quality Pass
 
+- Stable releases now remain non-latest prerelease candidates until public asset verification and
+  real update, activation, relaunch, and launch-stability checks pass on native Apple Silicon and
+  Intel runners. Candidate or updater failure drafts only the new release without changing the
+  previous stable feed; promotion happens afterward, followed by a focused latest-feed identity
+  check.
 - Tester publication now absorbs bounded transient GitHub and network failures without weakening its
   atomic release contract. Release reads and idempotent PATCH/tag operations retry recognized TLS,
   DNS, timeout, rate-limit, and 5xx diagnostics with capped exponential backoff. Candidate uploads

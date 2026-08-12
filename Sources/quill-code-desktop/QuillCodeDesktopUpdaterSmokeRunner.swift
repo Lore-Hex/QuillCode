@@ -5,17 +5,79 @@ struct QuillCodeDesktopUpdaterSmokeRequest: Equatable, Sendable {
     static let modeArgument = "--native-updater-smoke"
 
     var reportURL: URL
+    var manifestURL: URL
 
     init?(arguments: [String]) {
         guard arguments.contains(Self.modeArgument),
-              let flagIndex = arguments.firstIndex(of: "--updater-smoke-report"),
+              let reportURL = Self.absoluteFileURL(
+                  after: "--updater-smoke-report",
+                  arguments: arguments
+              ),
+              let manifestURL = Self.absoluteFileURL(
+                  after: "--updater-smoke-manifest",
+                  arguments: arguments
+              )
+        else {
+            return nil
+        }
+        self.reportURL = reportURL
+        self.manifestURL = manifestURL
+    }
+
+    private static func absoluteFileURL(after flag: String, arguments: [String]) -> URL? {
+        let flagIndices = arguments.indices.filter { arguments[$0] == flag }
+        guard flagIndices.count == 1,
+              let flagIndex = flagIndices.first,
               arguments.indices.contains(flagIndex + 1)
         else {
             return nil
         }
         let value = arguments[flagIndex + 1]
-        guard value.hasPrefix("/"), !value.isEmpty else { return nil }
-        reportURL = URL(fileURLWithPath: value).standardizedFileURL
+        guard value.hasPrefix("/"), value != "/" else { return nil }
+        return URL(fileURLWithPath: value).standardizedFileURL
+    }
+}
+
+struct QuillCodeDesktopUpdaterSmokeManifestLoader: QuillCodeDesktopUpdateManifestLoading, Sendable {
+    var manifestURL: URL
+
+    func loadManifest(from _: URL, byteLimit: Int) async throws -> Data {
+        guard manifestURL.isFileURL,
+              byteLimit > 0,
+              byteLimit < Int.max
+        else {
+            throw QuillCodeDesktopUpdateError.invalidResponse
+        }
+
+        do {
+            let values = try manifestURL.resourceValues(forKeys: [
+                .fileSizeKey,
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ])
+            guard values.isRegularFile == true,
+                  values.isSymbolicLink != true
+            else {
+                throw QuillCodeDesktopUpdateError.invalidResponse
+            }
+            guard let fileSize = values.fileSize,
+                  fileSize <= byteLimit
+            else {
+                throw QuillCodeDesktopUpdateError.manifestTooLarge
+            }
+
+            let handle = try FileHandle(forReadingFrom: manifestURL)
+            defer { try? handle.close() }
+            let data = try handle.read(upToCount: byteLimit + 1) ?? Data()
+            guard data.count <= byteLimit else {
+                throw QuillCodeDesktopUpdateError.manifestTooLarge
+            }
+            return data
+        } catch let error as QuillCodeDesktopUpdateError {
+            throw error
+        } catch {
+            throw QuillCodeDesktopUpdateError.invalidResponse
+        }
     }
 }
 
@@ -31,13 +93,10 @@ struct QuillCodeDesktopUpdaterSmokeReport: Codable, Equatable, Sendable {
 
 @MainActor
 enum QuillCodeDesktopUpdaterSmokeRunner {
-    static let feedPropagationAttemptLimit = 6
-    private static let feedPropagationRetryDelayNanoseconds: UInt64 = 2_000_000_000
-
     static func runAndExit(_ request: QuillCodeDesktopUpdaterSmokeRequest) async -> Never {
         let report: QuillCodeDesktopUpdaterSmokeReport
         do {
-            report = try await stageLatestUpdate()
+            report = try await stageLatestUpdate(manifestURL: request.manifestURL)
         } catch {
             report = QuillCodeDesktopUpdaterSmokeReport(
                 ok: false,
@@ -65,11 +124,17 @@ enum QuillCodeDesktopUpdaterSmokeRunner {
         Darwin.exit(exitCode)
     }
 
-    private static func stageLatestUpdate() async throws -> QuillCodeDesktopUpdaterSmokeReport {
+    private static func stageLatestUpdate(manifestURL: URL) async throws -> QuillCodeDesktopUpdaterSmokeReport {
         guard let configuration = QuillCodeDesktopUpdateConfiguration.bundled() else {
             throw QuillCodeDesktopUpdateError.updatesUnavailable
         }
-        let release = try await waitForAvailableUpdate(configuration: configuration)
+        let checker = QuillCodeDesktopUpdateChecker(
+            loader: QuillCodeDesktopUpdaterSmokeManifestLoader(manifestURL: manifestURL)
+        )
+        let release = try await candidateUpdate(
+            configuration: configuration,
+            checker: checker
+        )
         let prepared = try await QuillCodeDesktopUpdatePreparer().prepare(
             release: release,
             configuration: configuration
@@ -89,24 +154,16 @@ enum QuillCodeDesktopUpdaterSmokeRunner {
         )
     }
 
-    static func waitForAvailableUpdate(
+    static func candidateUpdate(
         configuration: QuillCodeDesktopUpdateConfiguration,
-        checker: any QuillCodeDesktopUpdateChecking = QuillCodeDesktopUpdateChecker(),
-        retryDelay: @escaping @Sendable () async throws -> Void = {
-            try await Task.sleep(nanoseconds: feedPropagationRetryDelayNanoseconds)
-        }
+        checker: any QuillCodeDesktopUpdateChecking
     ) async throws -> QuillCodeDesktopUpdateRelease {
-        for attempt in 1...feedPropagationAttemptLimit {
-            let result = try await checker.check(configuration: configuration)
-            if case .updateAvailable(let release) = result {
-                return release
-            }
-            if attempt < feedPropagationAttemptLimit {
-                try await retryDelay()
-            }
+        let result = try await checker.check(configuration: configuration)
+        if case .updateAvailable(let release) = result {
+            return release
         }
         throw QuillCodeDesktopUpdateError.installationFailed(
-            "the published update feed did not advance beyond the smoke fixture after bounded retries"
+            "the verified candidate manifest did not advance beyond the smoke fixture"
         )
     }
 

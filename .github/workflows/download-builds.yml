@@ -306,60 +306,14 @@ jobs:
           fi
           scripts/verify-published-release.py "${VERIFY_ARGUMENTS[@]}"
 
-  quarantine-stable-candidate:
-    needs: [publish, verify-published]
-    if: >-
-      ${{
-        always() &&
-        github.ref_type == 'tag' &&
-        startsWith(github.ref_name, 'v') &&
-        needs.publish.result == 'success' &&
-        needs.verify-published.result != 'success'
-      }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Return failed stable candidate to draft
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft --latest=false --repo "$GITHUB_REPOSITORY"
-
-  promote-stable:
-    needs: [publish, verify-published]
-    if: >-
-      ${{
-        github.ref_type == 'tag' &&
-        startsWith(github.ref_name, 'v') &&
-        needs.publish.result == 'success' &&
-        needs.verify-published.result == 'success'
-      }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Promote verified stable candidate
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release edit "$GITHUB_REF_NAME"
-          --draft=false
-          --prerelease=false
-          --latest
-          --repo "$GITHUB_REPOSITORY"
-
   verify-updater:
-    needs: [publish, verify-published, promote-stable, capture-updater-source]
+    needs: [publish, verify-published, capture-updater-source]
     if: >-
       ${{
         always() &&
         needs.publish.result == 'success' &&
         needs.verify-published.result == 'success' &&
-        needs.capture-updater-source.result == 'success' &&
-        (
-          !(github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) ||
-          needs.promote-stable.result == 'success'
-        )
+        needs.capture-updater-source.result == 'success'
       }}
     strategy:
       fail-fast: false
@@ -436,6 +390,52 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  quarantine-stable-candidate:
+    needs: [publish, verify-published, verify-updater]
+    if: >-
+      ${{
+        always() &&
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.publish.result == 'success' &&
+        (
+          needs.verify-published.result != 'success' ||
+          needs.verify-updater.result != 'success'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Return failed stable candidate to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft --latest=false --repo "$GITHUB_REPOSITORY"
+
+  promote-stable:
+    needs: [publish, verify-published, verify-updater]
+    if: >-
+      ${{
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.publish.result == 'success' &&
+        needs.verify-published.result == 'success' &&
+        needs.verify-updater.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Promote verified stable candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release edit "$GITHUB_REF_NAME"
+          --draft=false
+          --prerelease=false
+          --latest
+          --repo "$GITHUB_REPOSITORY"
+
   verify-stable-promotion:
     needs: [promote-stable, verify-updater]
     if: >-
@@ -464,7 +464,7 @@ jobs:
             --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   quarantine-promoted-stable:
-    needs: [publish, promote-stable, verify-updater, verify-stable-promotion]
+    needs: [publish, promote-stable, verify-stable-promotion]
     if: >-
       ${{
         always() &&
@@ -472,10 +472,7 @@ jobs:
         startsWith(github.ref_name, 'v') &&
         needs.publish.result == 'success' &&
         needs.promote-stable.result == 'success' &&
-        (
-          needs.verify-updater.result != 'success' ||
-          needs.verify-stable-promotion.result != 'success'
-        )
+        needs.verify-stable-promotion.result != 'success'
       }}
     runs-on: ubuntu-latest
     permissions:
