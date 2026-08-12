@@ -107,7 +107,8 @@ enum QuillCodeDesktopWindowSmokeRunner {
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
         markStage("settling-after-interaction-sweep-2")
         try await Task.sleep(for: .seconds(1))
-        let performance = try initialPerformance.completingRepeatedInteractionSweep(
+        markStage("measuring-settled-idle-resources")
+        let performance = try await initialPerformance.completingRepeatedInteractionSweep(
             firstSweepResources: firstSweepResources
         )
         markStage("report-ready")

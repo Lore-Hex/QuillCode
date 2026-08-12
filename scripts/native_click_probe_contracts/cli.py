@@ -22,6 +22,9 @@ from .packaged_window import (
     write_comparison_manifest,
 )
 from .performance import (
+    DEFAULT_MAX_IDLE_CPU_PERCENT,
+    DEFAULT_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_IDLE_THREAD_GROWTH,
     DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
@@ -134,6 +137,21 @@ def main() -> None:
         "--max-repeated-thread-growth",
         type=int,
         default=DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    )
+    performance_parser.add_argument(
+        "--max-idle-cpu-percent",
+        type=float,
+        default=DEFAULT_MAX_IDLE_CPU_PERCENT,
+    )
+    performance_parser.add_argument(
+        "--max-idle-resident-memory-growth-bytes",
+        type=int,
+        default=DEFAULT_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES,
+    )
+    performance_parser.add_argument(
+        "--max-idle-thread-growth",
+        type=int,
+        default=DEFAULT_MAX_IDLE_THREAD_GROWTH,
     )
 
     computer_use_parser = subparsers.add_parser(
@@ -277,6 +295,11 @@ def main() -> None:
             ),
             max_thread_count=args.max_thread_count,
             max_repeated_thread_growth=args.max_repeated_thread_growth,
+            max_idle_cpu_percent=args.max_idle_cpu_percent,
+            max_idle_resident_memory_growth_bytes=(
+                args.max_idle_resident_memory_growth_bytes
+            ),
+            max_idle_thread_growth=args.max_idle_thread_growth,
         )
     elif args.command == "computer-use":
         write_computer_use_manifest(

@@ -168,6 +168,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             attempts[2]["repeatedInteractionResidentMemoryMiB"] = 119.0
             attempts[2]["repeatedInteractionResidentMemoryGrowthBytes"] = repeatedGrowth
             attempts[2]["repeatedInteractionResidentMemoryGrowthMiB"] = 17.0
+            attempts[2]["idleResidentMemoryBytes"] = postResident + repeatedGrowth + 1 * 1_024 * 1_024
+            attempts[2]["idleResidentMemoryMiB"] = 120.0
             evidence["attempts"] = attempts
         }
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -177,6 +179,43 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertEqual(result.exitCode, 2, result.output)
         XCTAssertTrue(
             result.output.contains("performance attempt 3 violates the repeated resident-memory growth budget"),
+            result.output
+        )
+    }
+
+    func testVerifierRecomputesPublishedIdleCPUBudgetAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            attempts[2]["idleProcessorTimeNanoseconds"] = 400_000_000
+            attempts[2]["idleProcessorTimeMilliseconds"] = 400.0
+            attempts[2]["idleCPUPercent"] = 20.0
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance attempt 3 violates the idle CPU budget"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsShortPublishedIdleMeasurement() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            attempts[2]["idleDurationMilliseconds"] = 1_999.0
+            attempts[2]["idleCPUPercent"] = 5.0025
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance attempt 3 idle duration is too short"),
             result.output
         )
     }
@@ -728,14 +767,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         ]
         let selectedAttempt = attempts[1]
         var evidence: [String: Any] = [
-            "schemaVersion": 5,
+            "schemaVersion": 6,
             "ok": true,
             "product": "Quill Cowork",
             "workload": "daily-driver-100-chats",
             "measurement": "initial-live-window",
             "memoryMeasurement": "physical-footprint",
+            "processorTimeMeasurement": "process-user-plus-system-nanoseconds",
             "postInteractionMeasurement": "settled-after-native-interaction-sweep",
             "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
+            "idleMeasurement": "settled-idle-after-interaction-sweeps",
             "interactionSweepCount": 2,
             "aggregation": "median-of-fresh-processes",
             "attemptCount": 3,
@@ -744,12 +785,15 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "requiredPassingAttemptCount": 2,
             "attempts": attempts,
             "budgets": [
-                "maximumLaunchReadyMilliseconds": 3_000.0,
-                "maximumResidentMemoryBytes": 256 * 1_024 * 1_024,
-                "maximumResidentMemoryGrowthBytes": 80 * 1_024 * 1_024,
-                "maximumRepeatedResidentMemoryGrowthBytes": 16 * 1_024 * 1_024,
-                "maximumThreadCount": 64,
-                "maximumRepeatedThreadGrowth": 4
+                "maximumLaunchReadyMilliseconds": 2_500.0,
+                "maximumResidentMemoryBytes": 128 * 1_024 * 1_024,
+                "maximumResidentMemoryGrowthBytes": 64 * 1_024 * 1_024,
+                "maximumRepeatedResidentMemoryGrowthBytes": 12 * 1_024 * 1_024,
+                "maximumThreadCount": 32,
+                "maximumRepeatedThreadGrowth": 2,
+                "maximumIdleCPUPercent": 5.0,
+                "maximumIdleResidentMemoryGrowthBytes": 8 * 1_024 * 1_024,
+                "maximumIdleThreadGrowth": 2
             ],
             "withinBudget": true
         ]
@@ -769,7 +813,17 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "repeatedInteractionThreadCount",
             "repeatedInteractionResidentMemoryGrowthBytes",
             "repeatedInteractionResidentMemoryGrowthMiB",
-            "repeatedInteractionThreadGrowth"
+            "repeatedInteractionThreadGrowth",
+            "idleDurationMilliseconds",
+            "idleProcessorTimeNanoseconds",
+            "idleProcessorTimeMilliseconds",
+            "idleCPUPercent",
+            "idleResidentMemoryBytes",
+            "idleResidentMemoryMiB",
+            "idleResidentMemoryGrowthBytes",
+            "idleResidentMemoryGrowthMiB",
+            "idleThreadCount",
+            "idleThreadGrowth"
         ]
         for field in summaryFields {
             evidence[field] = selectedAttempt[field]
@@ -790,6 +844,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let resident = residentMiB * 1_024 * 1_024
         let postResident = postInteractionMiB * 1_024 * 1_024
         let repeatedResident = repeatedInteractionMiB * 1_024 * 1_024
+        let idleResident = repeatedResident + 1 * 1_024 * 1_024
         let residentGrowth = postResident - resident
         let repeatedResidentGrowth = repeatedResident - postResident
         return [
@@ -814,12 +869,25 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "repeatedInteractionThreadGrowth": (
                 repeatedInteractionThreadCount - postInteractionThreadCount
             ),
-            "withinLaunchBudget": launchReadyMilliseconds <= 3_000,
+            "idleDurationMilliseconds": 2_000.0,
+            "idleProcessorTimeNanoseconds": 100_000_000,
+            "idleProcessorTimeMilliseconds": 100.0,
+            "idleCPUPercent": 5.0,
+            "idleResidentMemoryBytes": idleResident,
+            "idleResidentMemoryMiB": Double(repeatedInteractionMiB + 1),
+            "idleResidentMemoryGrowthBytes": 1 * 1_024 * 1_024,
+            "idleResidentMemoryGrowthMiB": 1.0,
+            "idleThreadCount": repeatedInteractionThreadCount,
+            "idleThreadGrowth": 0,
+            "withinLaunchBudget": launchReadyMilliseconds <= 2_500,
             "withinResidentMemoryBudget": true,
             "withinResidentMemoryGrowthBudget": true,
             "withinRepeatedResidentMemoryGrowthBudget": true,
             "withinThreadCountBudget": true,
-            "withinRepeatedThreadGrowthBudget": true
+            "withinRepeatedThreadGrowthBudget": true,
+            "withinIdleCPUPercentBudget": true,
+            "withinIdleResidentMemoryGrowthBudget": true,
+            "withinIdleThreadGrowthBudget": true
         ]
     }
 
