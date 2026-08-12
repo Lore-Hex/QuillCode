@@ -543,6 +543,11 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                     afterValue: "true",
                     axError: "success",
                     interactionEvidence: "AXPress changed observable controller state",
+                    baselineResidentMemoryBytes: 96 * 1_024 * 1_024,
+                    presentedResidentMemoryBytes: 112 * 1_024 * 1_024,
+                    presentedResidentMemoryGrowthBytes: 16 * 1_024 * 1_024,
+                    baselineThreadCount: 18,
+                    presentedThreadCount: 20,
                     validationIssue: nil
                 )
             ],
@@ -655,6 +660,20 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""expectedOutcome" : "settings sheet becomes presented""#))
         XCTAssertTrue(json.contains(#""activation" : "AXPress""#))
         XCTAssertTrue(json.contains(#""interactionEvidence" : "AXPress changed observable controller state""#))
+        XCTAssertTrue(json.contains(#""resourceMeasurement" : "physical-footprint""#))
+        XCTAssertTrue(json.contains(#""peakPresentedContractID" : "command.settings""#))
+        XCTAssertEqual(
+            (jsonObject["accessibilityActivation"] as? [String: Any])?["peakPresentedResidentMemoryBytes"] as? Int,
+            112 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["accessibilityActivation"] as? [String: Any])?["maximumPresentedResidentMemoryGrowthBytes"] as? Int,
+            16 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["accessibilityActivation"] as? [String: Any])?["peakPresentedThreadCount"] as? Int,
+            20
+        )
         XCTAssertTrue(json.contains(#""hitTestAvailable" : true"#))
         XCTAssertTrue(json.contains(#""hitTestMatchesTarget" : true"#))
         XCTAssertTrue(json.contains(#""requiresTactileFeedback" : true"#))

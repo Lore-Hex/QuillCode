@@ -17675,3 +17675,27 @@ Validation:
 - Final three-launch physical-footprint evidence: 295.51 ms median launch-ready, 40.91 MiB initial, 86.27 MiB post-interaction, 84.89 MiB repeated-interaction, and -1.38 MiB repeated growth
 - `python3 scripts/grade-code-quality.py --root .` (all affected production and test modules A+)
 - `git diff --check`
+
+## 2026-08-12 Sectioned Settings And Live Surface Budgets
+
+Overall grade after this slice: **A+ memory efficiency, A+ desktop usability, A+ release evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Settings residency | A+ | Account, General, Permissions, and Connections construct only the selected preference category. The stable two-column workspace replaced a single long preference stack that transiently reached roughly 119-145 MiB during prior packaged sweeps. |
+| Native usability | A+ | Identified 40 pt section rows use the shared press style, active-state chrome, SF Symbols, independent content scrolling, and a responsive 560-720 pt dialog width. |
+| Interaction proof | A+ | Packaged Accessibility presses Settings, verifies Account, switches to General, requires Notifications, returns to Account, and dismisses through the real Close control. |
+| Transient resource evidence | A+ | Every live activation captures physical footprint and thread count before AXPress and after the presented hierarchy stabilizes. Forged deltas, inconsistent peaks, footprints above 128 MiB, and thread counts above 32 fail closed. |
+| Release performance | A+ | Three independent 100-chat launches passed: 294.22 ms median readiness, 40.69 MiB initial, 76.61 MiB post-interaction, 80.42 MiB repeated-interaction, 3.81 MiB repeated growth, zero idle memory growth, and 0.0002% idle CPU. |
+| Settings measurement | A+ | The final packaged run presented Settings at 54.08 MiB, 2.02 MiB above its immediate baseline. New Chat, not Settings, became the heaviest sampled surface at 58.67 MiB. |
+| Product consistency | A+ | The Computer Use restart hint now derives the public Quill Cowork name from the shared product identity. |
+
+Validation:
+
+- Focused Accessibility, report, native hit-target, and packaged parity suite (40 tests, 0 failures)
+- `swift test` (6,267 tests; 5 skipped; 0 failures)
+- Real optimized Settings QA through macOS Accessibility across all four categories, followed by Close-without-save
+- Final packaged live-window report: 54.08 MiB Settings footprint, 2.02 MiB growth, 8 threads
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within all budgets)
+- `python3 scripts/grade-code-quality.py --root .` (all affected production and test modules A+)
+- `git diff --check`

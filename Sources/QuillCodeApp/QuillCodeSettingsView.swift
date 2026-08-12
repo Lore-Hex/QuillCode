@@ -10,6 +10,7 @@ struct QuillCodeSettingsView: View {
     var onOpenAgentImport: (() -> Void)?
     var onOpenSSHConnection: (() -> Void)?
     var onCommand: (WorkspaceCommandSurface) -> Void
+    @State private var selectedSection = QuillCodeSettingsSection.account
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,37 +21,26 @@ struct QuillCodeSettingsView: View {
 
             Divider().opacity(0.5)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    authenticationSection
-                    QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
-                    generalSection
-                    if let balance = settings.trustedRouterAccountBalance {
-                        QuillCodeTrustedRouterCreditsSettingsCard(
-                            balance: balance,
-                            refreshCommand: settings.trustedRouterCreditsRefreshCommand,
-                            onCommand: onCommand
-                        )
-                    }
-                    QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
-                    QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)
-                    QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
-                    QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
-                    QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
-                    QuillCodeSSHConnectionsSettingsCard(
-                        isAvailable: onOpenSSHConnection != nil,
-                        onOpen: { onOpenSSHConnection?() }
-                    )
-                    QuillCodeAgentImportSettingsCard(
-                        isAvailable: onOpenAgentImport != nil,
-                        onOpen: { onOpenAgentImport?() }
-                    )
+            HStack(spacing: 0) {
+                settingsNavigation
 
-                    if let issue = settings.runtimeIssue {
-                        QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
+                Divider().opacity(0.5)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        Text(selectedSection.title)
+                            .font(.title3.weight(.semibold))
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("quillcode-settings-section-title")
+                        selectedSectionContent
+
+                        if let issue = settings.runtimeIssue {
+                            QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
+                        }
                     }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .padding(20)
             }
 
             Divider().opacity(0.5)
@@ -58,19 +48,79 @@ struct QuillCodeSettingsView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
         }
-        .frame(width: 560)
-        .frame(maxHeight: 720)
+        .frame(
+            minWidth: 560,
+            idealWidth: 720,
+            maxWidth: 720,
+            minHeight: 480,
+            idealHeight: 680,
+            maxHeight: 720
+        )
         .background(QuillCodePalette.background)
     }
 
-    private var generalSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("General")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .accessibilityAddTraits(.isHeader)
+    private var settingsNavigation: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(QuillCodeSettingsSection.allCases) { section in
+                Button {
+                    selectedSection = section
+                } label: {
+                    Label(section.title, systemImage: section.systemImage)
+                        .font(.callout.weight(selectedSection == section ? .semibold : .regular))
+                        .foregroundStyle(
+                            selectedSection == section ? QuillCodePalette.text : QuillCodePalette.body
+                        )
+                        .padding(.horizontal, 12)
+                        .quillCodeFullRowButtonTarget(minHeight: 40, radius: 0)
+                        .background(
+                            selectedSection == section
+                                ? QuillCodePalette.selection
+                                : Color.clear
+                        )
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .accessibilityIdentifier("quillcode-settings-section-\(section.rawValue)")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 12)
+        .frame(width: 154)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(QuillCodePalette.sidebar)
+    }
+
+    @ViewBuilder
+    private var selectedSectionContent: some View {
+        switch selectedSection {
+        case .account:
+            authenticationSection
+            if let balance = settings.trustedRouterAccountBalance {
+                QuillCodeTrustedRouterCreditsSettingsCard(
+                    balance: balance,
+                    refreshCommand: settings.trustedRouterCreditsRefreshCommand,
+                    onCommand: onCommand
+                )
+            }
+            QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
+        case .general:
+            QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
             QuillCodeCodeReviewSettingsCard(draft: $draft)
             QuillCodePersonalitySettingsCard(draft: $draft)
+            QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)
+        case .permissions:
+            QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
+            QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
+        case .connections:
+            QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
+            QuillCodeSSHConnectionsSettingsCard(
+                isAvailable: onOpenSSHConnection != nil,
+                onOpen: { onOpenSSHConnection?() }
+            )
+            QuillCodeAgentImportSettingsCard(
+                isAvailable: onOpenAgentImport != nil,
+                onOpen: { onOpenAgentImport?() }
+            )
         }
     }
 
@@ -231,6 +281,33 @@ struct QuillCodeSettingsView: View {
                 .buttonStyle(QuillCodeActionButtonStyle(.primary))
                 .quillCodeFormActionTarget()
                 .disabled(!draft.canSave)
+        }
+    }
+}
+
+private enum QuillCodeSettingsSection: String, CaseIterable, Identifiable {
+    case account
+    case general
+    case permissions
+    case connections
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .account: "Account"
+        case .general: "General"
+        case .permissions: "Permissions"
+        case .connections: "Connections"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .account: "person.crop.circle"
+        case .general: "slider.horizontal.3"
+        case .permissions: "hand.raised"
+        case .connections: "point.3.connected.trianglepath.dotted"
         }
     }
 }

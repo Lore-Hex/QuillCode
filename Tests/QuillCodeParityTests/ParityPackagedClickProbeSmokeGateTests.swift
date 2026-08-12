@@ -57,6 +57,9 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("\"ax-press-sampled\""))
         XCTAssertTrue(validator.contains("REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS"))
         XCTAssertTrue(validator.contains("activationCheckSummaries"))
+        XCTAssertTrue(validator.contains("peakPresentedResidentMemoryBytes"))
+        XCTAssertTrue(validator.contains("MAXIMUM_PRESENTED_RESIDENT_MEMORY_BYTES"))
+        XCTAssertTrue(validator.contains("presented-memory delta is inconsistent"))
         XCTAssertTrue(validator.contains("REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS"))
         XCTAssertTrue(validator.contains("window_command_contract_ids"))
         XCTAssertTrue(validator.contains("\"windowCommandContractIDs\""))
@@ -91,6 +94,10 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         let duplicateWindowReport = temporaryDirectory.appendingPathComponent("duplicate-window-report.json")
         let accessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-report.json")
         let blockedAccessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-blocked-report.json")
+        let forgedActivationResourceReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-forged-resource-report.json")
+        let overBudgetActivationResourceReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-over-budget-resource-report.json")
         let shallowSearchActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-search-report.json")
         let shallowNewChatActivationReport = temporaryDirectory
@@ -114,6 +121,10 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
+        let forgedActivationResourceFrames = temporaryDirectory
+            .appendingPathComponent("forged-resource-packaged-accessibility-frames.json")
+        let overBudgetActivationResourceFrames = temporaryDirectory
+            .appendingPathComponent("over-budget-resource-packaged-accessibility-frames.json")
         let shallowSearchAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-search-packaged-accessibility-frames.json")
         let shallowNewChatAccessibilityFrames = temporaryDirectory
@@ -147,6 +158,16 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .write(to: accessibilityFrameReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowAccessibilityFrameReport(firstSampleHitTestMatchesTarget: false)
             .write(to: blockedAccessibilityFrameReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: #""presentedResidentMemoryGrowthBytes": 16777216"#,
+                with: #""presentedResidentMemoryGrowthBytes": 15728640"#
+            )
+            .write(to: forgedActivationResourceReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(of: "117440512", with: "209715200")
+            .replacingOccurrences(of: "16777216", with: "109051904")
+            .write(to: overBudgetActivationResourceReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowAccessibilityFrameReport()
             .replacingOccurrences(
                 of: "quillcode-search-input focused and accepted reversible AXValue text entry",
@@ -340,6 +361,37 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(
             framesObject["activationCheckCount"] as? Int,
             Self.requiredLiveAccessibilityActivationContractIDs.count
+        )
+        XCTAssertEqual(framesObject["activationResourceMeasurement"] as? String, "physical-footprint")
+        XCTAssertEqual(framesObject["peakPresentedContractID"] as? String, "command.settings")
+        XCTAssertEqual(framesObject["peakPresentedResidentMemoryBytes"] as? Int, 117_440_512)
+        XCTAssertEqual(framesObject["maximumPresentedResidentMemoryGrowthBytes"] as? Int, 16_777_216)
+        XCTAssertEqual(framesObject["peakPresentedThreadCount"] as? Int, 20)
+
+        let forgedActivationResourceResult = try Self.runPython(validator, arguments: [
+            "frames",
+            forgedActivationResourceReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            forgedActivationResourceFrames.path
+        ])
+        XCTAssertNotEqual(forgedActivationResourceResult.exitCode, 0)
+        XCTAssertTrue(
+            forgedActivationResourceResult.output.contains("presented-memory delta is inconsistent"),
+            forgedActivationResourceResult.output
+        )
+
+        let overBudgetActivationResourceResult = try Self.runPython(validator, arguments: [
+            "frames",
+            overBudgetActivationResourceReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            overBudgetActivationResourceFrames.path
+        ])
+        XCTAssertNotEqual(overBudgetActivationResourceResult.exitCode, 0)
+        XCTAssertTrue(
+            overBudgetActivationResourceResult.output.contains("presented physical footprint"),
+            overBudgetActivationResourceResult.output
         )
 
         let blockedFramesResult = try Self.runPython(validator, arguments: [

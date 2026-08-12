@@ -121,7 +121,7 @@ struct QuillCodeComputerUseSettingsCard: View {
     }
 
     private static let restartHintText = """
-    After changing permissions or desktop helper tools, quit and reopen QuillCode if the status does not update.
+    After changing permissions or desktop helper tools, quit and reopen \(QuillCodeProduct.displayName) if the status does not update.
     """
 
     private var refreshAction: some View {
