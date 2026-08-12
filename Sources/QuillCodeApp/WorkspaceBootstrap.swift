@@ -61,12 +61,16 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
         let currentDate = now()
-        let archiveDeferralCutoff = Calendar.current.dateInterval(
-            of: .month,
-            for: currentDate
-        )?.start ?? currentDate
+        let calendar = Calendar.current
         let threadListing = threadStore.bootstrapListing(
-            deferArchivedBefore: archiveDeferralCutoff
+            deferArchivedBefore: .distantFuture,
+            maximumResidentActivePayloads: JSONThreadStore.defaultMaximumResidentActivePayloads,
+            retainingUsageSince: ThreadPeriodUsageSnapshot.currentPeriodRetentionStart(
+                now: currentDate,
+                calendar: calendar
+            ),
+            calendar: calendar,
+            now: currentDate
         )
         let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
             threadListing.threads,

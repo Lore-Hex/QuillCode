@@ -195,6 +195,7 @@ extension QuillCodeWorkspaceModel {
         let previousLocation = currentNavigationLocation
         guard change() else { return false }
         recordNavigationTransition(from: previousLocation)
+        enforceThreadPayloadResidency()
         return true
     }
 
@@ -208,8 +209,14 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func applyLifecycleSelection(_ selectedThreadID: UUID?, removing removed: UUID? = nil) {
-        applyThreadDraftSelection(to: selectedThreadID, removing: removed)
-        root.selectedThreadID = selectedThreadID
+        let resolvedID: UUID?
+        if let selectedThreadID, !hydrateThreadPayload(selectedThreadID) {
+            resolvedID = nil
+        } else {
+            resolvedID = selectedThreadID
+        }
+        applyThreadDraftSelection(to: resolvedID, removing: removed)
+        root.selectedThreadID = resolvedID
     }
 
     private func persistChangedThread(_ thread: ChatThread) {

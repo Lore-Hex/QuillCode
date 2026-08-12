@@ -75,7 +75,14 @@ extension QuillCodeWorkspaceModel {
             projects: root.projects,
             threads: root.threads
         ) else { return }
+        if let threadID = selection.threadID, !hydrateThreadPayload(threadID) {
+            return
+        }
         let previousLocation = currentNavigationLocation
+        if root.selectedThreadID != selection.threadID {
+            persistOutgoingReturnWatermark()
+        }
+        applyThreadDraftSelection(to: selection.threadID)
         root.selectedProjectID = selection.projectID
         syncTerminalSessionToSelectedProject()
         touchProject(selection.projectID)
@@ -86,6 +93,7 @@ extension QuillCodeWorkspaceModel {
         if recordsNavigation {
             recordNavigationTransition(from: previousLocation)
         }
+        enforceThreadPayloadResidency()
     }
 
     public func refreshSelectedProjectInstructions() {

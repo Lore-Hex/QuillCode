@@ -17567,3 +17567,28 @@ Validation:
 - Final three-launch physical-footprint evidence: 305.24 ms median launch-ready, 41.17 MiB initial, 86.88 MiB post-interaction, 85.69 MiB repeated-interaction, and -1.19 MiB repeated growth
 - `python3 scripts/grade-code-quality.py --root .` (new production and test files A+; all production modules A+)
 - `git diff --check`
+
+## 2026-08-12 Bounded Cold Chat Payload Residency
+
+Overall grade after this slice: **A+ memory architecture, A+ crash safety, A+ long-session performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Memory architecture | A+ | Startup retains full payloads for at most 12 active chats and defers every unselected archive; navigation evicts the oldest cold payloads so transcript and event residency does not grow with the workspace or browsing session. |
+| Behavioral fidelity | A+ | Per-chat summaries preserve bounded search text, attachment references, import provenance, Attention rows, compact subagent manifests, lifecycle metadata, and navigation state while messages and events are released. |
+| Data and crash safety | A+ | Canonical thread JSON remains authoritative. Hydration precedes payload-sensitive selection or mutation, persistence failures protect the in-memory payload, and disposable summaries use bounded no-follow reads plus private atomic durable writes. |
+| Active-work safety | A+ | Selected, running, ephemeral, and persistence-failed chats are never evicted; project, archive, bulk-sidebar, side-conversation, disconnect, and agent-finish routes enforce the same residency contract. |
+| Spend fidelity | A+ | Compact, content-free daily model receipts preserve current week and month token and call totals for deferred chats, with calendar identity validation, saturating arithmetic, and a 128-bucket cap. |
+| Cache isolation | A+ | Independent per-chat summary files prevent one corrupt or stale entry from invalidating the full workspace cache, and an authoritative save or delete invalidates only the corresponding summary. |
+| Packaged performance | A+ | Three independent 100-chat launches passed: 295.51 ms median readiness, 40.91 MiB initial physical footprint, 86.27 MiB post-interaction, 84.89 MiB repeated-interaction, -1.38 MiB repeated growth, and seven repeated-interaction threads. |
+| Regression evidence | A+ | Tests cover 40 active chats, 200 archives, corrupt and stale summaries, repeated 30-chat navigation, project and archive fallback hydration, protected running and failed chats, subagent reconstruction, exact spend totals, and the packaged daily-driver fixture. |
+
+Validation:
+
+- `swift test` (6,246 tests; 5 skipped; 0 failures)
+- Final focused route and packaged-fixture regression suite (37 tests; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft recovery, direct and Launch Services rendering, live native Accessibility, browser/computer-use contracts, and 100-chat interaction passed)
+- `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within startup, physical-footprint, growth, and thread budgets)
+- Final three-launch physical-footprint evidence: 295.51 ms median launch-ready, 40.91 MiB initial, 86.27 MiB post-interaction, 84.89 MiB repeated-interaction, and -1.38 MiB repeated growth
+- `python3 scripts/grade-code-quality.py --root .` (all affected production and test modules A+)
+- `git diff --check`

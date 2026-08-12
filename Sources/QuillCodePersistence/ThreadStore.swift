@@ -77,13 +77,14 @@ public enum JSONThreadStoreError: LocalizedError, Equatable, Sendable {
         case .exceedsSizeLimit(let maximumBytes):
             "The saved chat exceeds the \(maximumBytes)-byte loading limit."
         case .deferredPayloadMutation:
-            "The archived chat must be loaded before changing transcript content."
+            "The chat must be loaded before changing transcript content."
         }
     }
 }
 
 public struct JSONThreadStore: Sendable {
     public static let maximumThreadFileBytes = 128 * 1_024 * 1_024
+    public static let defaultMaximumResidentActivePayloads = 12
 
     public var directory: URL
 
@@ -104,12 +105,9 @@ public struct JSONThreadStore: Sendable {
             )
         }
         try data.write(to: fileURL(for: thread.id), options: .atomic)
-        if thread.isArchived {
-            // The summary index contains bounded transcript excerpts. Any archived rewrite may have
-            // cleared or replaced that content, so discard all derived entries instead of retaining
-            // stale text until the next bootstrap fingerprint pass.
-            ArchivedThreadSummaryIndexStore.remove(from: directory)
-        }
+        // A summary contains derived transcript excerpts. Invalidate this thread's cache immediately
+        // after any authoritative rewrite so clear/edit operations never leave stale private text.
+        ThreadPayloadSummaryStore.remove(threadID: thread.id, from: directory)
     }
 
     public func load(_ id: UUID) throws -> ChatThread {
@@ -121,7 +119,7 @@ public struct JSONThreadStore: Sendable {
 
     public func delete(_ id: UUID) throws {
         let url = fileURL(for: id)
-        ArchivedThreadSummaryIndexStore.remove(from: directory)
+        ThreadPayloadSummaryStore.remove(threadID: id, from: directory)
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         try FileManager.default.removeItem(at: url)
     }
@@ -140,10 +138,15 @@ public struct JSONThreadStore: Sendable {
         listing().threads
     }
 
-    /// Startup-oriented listing that keeps old archived transcript payloads on disk. The summary
-    /// index is validated against each authoritative file's size and modification date; a miss or
-    /// damaged index falls back to the normal bounded decode for that one file.
-    public func bootstrapListing(deferArchivedBefore cutoff: Date) -> ThreadListing {
+    /// Startup-oriented listing that keeps archived and cold active transcript payloads on disk.
+    /// Per-thread summaries are fingerprint-validated; a miss falls back to one bounded decode.
+    public func bootstrapListing(
+        deferArchivedBefore cutoff: Date,
+        maximumResidentActivePayloads: Int = .max,
+        retainingUsageSince usageRetentionStart: Date = .distantFuture,
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> ThreadListing {
         guard FileManager.default.fileExists(atPath: directory.path) else {
             return ThreadListing(threads: [], issues: [])
         }
@@ -151,31 +154,37 @@ public struct JSONThreadStore: Sendable {
             return ThreadListing(threads: [], issues: [], directoryReadFailed: true)
         }
 
-        let cachedIndex = ArchivedThreadSummaryIndexStore.load(from: directory)
+        ThreadPayloadSummaryStore.removeLegacyIndex(from: directory)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         var threads: [ChatThread] = []
         var issues: [ThreadFileIssue] = []
-        var nextEntries: [String: ArchivedThreadSummaryIndex.Entry] = [:]
-        var deferredThreadCount = 0
-        var summaryCacheHitCount = 0
+        var cacheHitThreadIDs = Set<UUID>()
+        let defersActivePayloads = maximumResidentActivePayloads != .max
 
         for url in urls {
             let fingerprint = ThreadFileFingerprint.read(from: url)
-            let cachedEntry: ArchivedThreadSummaryIndex.Entry?
-            if let id = UUID(uuidString: url.deletingPathExtension().lastPathComponent),
-               let entry = cachedIndex?.entries[id.uuidString],
-               let fingerprint,
-               entry.matches(fileURL: url, fingerprint: fingerprint) {
-                cachedEntry = entry
-            } else {
-                cachedEntry = nil
+            let threadID = UUID(uuidString: url.deletingPathExtension().lastPathComponent)
+            let cachedEntry = threadID.flatMap { id in
+                fingerprint.flatMap { fingerprint in
+                    ThreadPayloadSummaryStore.load(
+                        threadID: id,
+                        authoritativeFileURL: url,
+                        fingerprint: fingerprint,
+                        calendar: calendar,
+                        from: directory
+                    )
+                }
             }
-            if let cachedEntry, cachedEntry.updatedAt < cutoff {
+            if let cachedEntry,
+               Self.shouldInitiallyDefer(
+                   isArchived: cachedEntry.isArchived,
+                   updatedAt: cachedEntry.updatedAt,
+                   archiveCutoff: cutoff,
+                   defersActivePayloads: defersActivePayloads
+               ) {
                 threads.append(cachedEntry.deferredThread())
-                nextEntries[cachedEntry.id.uuidString] = cachedEntry
-                deferredThreadCount += 1
-                summaryCacheHitCount += 1
+                cacheHitThreadIDs.insert(cachedEntry.id)
                 continue
             }
 
@@ -191,15 +200,22 @@ public struct JSONThreadStore: Sendable {
                 }
 
                 if let currentFingerprint,
-                   let entry = ArchivedThreadSummaryIndex.Entry(
+                   Self.shouldInitiallyDefer(
+                       isArchived: compacted.isArchived,
+                       updatedAt: compacted.updatedAt,
+                       archiveCutoff: cutoff,
+                       defersActivePayloads: defersActivePayloads
+                   ),
+                   let entry = ThreadPayloadSummaryEntry(
                        thread: compacted,
                        fileURL: url,
-                       fingerprint: currentFingerprint
-                   ),
-                   entry.updatedAt < cutoff {
-                    nextEntries[entry.id.uuidString] = entry
+                       fingerprint: currentFingerprint,
+                       retainingUsageSince: usageRetentionStart,
+                       calendar: calendar,
+                       now: now
+                   ) {
+                    ThreadPayloadSummaryStore.save(entry, to: directory)
                     threads.append(entry.deferredThread())
-                    deferredThreadCount += 1
                     continue
                 }
                 threads.append(compacted)
@@ -211,16 +227,55 @@ public struct JSONThreadStore: Sendable {
         }
 
         threads.sort { $0.updatedAt > $1.updatedAt }
-        let boundedEntries = ArchivedThreadSummaryIndexStore.bounded(nextEntries)
-        if cachedIndex?.entries != boundedEntries {
-            ArchivedThreadSummaryIndexStore.save(entries: boundedEntries, to: directory)
+        if defersActivePayloads {
+            Self.hydrateResidentActivePayloads(
+                in: &threads,
+                store: self,
+                maximumCount: max(0, maximumResidentActivePayloads)
+            )
         }
+        let deferredThreadIDs = Set(
+            threads.lazy.filter { !$0.payloadResidency.isLoaded }.map(\.id)
+        )
         return ThreadListing(
             threads: threads,
             issues: issues,
-            deferredThreadCount: deferredThreadCount,
-            summaryCacheHitCount: summaryCacheHitCount
+            deferredThreadCount: deferredThreadIDs.count,
+            summaryCacheHitCount: cacheHitThreadIDs.intersection(deferredThreadIDs).count
         )
+    }
+
+    private static func shouldInitiallyDefer(
+        isArchived: Bool,
+        updatedAt: Date,
+        archiveCutoff: Date,
+        defersActivePayloads: Bool
+    ) -> Bool {
+        isArchived ? updatedAt < archiveCutoff : defersActivePayloads
+    }
+
+    private static func hydrateResidentActivePayloads(
+        in threads: inout [ChatThread],
+        store: JSONThreadStore,
+        maximumCount: Int
+    ) {
+        let loadedCount = threads.lazy.filter {
+            !$0.isArchived && $0.payloadResidency.isLoaded
+        }.count
+        let availableSlots = max(0, maximumCount - loadedCount)
+        let deferredActiveIDs = threads.lazy
+            .filter { !$0.isArchived && !$0.payloadResidency.isLoaded }
+            .map(\.id)
+        var residentIDs = Set(deferredActiveIDs.prefix(availableSlots))
+        if let selectedID = threads.first(where: { !$0.isArchived })?.id {
+            residentIDs.insert(selectedID)
+        }
+
+        for index in threads.indices where residentIDs.contains(threads[index].id) {
+            if let hydrated = try? store.materialize(threads[index]) {
+                threads[index] = hydrated
+            }
+        }
     }
 
     /// Best-effort listing that self-heals around damage: a single truncated (crash-mid-write),
@@ -297,6 +352,32 @@ public struct JSONThreadStore: Sendable {
     public func materialize(_ thread: ChatThread) throws -> ChatThread {
         guard !thread.payloadResidency.isLoaded else { return thread }
         return try DeferredThreadPayloadMerger.merge(summary: thread, into: load(thread.id))
+    }
+
+    /// Releases a durable in-memory transcript into the same bounded summary used at startup.
+    /// The caller owns dirty-state and active-run checks; a missing or unsafe authoritative file
+    /// leaves the payload resident.
+    public func deferPayload(
+        _ thread: ChatThread,
+        retainingUsageSince usageRetentionStart: Date,
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> ChatThread? {
+        guard thread.payloadResidency.isLoaded,
+              let fingerprint = ThreadFileFingerprint.read(from: fileURL(for: thread.id)),
+              let entry = ThreadPayloadSummaryEntry(
+                  thread: thread,
+                  fileURL: fileURL(for: thread.id),
+                  fingerprint: fingerprint,
+                  retainingUsageSince: usageRetentionStart,
+                  calendar: calendar,
+                  now: now
+              )
+        else {
+            return nil
+        }
+        ThreadPayloadSummaryStore.save(entry, to: directory)
+        return entry.deferredThread()
     }
 
     private func threadFileURLs() -> [URL]? {

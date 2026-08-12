@@ -70,7 +70,8 @@ public extension QuillCodeWorkspaceModel {
     func returnFromSideConversation() -> Bool {
         guard let side = selectedThread,
               let parentThreadID = side.runtimeContext.sideConversationParentThreadID,
-              let parent = root.threads.first(where: { $0.id == parentThreadID })
+              let parent = root.threads.first(where: { $0.id == parentThreadID }),
+              hydrateThreadPayload(parentThreadID)
         else {
             return false
         }
@@ -95,6 +96,7 @@ public extension QuillCodeWorkspaceModel {
         refreshFileMentionIndex()
         refreshSelectedAgentRunPresentation()
         setLastError(nil)
+        enforceThreadPayloadResidency()
         return true
     }
 }

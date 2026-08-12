@@ -44,8 +44,8 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var forkParentThreadID: UUID?
     /// The turn (a `TurnRevertPlan.turnMessageID`) a decision-point fork branched at. nil otherwise.
     public var forkAnchorTurnMessageID: UUID?
-    /// Runtime-only transcript ownership. Old archived chats may retain only a bounded summary until
-    /// selected or mutated; this state is deliberately omitted from Codable.
+    /// Runtime-only transcript ownership. Cold chats may retain only a bounded summary until selected
+    /// or mutated; this state is deliberately omitted from Codable.
     public var payloadResidency: ThreadPayloadResidency
     /// Session-only behavior such as a transient side conversation. This field is deliberately
     /// omitted from Codable; decoded threads are always standard durable conversations.

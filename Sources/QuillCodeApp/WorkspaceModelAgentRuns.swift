@@ -53,6 +53,7 @@ extension QuillCodeWorkspaceModel {
     ) {
         agentRuns.finish(threadID: threadID)
         enforceManagedWorktreeRetention()
+        enforceThreadPayloadResidency()
         guard root.selectedThreadID == threadID else {
             refreshSelectedAgentRunPresentation()
             return

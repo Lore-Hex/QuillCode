@@ -18,21 +18,12 @@ extension QuillCodeWorkspaceModel {
             return false
         }
 
-        if shouldDetachRemoteProject,
-           let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
-            nil,
-            projects: root.projects,
-            threads: root.threads
-           ) {
-            if root.selectedThreadID != selection.threadID {
-                _ = discardConfidentialThreadOnExit()
-            }
-            root.selectedProjectID = selection.projectID
-            root.selectedThreadID = selection.threadID
-            syncTerminalSessionToSelectedProject()
+        if shouldDetachRemoteProject {
+            selectProject(nil, recordsNavigation: false)
         }
 
         applyActiveWorkStopPlan(plan)
+        enforceThreadPayloadResidency()
         return true
     }
 

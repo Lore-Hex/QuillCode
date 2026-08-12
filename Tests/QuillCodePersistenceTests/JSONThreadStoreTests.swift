@@ -270,7 +270,7 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertTrue(listing.directoryReadFailed)
     }
 
-    func testBootstrapListingDefersOldArchivedPayloadAndUsesValidatedWarmIndex() throws {
+    func testBootstrapListingDefersOldArchivedPayloadAndUsesValidatedWarmSummary() throws {
         let directory = try makeTempDirectory()
         let store = JSONThreadStore(directory: directory)
         let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
@@ -349,7 +349,7 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(summary.payloadResidency.deferredSearchText, "original search\nupdated search")
     }
 
-    func testBootstrapListingIgnoresCorruptIndexAndRebuildsItPrivately() throws {
+    func testBootstrapListingIgnoresCorruptSummaryAndRebuildsItPrivately() throws {
         let directory = try makeTempDirectory()
         let store = JSONThreadStore(directory: directory)
         let oldDate = Date(timeIntervalSince1970: 1_600_000_000)
@@ -363,8 +363,11 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         )
         try store.save(archived)
         _ = store.bootstrapListing(deferArchivedBefore: cutoff)
-        let indexURL = directory.appendingPathComponent(".archived-thread-summary-index-v1")
-        try Data("not an index".utf8).write(to: indexURL, options: .atomic)
+        let summaryURL = ThreadPayloadSummaryStore.cacheFileURL(
+            for: archived.id,
+            in: directory
+        )
+        try Data("not a summary".utf8).write(to: summaryURL)
 
         let recovered = store.bootstrapListing(deferArchivedBefore: cutoff)
 
@@ -375,8 +378,14 @@ final class JSONThreadStoreTests: PersistenceTestCase {
             "recover exact search"
         )
         XCTAssertEqual(
-            try FileManager.default.attributesOfItem(atPath: indexURL.path)[.posixPermissions] as? Int,
+            try FileManager.default.attributesOfItem(atPath: summaryURL.path)[.posixPermissions] as? Int,
             0o600
+        )
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(
+                atPath: summaryURL.deletingLastPathComponent().path
+            )[.posixPermissions] as? Int,
+            0o700
         )
         XCTAssertEqual(
             store.bootstrapListing(deferArchivedBefore: cutoff).summaryCacheHitCount,
@@ -398,14 +407,17 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         )
         try store.save(archived)
         _ = store.bootstrapListing(deferArchivedBefore: cutoff)
-        let indexURL = directory.appendingPathComponent(".archived-thread-summary-index-v1")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: indexURL.path))
+        let summaryURL = ThreadPayloadSummaryStore.cacheFileURL(
+            for: archived.id,
+            in: directory
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: summaryURL.path))
 
         archived.messages = []
         archived.updatedAt = oldDate.addingTimeInterval(1)
         try store.save(archived)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: indexURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: summaryURL.path))
         XCTAssertTrue(try store.load(archived.id).messages.isEmpty)
     }
 
@@ -439,6 +451,99 @@ final class JSONThreadStoreTests: PersistenceTestCase {
             !$0.payloadResidency.isLoaded && $0.messages.isEmpty && $0.events.isEmpty
         })
         XCTAssertEqual(try store.list().count, threadCount)
+    }
+
+    func testWarmBootstrapBoundsActivePayloadsAndKeepsNewestChatReady() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let activeCount = 40
+        let residentLimit = 12
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        var newestID: UUID?
+        for index in 0..<activeCount {
+            let thread = ChatThread(
+                title: "Active \(index)",
+                messages: [
+                    ChatMessage(
+                        role: .user,
+                        content: "request \(index) " + String(repeating: "x", count: 4_096)
+                    )
+                ],
+                createdAt: baseDate,
+                updatedAt: baseDate.addingTimeInterval(TimeInterval(index))
+            )
+            try store.save(thread)
+            newestID = thread.id
+        }
+
+        let cold = store.bootstrapListing(
+            deferArchivedBefore: .distantPast,
+            maximumResidentActivePayloads: residentLimit
+        )
+        let warm = store.bootstrapListing(
+            deferArchivedBefore: .distantPast,
+            maximumResidentActivePayloads: residentLimit
+        )
+
+        for listing in [cold, warm] {
+            let loaded = listing.threads.filter(\.payloadResidency.isLoaded)
+            let deferred = listing.threads.filter { !$0.payloadResidency.isLoaded }
+            XCTAssertEqual(loaded.count, residentLimit)
+            XCTAssertEqual(deferred.count, activeCount - residentLimit)
+            XCTAssertEqual(loaded.first?.id, newestID)
+            XCTAssertEqual(loaded.first?.messages.first?.content.hasPrefix("request 39"), true)
+            XCTAssertTrue(deferred.allSatisfy { $0.messages.isEmpty && $0.events.isEmpty })
+        }
+        XCTAssertEqual(cold.summaryCacheHitCount, 0)
+        XCTAssertEqual(warm.summaryCacheHitCount, activeCount - residentLimit)
+    }
+
+    func testDeferredPayloadRetainsCompactSubagentManifestAndHydratesTranscript() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let worker = SubagentWorkerRecord(
+            id: "worker",
+            name: "Verifier",
+            role: "verify release",
+            status: .completed,
+            summary: "Verified",
+            updatedAt: createdAt
+        )
+        let thread = ChatThread(
+            title: "Delegated release",
+            messages: [ChatMessage(role: .user, content: "retain the parent transcript")],
+            subagentRuns: [SubagentRunRecord(
+                objective: "Verify the release",
+                workers: [worker],
+                createdAt: createdAt,
+                updatedAt: createdAt,
+                finishedAt: createdAt
+            )],
+            createdAt: createdAt,
+            updatedAt: createdAt
+        )
+        try store.save(thread)
+        try store.save(ChatThread(
+            title: "Selected chat",
+            createdAt: createdAt,
+            updatedAt: createdAt.addingTimeInterval(1)
+        ))
+
+        let listing = store.bootstrapListing(
+            deferArchivedBefore: .distantPast,
+            maximumResidentActivePayloads: 0
+        )
+        let summary = try XCTUnwrap(listing.threads.first { $0.id == thread.id })
+
+        XCTAssertFalse(summary.payloadResidency.isLoaded)
+        XCTAssertTrue(summary.messages.isEmpty)
+        XCTAssertEqual(summary.subagentRuns.map(\.id), thread.subagentRuns.map(\.id))
+        XCTAssertEqual(summary.subagentRuns.map(\.objective), ["Verify the release"])
+        let hydrated = try store.materialize(summary)
+        XCTAssertEqual(hydrated.messages.map(\.id), thread.messages.map(\.id))
+        XCTAssertEqual(hydrated.messages.map(\.content), ["retain the parent transcript"])
+        XCTAssertEqual(hydrated.subagentRuns.map(\.id), thread.subagentRuns.map(\.id))
     }
 
     func testSavingDeferredMetadataPreservesAuthoritativePayload() throws {

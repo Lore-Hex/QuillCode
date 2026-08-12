@@ -79,6 +79,19 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
                 !$0.payloadResidency.isLoaded && $0.messages.isEmpty
             }
         )
+        let loadedActiveThreads = controller.model.root.threads.filter {
+            !$0.isArchived && $0.payloadResidency.isLoaded
+        }
+        XCTAssertEqual(
+            loadedActiveThreads.count,
+            JSONThreadStore.defaultMaximumResidentActivePayloads
+        )
+        XCTAssertEqual(loadedActiveThreads.first?.id, selectedThread.id)
+        XCTAssertTrue(
+            controller.model.root.threads
+                .filter { !$0.isArchived && !$0.payloadResidency.isLoaded }
+                .allSatisfy { $0.messages.isEmpty && $0.events.isEmpty }
+        )
         XCTAssertEqual(
             try QuillCodeDesktopDailyDriverSmokeFixture.validate(
                 workloadID: request.performanceWorkloadID,

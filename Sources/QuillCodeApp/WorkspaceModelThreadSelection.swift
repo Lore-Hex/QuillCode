@@ -97,6 +97,7 @@ extension QuillCodeWorkspaceModel {
             recordNavigationTransition(from: previousLocation)
         }
         enforceManagedWorktreeRetention()
+        enforceThreadPayloadResidency()
     }
 
     @discardableResult
@@ -154,6 +155,7 @@ extension QuillCodeWorkspaceModel {
             recordNavigationTransition(from: previousLocation)
         }
         enforceManagedWorktreeRetention()
+        enforceThreadPayloadResidency()
         return thread.id
     }
 

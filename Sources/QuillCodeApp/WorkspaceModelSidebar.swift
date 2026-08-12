@@ -149,11 +149,17 @@ extension QuillCodeWorkspaceModel {
         if root.selectedThreadID != result.selectedThreadID {
             _ = discardConfidentialThreadOnExit()
         }
-        applyThreadDraftSelection(to: result.selectedThreadID)
+        let selectedThreadID: UUID?
+        if let candidate = result.selectedThreadID, !hydrateThreadPayload(candidate) {
+            selectedThreadID = nil
+        } else {
+            selectedThreadID = result.selectedThreadID
+        }
+        applyThreadDraftSelection(to: selectedThreadID)
         for thread in result.removedThreads {
             threadDrafts = ComposerDraftStore.cleared(thread.id, drafts: threadDrafts)
         }
-        root.selectedThreadID = result.selectedThreadID
+        root.selectedThreadID = selectedThreadID
         root.selectedProjectID = result.selectedProjectID
         threadPersistence.save(result.changedThreads)
         var removedSubagentAttachments: [ChatAttachment] = []
@@ -185,6 +191,7 @@ extension QuillCodeWorkspaceModel {
         if kind == .unpin {
             enforceManagedWorktreeRetention()
         }
+        enforceThreadPayloadResidency()
         return true
     }
 }
