@@ -364,6 +364,24 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         )
     }
 
+    func testVerifierRejectsUniversalInstallerMetadataDrift() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try mutateManifest(fixture) { manifest in
+            var updater = try XCTUnwrap(manifest["updater"] as? [String: Any])
+            updater.removeValue(forKey: "macOSUniversalInstaller")
+            manifest["updater"] = updater
+        }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("universal installer must match the published universal DMG"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsUnexpectedMacOSAppInstallMode() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -490,6 +508,9 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 )
             }
         }
+        try Data("verified universal installer".utf8).write(
+            to: assetsURL.appendingPathComponent("Quill-Cowork-macOS-universal.dmg")
+        )
 
         var checksummedNames = try FileManager.default.contentsOfDirectory(
             atPath: assetsURL.path
@@ -517,6 +538,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             )
         ]
         var appAssets: [[String: Any]] = []
+        let universalInstallerAsset = try manifestAsset(
+            named: "Quill-Cowork-macOS-universal.dmg",
+            kind: "installer",
+            platform: "macOS",
+            arch: "universal",
+            install: "dmg-app",
+            assetsURL: assetsURL,
+            releaseTag: releaseTag
+        )
+        manifestAssets.append(universalInstallerAsset)
         for architecture in architectures {
             manifestAssets.append(try manifestAsset(
                 named: "BUILD_INFO-macOS-\(architecture).txt",
@@ -602,6 +633,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 "codesign": codesign,
                 "signingTeamIdentifier": signingTeamIdentifier.map { $0 as Any } ?? NSNull(),
                 "notarized": notarized,
+                "macOSUniversalInstaller": universalInstallerAsset,
                 "macOSAppAsset": appAssets[0],
                 "macOSAppAssets": appAssets
             ],

@@ -5,7 +5,7 @@
 
 **A 100% Swift coding agent and AI coworker for real project work.**
 
-[Download for Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) · [Download for Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
+[Download Quill Cowork for Mac](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
 ![Quill Cowork showing a code review with TrustedRouter billing limits expanded](docs/images/quill-cowork-desktop.png)
 
@@ -34,7 +34,7 @@ architecture.
 
 The current desktop build requires **macOS 14 or later** and supports Apple silicon and Intel Macs.
 
-1. Download the latest Quill Cowork disk image for [Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) or [Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg).
+1. [Download the latest Quill Cowork disk image](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg). The same installer runs natively on Apple silicon and Intel Macs.
 2. Open the disk image and drag **Quill Cowork.app** onto **Applications**, then eject it.
 3. For the current tester build, right-click the app and choose **Open** on first launch if macOS
    blocks it. Tester builds are ad-hoc code-signed but are not Apple-notarized yet.
@@ -74,6 +74,7 @@ extra network request.
 
 | Platform | Artifact | Status |
 | --- | --- | --- |
+| macOS universal | [Quill Cowork app](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg) | Recommended tester preview |
 | macOS arm64 | [Quill Cowork app](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) | Tester preview |
 | macOS x86_64 | [Quill Cowork app](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) | Tester preview |
 | macOS arm64 | [Quill Cowork CLI](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz) | Tester preview |

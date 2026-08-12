@@ -146,14 +146,20 @@ def build_release_notes(arguments: argparse.Namespace, values: dict[str, str]) -
         "docs/images/quill-cowork-desktop.png"
     )
 
+    universal_installer = markdown_link(
+        "Download Quill Cowork for Mac",
+        repo,
+        tag,
+        "Quill-Cowork-macOS-universal.dmg",
+    )
     arm_installer = markdown_link(
-        "Download for Apple silicon",
+        "Apple silicon installer",
         repo,
         tag,
         "Quill-Cowork-macOS-arm64.dmg",
     )
     intel_installer = markdown_link(
-        "Download for Intel",
+        "Intel installer",
         repo,
         tag,
         "Quill-Cowork-macOS-x86_64.dmg",
@@ -180,13 +186,11 @@ Native macOS coding agent and AI coworker for real project work.
 
 **{channel_label} version {version} (build {build})** | **macOS {minimum_system} or later**
 
-| Your Mac | Installer |
-| --- | --- |
-| Apple silicon (M-series) | **{arm_installer}** |
-| Intel processor | **{intel_installer}** |
+## Download
 
-Not sure which Mac you have? Open **Apple menu > About This Mac**. Choose Apple silicon when it
-shows **Chip**, or Intel when it shows **Processor**.
+**{universal_installer}**
+
+One installer runs natively on Apple silicon and Intel Macs.
 
 ## Install
 
@@ -206,8 +210,10 @@ against their declared size, SHA-256, app identity, architecture, source commit,
 activation is atomic, and the previous build is restored if the new build cannot finish launching.
 
 <details>
-<summary>CLI downloads, updater archives, checksums, and performance evidence</summary>
+<summary>Architecture-specific installers, CLI downloads, updater archives, checksums, and performance evidence</summary>
 
+- {arm_installer}
+- {intel_installer}
 - {markdown_link("Apple silicon updater archive", repo, tag, "Quill-Cowork-macOS-arm64.zip")}
 - {markdown_link("Intel updater archive", repo, tag, "Quill-Cowork-macOS-x86_64.zip")}
 - {markdown_link("Apple silicon macOS CLI", repo, tag, "quill-code-macOS-arm64.tar.gz")}

@@ -55,6 +55,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
                 to: temporaryDirectory.appendingPathComponent("quill-code-macOS-\(architecture).tar.gz")
             )
         }
+        try Data("universal mac installer".utf8).write(
+            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-universal.dmg")
+        )
         try "product=Quill Cowork\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
             .write(
                 to: temporaryDirectory.appendingPathComponent("BUILD_INFO-linux-x86_64.txt"),
@@ -129,9 +132,20 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             updaterAppAssets.compactMap { $0["name"] as? String },
             ["Quill-Cowork-macOS-arm64.zip", "Quill-Cowork-macOS-x86_64.zip"]
         )
+        let universalInstaller = try XCTUnwrap(
+            updater["macOSUniversalInstaller"] as? [String: Any]
+        )
+        XCTAssertEqual(universalInstaller["name"] as? String, "Quill-Cowork-macOS-universal.dmg")
+        XCTAssertEqual(universalInstaller["arch"] as? String, "universal")
 
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
-        XCTAssertEqual(assets.count, 14)
+        XCTAssertEqual(assets.count, 15)
+
+        let universalAsset = try asset(named: "Quill-Cowork-macOS-universal.dmg", in: assets)
+        XCTAssertEqual(universalAsset["kind"] as? String, "installer")
+        XCTAssertEqual(universalAsset["platform"] as? String, "macOS")
+        XCTAssertEqual(universalAsset["arch"] as? String, "universal")
+        XCTAssertEqual(universalAsset["install"] as? String, "dmg-app")
 
         let installerAsset = try asset(named: "Quill-Cowork-macOS-arm64.dmg", in: assets)
         XCTAssertEqual(installerAsset["kind"] as? String, "installer")
@@ -236,6 +250,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
                 to: temporaryDirectory.appendingPathComponent("quill-code-macOS-\(architecture).tar.gz")
             )
         }
+        try Data("stable universal installer".utf8).write(
+            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-universal.dmg")
+        )
 
         let manifestURL = temporaryDirectory.appendingPathComponent("latest-stable-build.json")
         let script = Self.packageRoot()
@@ -313,6 +330,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "runner: macos-15",
             "runner: macos-15-intel",
             "name: quillcode-macos-downloads-${{ matrix.arch }}",
+            "macos-universal:",
+            "scripts/package-macos-universal-installer.sh",
+            "--arm64-app-zip",
+            "--x86-64-app-zip",
+            "Quill-Cowork-macOS-universal.dmg",
+            "name: quillcode-macos-downloads-universal",
             "name: quillcode-public-updater-smoke-${{ matrix.arch }}",
             "scripts/build-release-notes.py",
             "--build-info \"$RUNNER_TEMP/release-assets/BUILD_INFO.txt\"",
@@ -321,7 +344,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--commit \"$GITHUB_SHA\"",
             "--output \"$RUNNER_TEMP/release-notes.md\"",
             "scripts/plan-download-publication.sh",
-            "needs: [macos, linux, capture-updater-source]",
+            "needs: [macos, macos-universal, linux, capture-updater-source]",
             "pattern: quillcode-*-downloads*",
             "published: ${{ steps.publication.outputs.publish-required }}",
             "if: steps.publication.outputs.publish-required == 'true'",
@@ -355,6 +378,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "needs.capture-updater-source.result == 'success'",
             "Download previous public updater source",
             "sourceAvailable raw",
+            "Verify universal installer launches natively",
+            "--expected-architecture '${{ matrix.arch }}'",
             "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
             "verify-stable-promotion:",
             "needs: [promote-stable, verify-updater]",
@@ -425,7 +450,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "untouched previous public app",
             "synthetic one-build-behind fallback",
             "channel is `tester`",
-            "channel is `stable`"
+            "channel is `stable`",
+            "Quill-Cowork-macOS-universal.dmg"
         ])
         Self.assertSource(readme, contains: "machine-readable build manifest")
     }
@@ -446,6 +472,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
         let diskImageScript = try String(
             contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("create-macos-disk-image.sh"),
+            encoding: .utf8
+        )
+        let universalInstallerScript = try String(
+            contentsOf: root.appendingPathComponent("scripts")
+                .appendingPathComponent("package-macos-universal-installer.sh"),
             encoding: .utf8
         )
 
@@ -501,6 +532,17 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "\"$CODESIGN_BIN\" --verify --deep --strict"
         ])
         Self.assertSource(diskImageScript, excludes: "-quiet")
+        Self.assertSource(universalInstallerScript, containsAll: [
+            "--arm64-app-zip",
+            "--x86-64-app-zip",
+            "lipo",
+            "-verify_arch arm64 x86_64",
+            "The arm64 and x86_64 app bundle inventories do not match.",
+            "codesign",
+            "notarytool submit",
+            "scripts/create-macos-disk-image.sh",
+            "scripts/packaged-macos-relocation-smoke.sh"
+        ])
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
             "assert_plist_value QuillCodeBuildCommit \"$EXPECTED_BUILD_COMMIT\"",

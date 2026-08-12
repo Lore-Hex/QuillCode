@@ -14,6 +14,7 @@ from urllib.parse import quote
 SCHEMA_VERSION = 1
 PRODUCT = "Quill Cowork"
 MACOS_ARCHITECTURES = ("arm64", "x86_64")
+MACOS_INSTALLER_ARCHITECTURES = ("universal", *MACOS_ARCHITECTURES)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -150,6 +151,7 @@ def exact_macos_assets(
     *,
     kind: str,
     install: str,
+    architectures: tuple[str, ...] = MACOS_ARCHITECTURES,
 ) -> list[dict[str, object]]:
     assets_by_arch: dict[str, dict[str, object]] = {}
     for asset in assets:
@@ -163,16 +165,16 @@ def exact_macos_assets(
                 f"release macOS {kind} assets must use {install} installation"
             )
         architecture = str(asset.get("arch"))
-        if architecture not in MACOS_ARCHITECTURES or architecture in assets_by_arch:
+        if architecture not in architectures or architecture in assets_by_arch:
             raise SystemExit(
                 f"release must contain exactly one macOS {kind} for each architecture"
             )
         assets_by_arch[architecture] = asset
-    if set(assets_by_arch) != set(MACOS_ARCHITECTURES):
+    if set(assets_by_arch) != set(architectures):
         raise SystemExit(
             f"release must contain exactly one macOS {kind} for each architecture"
         )
-    return [assets_by_arch[architecture] for architecture in MACOS_ARCHITECTURES]
+    return [assets_by_arch[architecture] for architecture in architectures]
 
 
 def build_updater_metadata(
@@ -183,11 +185,13 @@ def build_updater_metadata(
     assets: list[dict[str, object]],
 ) -> dict[str, object]:
     app_assets = exact_macos_assets(assets, kind="app", install="zip-app")
-    for kind, install in (
-        ("installer", "dmg-app"),
-        ("performance", "json"),
-        ("cli", "tarball"),
-    ):
+    installer_assets = exact_macos_assets(
+        assets,
+        kind="installer",
+        install="dmg-app",
+        architectures=MACOS_INSTALLER_ARCHITECTURES,
+    )
+    for kind, install in (("performance", "json"), ("cli", "tarball")):
         exact_macos_assets(assets, kind=kind, install=install)
 
     build_info = build_infos["arm64"]
@@ -225,6 +229,7 @@ def build_updater_metadata(
         "codesign": build_info.get("codesign", "unknown"),
         "signingTeamIdentifier": signing_team,
         "notarized": build_info.get("notarized", "false").lower() == "true",
+        "macOSUniversalInstaller": installer_assets[0],
         "macOSAppAsset": app_assets[0],
         "macOSAppAssets": app_assets,
     }

@@ -12,6 +12,7 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
         Self.assertSource(
             readme,
             containsAll: [
+                "releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg",
                 "releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg",
                 "releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg",
                 "releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip",

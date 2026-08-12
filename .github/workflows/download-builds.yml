@@ -144,6 +144,65 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  macos-universal:
+    needs: [release-policy, macos]
+    if: needs.release-policy.outputs.build-required == 'true'
+    runs-on: macos-15
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: quillcode-macos-downloads-*
+          path: ${{ runner.temp }}/thin-macos-downloads
+      - name: Set release channel
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            echo "QUILLCODE_UPDATE_CHANNEL=stable" >> "$GITHUB_ENV"
+          else
+            echo "QUILLCODE_UPDATE_CHANNEL=tester" >> "$GITHUB_ENV"
+          fi
+      - name: Configure Apple distribution signing
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: scripts/configure-macos-distribution-signing.sh
+      - name: Package universal macOS installer
+        run: |
+          mkdir -p "$RUNNER_TEMP/quillcode-macos-downloads-universal"
+          scripts/package-macos-universal-installer.sh \
+            --arm64-app-zip "$RUNNER_TEMP/thin-macos-downloads/quillcode-macos-downloads-arm64/Quill-Cowork-macOS-arm64.zip" \
+            --x86-64-app-zip "$RUNNER_TEMP/thin-macos-downloads/quillcode-macos-downloads-x86_64/Quill-Cowork-macOS-x86_64.zip" \
+            --output "$RUNNER_TEMP/quillcode-macos-downloads-universal/Quill-Cowork-macOS-universal.dmg"
+      - name: Remove temporary Apple signing material
+        if: always()
+        run: |
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}" && -f "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" || true
+          fi
+          if [[ -n "${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}" && -f "$QUILLCODE_MACOS_NOTARY_KEY_PATH" ]]; then
+            rm -f "$QUILLCODE_MACOS_NOTARY_KEY_PATH"
+          fi
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH:-}" && -f "$QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH" ]]; then
+            rm -f "$QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH"
+          fi
+      - name: Upload universal macOS installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: quillcode-macos-downloads-universal
+          path: ${{ runner.temp }}/quillcode-macos-downloads-universal/Quill-Cowork-macOS-universal.dmg
+          if-no-files-found: error
+          retention-days: 14
+
   linux:
     needs: release-policy
     if: needs.release-policy.outputs.build-required == 'true'
@@ -178,7 +237,7 @@ jobs:
           retention-days: 14
 
   publish:
-    needs: [macos, linux, capture-updater-source]
+    needs: [macos, macos-universal, linux, capture-updater-source]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -357,8 +416,16 @@ jobs:
             --pattern 'Quill-Cowork-macOS-${{ matrix.arch }}.zip' \
             --dir "$RUNNER_TEMP/public-updater"
           gh release download "$RELEASE_TAG" \
+            --pattern 'Quill-Cowork-macOS-universal.dmg' \
+            --dir "$RUNNER_TEMP/public-updater"
+          gh release download "$RELEASE_TAG" \
             --pattern "latest-${RELEASE_CHANNEL}-build.json" \
             --dir "$RUNNER_TEMP/public-updater"
+      - name: Verify universal installer launches natively
+        run: |
+          scripts/packaged-macos-relocation-smoke.sh \
+            --dmg "$RUNNER_TEMP/public-updater/Quill-Cowork-macOS-universal.dmg" \
+            --expected-architecture '${{ matrix.arch }}'
       - name: Verify public app updates and relaunches itself
         env:
           QUILLCODE_UPDATER_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/updater-smoke-artifacts

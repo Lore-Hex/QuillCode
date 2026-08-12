@@ -13,6 +13,7 @@ from urllib.parse import quote
 PRODUCT = "Quill Cowork"
 BUNDLE_IDENTIFIER = "co.lorehex.QuillCowork"
 MACOS_ARCHITECTURES = ("arm64", "x86_64")
+MACOS_INSTALLER_ARCHITECTURES = ("universal", *MACOS_ARCHITECTURES)
 MANIFEST_BYTE_LIMIT = 256 * 1024
 API_BYTE_LIMIT = 4 * 1024 * 1024
 MAXIMUM_ASSET_BYTES = 2 * 1024 * 1024 * 1024
@@ -117,6 +118,7 @@ def exact_macos_assets(
     *,
     kind: str,
     install: str,
+    architectures: tuple[str, ...] = MACOS_ARCHITECTURES,
 ) -> list[dict[str, Any]]:
     matching = [
         asset
@@ -131,16 +133,16 @@ def exact_macos_assets(
                 f"release macOS {kind} assets must use {install} installation"
             )
         architecture = asset["arch"]
-        if architecture not in MACOS_ARCHITECTURES or architecture in assets_by_arch:
+        if architecture not in architectures or architecture in assets_by_arch:
             raise VerificationError(
                 f"release must contain exactly one macOS {kind} for each architecture"
             )
         assets_by_arch[architecture] = asset
-    if set(assets_by_arch) != set(MACOS_ARCHITECTURES):
+    if set(assets_by_arch) != set(architectures):
         raise VerificationError(
             f"release must contain exactly one macOS {kind} for each architecture"
         )
-    return [assets_by_arch[architecture] for architecture in MACOS_ARCHITECTURES]
+    return [assets_by_arch[architecture] for architecture in architectures]
 
 
 def validate_manifest(
@@ -302,12 +304,18 @@ def validate_manifest(
     )
 
     app_assets = exact_macos_assets(assets, kind="app", install="zip-app")
-    for kind, install in (
-        ("installer", "dmg-app"),
-        ("performance", "json"),
-        ("cli", "tarball"),
-    ):
+    installer_assets = exact_macos_assets(
+        assets,
+        kind="installer",
+        install="dmg-app",
+        architectures=MACOS_INSTALLER_ARCHITECTURES,
+    )
+    for kind, install in (("performance", "json"), ("cli", "tarball")):
         exact_macos_assets(assets, kind=kind, install=install)
+    if updater.get("macOSUniversalInstaller") != installer_assets[0]:
+        raise VerificationError(
+            "updater universal installer must match the published universal DMG"
+        )
     if updater.get("macOSAppAsset") != app_assets[0]:
         raise VerificationError("legacy updater asset must be the arm64 app archive")
     if updater.get("macOSAppAssets") != app_assets:
