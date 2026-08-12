@@ -20,7 +20,7 @@ from tester_publication.contracts import (
     validate_release_metadata,
 )
 from tester_publication.initial import publish_initial_release
-from tester_publication.remote import PublicationRemote, run_command
+from tester_publication.remote import PublicationRemote
 
 
 class TesterReleasePublisher:
@@ -115,16 +115,10 @@ class TesterReleasePublisher:
                 raise PublicationError(f"Transaction asset name is too long: {candidate_name}")
             candidate_path = staging_directory / candidate_name
             shutil.copyfile(local.path, candidate_path)
-            run_command(
-                [
-                    "gh",
-                    "release",
-                    "upload",
-                    TAG,
-                    str(candidate_path),
-                    "--repo",
-                    self.remote.repository,
-                ]
+            self.remote.upload_asset(
+                str(candidate_path),
+                expected_size=local.size,
+                expected_digest=local.digest,
             )
 
         staged_release = self.remote.get_release()
