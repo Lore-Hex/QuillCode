@@ -233,7 +233,7 @@ extension AppServerSession {
         profile: TrustedRouterAccountProfile?,
         authMode: TrustedRouterAuthMode
     ) throws {
-        let secretStore = FileSecretStore(directory: paths.secretsDirectory)
+        let secretStore = QuillSecretStoreFactory.make(for: paths)
         let previousKey = try secretStore.read(QuillSecretKeys.trustedRouterAPIKey)
         var nextConfig = appConfig
         nextConfig.authMode = authMode

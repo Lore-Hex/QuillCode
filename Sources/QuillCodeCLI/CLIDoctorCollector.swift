@@ -174,7 +174,7 @@ struct CLIDoctor: Sendable {
             }
         }
         do {
-            let store = FileSecretStore(directory: paths.secretsDirectory)
+            let store = QuillSecretStoreFactory.make(for: paths)
             if let key = normalized(try store.read(QuillSecretKeys.trustedRouterAPIKey)) {
                 return configuredCredentials(key: key, source: "Quill Cowork secret store")
             }
@@ -186,7 +186,7 @@ struct CLIDoctor: Sendable {
                     status: .fail,
                     summary: "no TrustedRouter credential was found",
                     details: .doctorDetails(["credential source": "none"]),
-                    remediation: "Run `quill-code auth set-key KEY` or sign in from Quill Cowork Settings."
+                    remediation: "Run `quill-code auth set-key KEY`."
                 )
             )
         } catch {
@@ -226,7 +226,7 @@ struct CLIDoctor: Sendable {
         environment: [String: String]
     ) -> CLIDoctorCheck {
         do {
-            let secretStore = AppServerMCPSecretStore(directory: paths.secretsDirectory)
+            let secretStore = AppServerMCPSecretStore(paths: paths)
             let configurations = try AppServerMCPConfigurationLoader.load(
                 globalConfig: paths.configFile,
                 projectRoot: currentDirectory,

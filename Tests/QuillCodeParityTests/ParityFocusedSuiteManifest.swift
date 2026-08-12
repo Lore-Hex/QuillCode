@@ -225,6 +225,10 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceRuntimeFactoryGateTests.swift", testNames: [
             "testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage"
         ]),
+        Suite(fileName: "ParityPlatformCredentialStorageGateTests.swift", testNames: [
+            "testProductionCredentialConsumersUseThePlatformFactory",
+            "testKeychainActivationStaysBoundToDeveloperIDMetadataAndMigration"
+        ]),
         Suite(fileName: "ParityWorkspaceSidebarGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesSidebarSelectionTransitions"
         ]),

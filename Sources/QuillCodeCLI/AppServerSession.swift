@@ -194,7 +194,7 @@ actor AppServerSession {
         self.appConfig = try ConfigStore(fileURL: paths.configFile).load()
         self.repository = AppServerThreadRepository(paths: paths, fallbackCWD: currentDirectory)
         self.attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
-        let mcpSecretStore = AppServerMCPSecretStore(directory: paths.secretsDirectory)
+        let mcpSecretStore = AppServerMCPSecretStore(paths: paths)
         self.mcpSecretStore = mcpSecretStore
         self.mcpRegistry = AppServerMCPRegistry(
             launcher: mcpLauncher,

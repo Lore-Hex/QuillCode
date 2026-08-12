@@ -148,7 +148,7 @@ public struct QuillCodeCommandRunner: Sendable {
     ) async throws {
         let paths = home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
         try paths.ensure()
-        let store = FileSecretStore(directory: paths.secretsDirectory)
+        let store = QuillSecretStoreFactory.make(for: paths)
         switch command {
         case .status:
             let key = try store.read(QuillSecretKeys.trustedRouterAPIKey)?

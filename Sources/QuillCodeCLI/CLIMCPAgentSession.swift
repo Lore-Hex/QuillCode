@@ -34,9 +34,7 @@ struct CLIMCPAgentSessionPreparer: Sendable {
 
         let registry = AppServerMCPRegistry(
             launcher: launcher,
-            secretStore: AppServerMCPSecretStore(
-                directory: configuration.paths.secretsDirectory
-            ),
+            secretStore: AppServerMCPSecretStore(paths: configuration.paths),
             httpClient: httpClient
         )
         let scope = "exec:\(threadID.uuidString.lowercased())"

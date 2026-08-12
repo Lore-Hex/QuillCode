@@ -252,7 +252,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
 
     private func sessionStore() -> SecretTrustedRouterSessionStore {
         SecretTrustedRouterSessionStore(
-            secretStore: FileSecretStore(directory: paths.secretsDirectory),
+            secretStore: QuillSecretStoreFactory.make(for: paths),
             key: QuillSecretKeys.trustedRouterAPIKey
         )
     }

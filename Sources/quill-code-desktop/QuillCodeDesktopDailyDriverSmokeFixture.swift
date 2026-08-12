@@ -111,7 +111,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         let destinationWorkspace = destination.appendingPathComponent("workspace", isDirectory: true)
         let paths = QuillCodePaths(home: appState)
         try paths.ensure()
-        try FileSecretStore(directory: paths.secretsDirectory).write(
+        try QuillSecretStoreFactory.make(for: paths).write(
             mockCredential,
             for: QuillSecretKeys.trustedRouterAPIKey
         )

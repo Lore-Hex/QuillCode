@@ -129,10 +129,10 @@ struct DefaultAppServerMCPOAuthLoginStarter: AppServerMCPOAuthLoginStarting {
 }
 
 struct AppServerMCPSecretStore: MCPSecretStore {
-    private let store: FileSecretStore
+    private let store: any QuillSecretStore
 
-    init(directory: URL) {
-        self.store = FileSecretStore(directory: directory)
+    init(paths: QuillCodePaths) {
+        self.store = QuillSecretStoreFactory.make(for: paths)
     }
 
     func read(_ key: String) throws -> String? { try store.read(key) }

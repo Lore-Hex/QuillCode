@@ -3,9 +3,8 @@ import QuillCodePersistence
 import QuillCodeTools
 
 /// Bridges the persistence layer's `QuillSecretStore` to the tools layer's `MCPSecretStore`, so
-/// remote MCP OAuth tokens land in the same `~/.quillcode/secrets` file store that holds the
-/// TrustedRouter API key. Defined in `QuillCodeApp` because it is the only target depending on
-/// both `QuillCodePersistence` and `QuillCodeTools`.
+/// remote MCP OAuth tokens use the same platform credential store as the TrustedRouter API key.
+/// Defined here because this is the only target depending on both persistence and tools.
 struct MCPSecretStoreAdapter: MCPSecretStore {
     let backing: any QuillSecretStore
 
