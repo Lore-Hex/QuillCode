@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-11 Idempotent Tester Publication Recovery
+
+Overall grade after this slice: **A+ transaction safety, A+ outage resilience, A+ failure evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Retry ownership | A+ | One publication remote owns bounded transient classification, capped exponential backoff, and idempotent remote commands. |
+| Upload ambiguity | A+ | A failed upload response succeeds only when a fresh release probe finds the exact expected name, uploaded state, size, and SHA-256 digest. |
+| Failure isolation | A+ | Permanent diagnostics still fail immediately; temporary `release not found` retries only while the canonical release is independently readable. |
+| Rollback safety | A+ | Conflicting retained bytes fail closed, candidate aliases are removed, canonical assets and metadata are restored, and the prior tag is verified. |
+| Boundedness | A+ | Persistent transient failures stop after five attempts with retry delays capped at 30 seconds; tests use zero delay without changing production policy. |
+| Recovery evidence | A+ | Fault injection covers failures before mutation, after remote mutation but before response, mismatched retained bytes, idempotent PATCH/tag retry, and lost DELETE responses. |
+
+Validation:
+
+- Transactional publication fault suite: 11 tests, 0 failures.
+- Complete download-build, exact-main CI, release-policy, freshness, manifest, and publication
+  parity boundary: 36 tests, 0 failures.
+- Full Swift suite: 6,213 tests, 5 skipped, 0 failures.
+- Release packaged composer `SIGKILL` recovery, direct-executable, Launch Services, native
+  Accessibility interaction, and 100-chat daily-driver smokes passed.
+- Packaged performance gate: 295.45 ms median launch-ready, 41.28 MiB initial footprint,
+  85.75 MiB after the first interaction sweep, and 88.45 MiB after the repeated sweep.
+- Python bytecode compilation for the complete tester-publication package passed.
+- `python3 scripts/grade-code-quality.py --root .`: every module summary remains A+.
+- `git diff --check`: clean.
+
 ## 2026-08-11 Bounded Artifact Text Preview Residency
 
 Overall grade after this slice: **A+ memory architecture, A+ surface responsiveness, A+ data fidelity**.

@@ -4598,3 +4598,25 @@
   `ParityBenchmarkCompatibilityEvalsTests`. The 2026-08-07 exact-model live run passed TAU3 banking
   6/6 and BFCL 8/8 with all 24 bounded paid invocations successful; the redacted local manifest is
   `.build/quillcode-validation/benchmark-compat/live-r1/manifest.json`.
+
+## 2026-08-11: tester publication retries are idempotent and state-probed
+
+- **Incident:** Tester build 729 packaged successfully on every platform, but its first publish job
+  received `release not found` while uploading a candidate and then a transient GitHub API TLS
+  certificate error while checking rollback. The transaction preserved the complete prior public
+  build, and a failed-job retry published and verified 729 successfully.
+- **Decision:** Read-only and idempotent GitHub publication operations retry only recognized TLS,
+  DNS, connection, timeout, rate-limit, and 5xx failures, using five attempts and capped exponential
+  backoff. Permanent policy, validation, and malformed-response failures remain immediate.
+- **Upload boundary:** A candidate upload never retries blindly after an ambiguous response. The
+  publisher first reads the live release and accepts the operation only when the exact transaction
+  alias exists in uploaded state with the expected byte count and SHA-256 digest. Conflicting remote
+  content fails closed into the existing verified rollback. A temporary `release not found` result
+  retries only when that probe independently confirms the canonical release still exists.
+- **Cleanup boundary:** Asset deletion is idempotent. A retry that observes the asset already absent
+  treats the original deletion as complete, preventing a lost success response from turning a
+  correct committed release into a false failure.
+- **Evidence:** `tester_publication/remote.py`, `publisher.py`, `initial.py`, and
+  `ParityTransactionalTesterPublicationTests` cover transient reads, pre- and post-mutation upload
+  failures, conflicting bytes, bounded exhaustion, PATCH/tag retries, deletion response loss,
+  permanent failures, exact rollback, and tag-last success ordering.

@@ -89,6 +89,99 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
         )
     }
 
+    func testTransientReleaseReadRetriesBeforeAnyMutation() throws {
+        let result = try runPublisher(failure: "get-release-transient")
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let operations = try XCTUnwrap(result.state["operations"] as? [String])
+        XCTAssertEqual(operations.filter { $0 == "failure:get-release-transient" }.count, 1)
+        XCTAssertEqual(operations.first, "failure:get-release-transient")
+        XCTAssertEqual(result.state["tag"] as? String, newCommit)
+    }
+
+    func testTemporaryReleaseNotFoundDuringCandidateUploadRetriesSafely() throws {
+        let result = try runPublisher(failure: "upload-release-not-found")
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let operations = try XCTUnwrap(result.state["operations"] as? [String])
+        XCTAssertEqual(operations.filter { $0 == "failure:upload-release-not-found" }.count, 1)
+        XCTAssertEqual(operations.filter { $0.hasPrefix("upload:") }.count, 3)
+        XCTAssertEqual(
+            try assetNames(in: release(from: result.state)),
+            ["Quill-Cowork-macOS-arm64.zip", "latest-tester-build.json", "new-evidence.json"]
+        )
+    }
+
+    func testLostCandidateUploadResponseAcceptsOnlyExactRetainedAsset() throws {
+        let result = try runPublisher(failure: "upload-transient-after-mutation")
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let operations = try XCTUnwrap(result.state["operations"] as? [String])
+        XCTAssertEqual(
+            operations.filter { $0 == "failure:upload-transient-after-mutation" }.count,
+            1
+        )
+        XCTAssertEqual(operations.filter { $0.hasPrefix("upload:") }.count, 3)
+        XCTAssertEqual(
+            try assetNames(in: release(from: result.state)),
+            ["Quill-Cowork-macOS-arm64.zip", "latest-tester-build.json", "new-evidence.json"]
+        )
+    }
+
+    func testLostUploadResponseWithConflictingRemoteAssetRestoresPreviousRelease() throws {
+        let result = try runPublisher(failure: "upload-transient-after-conflicting-mutation")
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("conflicting metadata"), result.output)
+        XCTAssertTrue(result.output.contains("Restored the previous tester release"), result.output)
+        XCTAssertEqual(result.state["tag"] as? String, oldCommit)
+        XCTAssertEqual(
+            try assetNames(in: release(from: result.state)),
+            ["Quill-Cowork-macOS-arm64.zip", "latest-tester-build.json", "obsolete.txt"]
+        )
+    }
+
+    func testPersistentTransientReleaseFailureExhaustsBoundedRetriesWithoutMutation() throws {
+        let result = try runPublisher(
+            failure: "get-release-transient",
+            failureCount: 5
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        let operations = try XCTUnwrap(result.state["operations"] as? [String])
+        XCTAssertEqual(operations.count, 5)
+        XCTAssertTrue(operations.allSatisfy { $0 == "failure:get-release-transient" })
+        XCTAssertEqual(result.state["tag"] as? String, oldCommit)
+    }
+
+    func testTransientIdempotentRemoteMutationsRetry() throws {
+        for failure in ["patch-asset-transient", "patch-release-transient", "push-tag-transient"] {
+            let result = try runPublisher(failure: failure)
+
+            XCTAssertEqual(result.exitCode, 0, "\(failure): \(result.output)")
+            let operations = try XCTUnwrap(result.state["operations"] as? [String])
+            XCTAssertEqual(
+                operations.filter { $0 == "failure:\(failure)" }.count,
+                1,
+                failure
+            )
+            XCTAssertEqual(result.state["tag"] as? String, newCommit, failure)
+        }
+    }
+
+    func testLostDeleteResponseRecognizesCompletedCleanup() throws {
+        let result = try runPublisher(failure: "delete-asset-after-mutation")
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let operations = try XCTUnwrap(result.state["operations"] as? [String])
+        XCTAssertEqual(operations.filter { $0 == "failure:delete-asset-after-mutation" }.count, 1)
+        XCTAssertEqual(operations.filter { $0.hasPrefix("delete:") }.count, 3)
+        XCTAssertEqual(
+            try assetNames(in: release(from: result.state)),
+            ["Quill-Cowork-macOS-arm64.zip", "latest-tester-build.json", "new-evidence.json"]
+        )
+    }
+
     func testUnsafeInputsFailBeforeGitHubMutation() throws {
         let result = try runPublisher(commit: "short")
 
@@ -106,6 +199,7 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
 
     private func runPublisher(
         failure: String? = nil,
+        failureCount: Int = 1,
         commit: String? = nil
     ) throws -> PublisherResult {
         let root = FileManager.default.temporaryDirectory
@@ -135,7 +229,7 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
             "localTag": oldCommit,
             "nextAssetID": 100,
             "operations": [],
-            "failures": failure.map { [$0: 1] } ?? [:],
+            "failures": failure.map { [$0: failureCount] } ?? [:],
             "release": [
                 "id": 77,
                 "tag_name": "tester-latest",
@@ -254,6 +348,15 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                 print("injected failure: " + point, file=sys.stderr)
                 raise SystemExit(42)
 
+        def fail_with_diagnostic_if_requested(state, point, diagnostic):
+            remaining = state.get("failures", {}).get(point, 0)
+            if remaining > 0:
+                state["failures"][point] = remaining - 1
+                record(state, "failure:" + point)
+                save(state)
+                print(diagnostic, file=sys.stderr)
+                raise SystemExit(42)
+
         def asset_by_id(state, identifier):
             for asset in state["release"]["assets"]:
                 if asset["id"] == identifier:
@@ -267,6 +370,11 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
             method = args[args.index("--method") + 1]
             endpoint = next(value for value in args if value.startswith("repos/"))
             if method == "GET" and "/releases/tags/" in endpoint:
+                fail_with_diagnostic_if_requested(
+                    state,
+                    "get-release-transient",
+                    "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+                )
                 record(state, "get-release")
                 save(state)
                 print(json.dumps(state["release"], sort_keys=True))
@@ -274,6 +382,11 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
             if "/releases/assets/" in endpoint:
                 identifier = int(endpoint.rsplit("/", 1)[1])
                 if method == "PATCH":
+                    fail_with_diagnostic_if_requested(
+                        state,
+                        "patch-asset-transient",
+                        "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+                    )
                     fail_if_requested(state, "patch-asset")
                     requested = args[args.index("-f") + 1]
                     name = requested.split("=", 1)[1]
@@ -292,8 +405,18 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                         if value["id"] != identifier
                     ]
                     save(state)
+                    fail_with_diagnostic_if_requested(
+                        state,
+                        "delete-asset-after-mutation",
+                        "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+                    )
                     raise SystemExit(0)
             if method == "PATCH" and "/releases/" in endpoint:
+                fail_with_diagnostic_if_requested(
+                    state,
+                    "patch-release-transient",
+                    "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+                )
                 fail_if_requested(state, "patch-release")
                 payload_path = Path(args[args.index("--input") + 1])
                 payload = json.loads(payload_path.read_text())
@@ -304,6 +427,11 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                 print(json.dumps(state["release"], sort_keys=True))
                 raise SystemExit(0)
         if args[:2] == ["release", "upload"]:
+            fail_with_diagnostic_if_requested(
+                state,
+                "upload-release-not-found",
+                "release not found"
+            )
             fail_if_requested(state, "upload")
             path = Path(args[3])
             data = path.read_bytes()
@@ -314,10 +442,25 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                 "digest": "sha256:" + hashlib.sha256(data).hexdigest(),
                 "state": "uploaded"
             }
+            if state.get("failures", {}).get(
+                "upload-transient-after-conflicting-mutation",
+                0
+            ) > 0:
+                asset["digest"] = "sha256:conflicting-remote-content"
             state["nextAssetID"] += 1
             state["release"]["assets"].append(asset)
             record(state, "upload:" + path.name)
             save(state)
+            fail_with_diagnostic_if_requested(
+                state,
+                "upload-transient-after-conflicting-mutation",
+                "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+            )
+            fail_with_diagnostic_if_requested(
+                state,
+                "upload-transient-after-mutation",
+                "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+            )
             raise SystemExit(0)
         print("unexpected gh invocation: " + " ".join(args), file=sys.stderr)
         raise SystemExit(49)
@@ -351,6 +494,18 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                 print("injected failure: " + point, file=sys.stderr)
                 raise SystemExit(42)
 
+        def fail_transient_if_requested(state, point):
+            remaining = state.get("failures", {}).get(point, 0)
+            if remaining > 0:
+                state["failures"][point] = remaining - 1
+                state["operations"].append("failure:" + point)
+                save(state)
+                print(
+                    "tls: failed to verify certificate: x509: certificate signed by unknown authority",
+                    file=sys.stderr
+                )
+                raise SystemExit(42)
+
         args = sys.argv[1:]
         state = load()
         if args[:1] == ["config"]:
@@ -374,6 +529,7 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
                 state["operations"].append("delete-tag")
                 save(state)
                 raise SystemExit(0)
+            fail_transient_if_requested(state, "push-tag-transient")
             fail_if_requested(state, "push-tag")
             state["tag"] = state["localTag"]
             state["operations"].append("push-tag:" + state["tag"])

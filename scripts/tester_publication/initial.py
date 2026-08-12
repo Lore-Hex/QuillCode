@@ -46,16 +46,11 @@ def publish_initial_release(
         )
         created_release = True
         for name in ordered_asset_names(assets):
-            run_command(
-                [
-                    "gh",
-                    "release",
-                    "upload",
-                    TAG,
-                    str(assets[name].path),
-                    "--repo",
-                    remote.repository,
-                ]
+            asset = assets[name]
+            remote.upload_asset(
+                str(asset.path),
+                expected_size=asset.size,
+                expected_digest=asset.digest,
             )
         run_command(
             [

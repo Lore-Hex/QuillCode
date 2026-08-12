@@ -129,6 +129,14 @@
 
 ## Latest Quality Pass
 
+- Tester publication now absorbs bounded transient GitHub and network failures without weakening its
+  atomic release contract. Release reads and idempotent PATCH/tag operations retry recognized TLS,
+  DNS, timeout, rate-limit, and 5xx diagnostics with capped exponential backoff. Candidate uploads
+  probe the live release after every failed response: an exact uploaded size and SHA-256 completes
+  the operation, conflicting bytes fail closed into rollback, and the observed temporary
+  `release not found` response retries only after the canonical release is independently visible.
+  Cleanup deletion is idempotent across lost responses, and persistent outages stop after five
+  attempts without beginning a mutation.
 - Structured JSON artifact previews now share one metadata-keyed document reader instead of mapping
   and parsing the same file independently for each candidate format. Successful and invalid parses
   are purgeable and bounded to four entries / 4 MiB estimated residency; same-key concurrent reads
