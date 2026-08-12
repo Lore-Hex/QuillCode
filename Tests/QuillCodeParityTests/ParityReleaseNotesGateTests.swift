@@ -27,8 +27,10 @@ final class ParityReleaseNotesGateTests: QuillCodeParityTestCase {
             "docs/images/quill-cowork-desktop.png",
             "Tester version 0.1.0 (build 678)",
             "macOS 14.0 or later",
-            "Apple silicon (M-series)",
-            "Intel processor",
+            "Download Quill Cowork for Mac",
+            "Quill-Cowork-macOS-universal.dmg",
+            "One installer runs natively on Apple silicon and Intel Macs.",
+            "Architecture-specific installers",
             "Quill-Cowork-macOS-arm64.dmg",
             "Quill-Cowork-macOS-x86_64.dmg",
             "Drag **Quill Cowork.app** onto **Applications**",
@@ -68,6 +70,7 @@ final class ParityReleaseNotesGateTests: QuillCodeParityTestCase {
         let notes = try String(contentsOf: fixture.output, encoding: .utf8)
         Self.assertSource(notes, containsAll: [
             "Stable version 1.2.3 (build 678)",
+            "releases/download/v1.2.3/Quill-Cowork-macOS-universal.dmg",
             "releases/download/v1.2.3/Quill-Cowork-macOS-arm64.dmg",
             "releases/download/v1.2.3/Quill-Cowork-macOS-x86_64.dmg",
             "Developer ID signed, notarized by Apple, and stapled",

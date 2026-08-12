@@ -10,6 +10,8 @@ Send testers this moving prerelease link:
 
 Direct asset links for the current tester channel:
 
+- [Recommended Mac installer: `Quill-Cowork-macOS-universal.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg)
+  runs natively on Apple silicon and Intel.
 - [Apple silicon installer: `Quill-Cowork-macOS-arm64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg)
 - [Intel installer: `Quill-Cowork-macOS-x86_64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg)
 - [Apple silicon updater archive: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
@@ -25,7 +27,7 @@ Direct asset links for the current tester channel:
 
 The GitHub release page is generated from the packaged app's validated
 `BUILD_INFO.txt`, not maintained as free-form workflow copy. It leads with a
-commit-pinned product screenshot, explicit Apple silicon and Intel installer
+commit-pinned product screenshot, one universal Mac installer, optional architecture-specific
 links, the minimum macOS version, installation and Gatekeeper steps, automatic
 update behavior, signing status, and exact source/build provenance. Secondary
 CLI, updater, checksum, manifest, and performance assets remain available in a
@@ -37,10 +39,12 @@ The build manifest is the app updater, website, and support script contract. It
 records the build channel, tag, commit, workflow run URL, version, build number,
 per-asset download URL, size, platform, architecture, and SHA-256 digest. It also
 includes an `updater` object with the feed URL, bundle identifier, minimum macOS
-version, signing/notarization status, and exact arm64 and x86_64 updater assets.
+version, signing/notarization status, the universal installer, and exact arm64
+and x86_64 updater assets.
 The legacy arm64 field remains present so already-installed tester builds continue
-to update. The DMG is the recommended human installation path; the ZIP remains the
-machine-verified updater payload so installation ergonomics cannot change update semantics.
+to update. The universal DMG is the recommended human installation path; the ZIP
+remains the machine-verified updater payload so installation ergonomics cannot
+change update semantics.
 Every macOS `BUILD_INFO` also records `symbolsStripped=true` and the exact uncompressed
 app-executable byte size. Release builds remove debug and local symbols before any ad-hoc or
 Developer ID signature is applied. Public verification compares the declared size with the Mach-O

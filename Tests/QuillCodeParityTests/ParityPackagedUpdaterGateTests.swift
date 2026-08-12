@@ -127,7 +127,7 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "scripts/capture-public-updater-source.py",
             "name: quillcode-prior-updater-sources",
             "pattern: quillcode-*-downloads*",
-            "needs: [macos, linux, capture-updater-source]",
+            "needs: [macos, macos-universal, linux, capture-updater-source]",
             "verify-updater:",
             "runner: macos-15",
             "runner: macos-15-intel",
@@ -140,6 +140,9 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "needs.verify-updater.result == 'success'",
             "sourceAvailable raw",
             "--source-manifest \"$CAPTURE_DIR/source-manifest.json\"",
+            "Quill-Cowork-macOS-universal.dmg",
+            "Verify universal installer launches natively",
+            "--expected-architecture '${{ matrix.arch }}'",
             "scripts/packaged-macos-updater-smoke.sh",
             "quillcode-public-updater-smoke-${{ matrix.arch }}"
         ])
