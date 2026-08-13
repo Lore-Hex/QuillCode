@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-08-13: validate Apple credential material before stable build fan-out
+
+- **Decision:** Stable `v*` workflows validate all seven Apple distribution credentials in the
+  Ubuntu `release-policy` job before waiting for exact-main CI or allocating native package runners.
+- **Boundary:** The bounded preflight verifies credential structure, certificate ownership and
+  validity, and the App Store Connect private-key contract without logging values or retaining
+  decoded files.
+- **Layering:** Runner keychain import and real Apple notarization remain independent downstream
+  gates because a local material check cannot prove current App Store Connect authorization.
+
 ## 2026-08-13: the public website deploys from reviewed main-branch source
 
 - **Decision:** `website/` is the canonical source for `cowork.quillos.cloud`; the manually maintained

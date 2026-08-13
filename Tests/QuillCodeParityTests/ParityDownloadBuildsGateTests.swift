@@ -304,6 +304,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "contents: write",
             "release-policy:",
             "scripts/validate-download-build-ref.sh",
+            "Validate stable Apple distribution credentials",
+            "scripts/validate-apple-distribution-credentials.sh",
             "Wait for successful exact-main CI",
             "scripts/wait-for-successful-ci.sh",
             "scripts/plan-download-build.sh",
@@ -402,9 +404,13 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(workflow.contains("--clobber"))
         XCTAssertFalse(workflow.contains("gh release delete-asset"))
         let validationIndex = try XCTUnwrap(workflow.range(of: "scripts/validate-download-build-ref.sh"))
+        let applePreflightIndex = try XCTUnwrap(
+            workflow.range(of: "scripts/validate-apple-distribution-credentials.sh")
+        )
         let ciGateIndex = try XCTUnwrap(workflow.range(of: "scripts/wait-for-successful-ci.sh"))
         let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))
-        XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
+        XCTAssertLessThan(validationIndex.lowerBound, applePreflightIndex.lowerBound)
+        XCTAssertLessThan(applePreflightIndex.lowerBound, ciGateIndex.lowerBound)
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
         let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
         let sourceCaptureIndex = try XCTUnwrap(workflow.range(of: "  capture-updater-source:"))

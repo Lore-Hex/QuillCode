@@ -35,6 +35,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Updater signing trust: exact ad-hoc metadata, notarized Developer ID transition, ten-character
   team validation, pinned-team continuity, ad-hoc downgrade and cross-team refusal, stable-channel
   requirements, Developer ID Application authority parsing, and Installer-authority rejection.
+- Stable Apple credential preflight: complete secret inventory, bounded base64 material, canonical
+  identifiers, `.p12` password and certificate/private-key matching, exact Developer ID Application
+  common name, code-signing usage, seven-day validity floor, PKCS#8 P-256 notary key validation,
+  secret-free diagnostics, unconditional decoded-file cleanup, and release-policy ordering before CI
+  wait or native packaging.
 - Packaged resource gates: three fresh launch samples, majority launch-time enforcement, per-process
   initial and settled post-interaction resident-memory ceilings, retained-growth validation, bounded
   initial and post-interaction thread counts, recomputed delta integrity, and a public performance

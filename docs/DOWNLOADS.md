@@ -473,6 +473,26 @@ and deletes temporary credential files. `APPLE_TEAM_ID` and
 Developer ID identity must resolve inside the private build keychain and belong
 to `APPLE_TEAM_ID`.
 
+Before a stable workflow waits for CI or starts native packaging, its
+`release-policy` job runs `scripts/validate-apple-distribution-credentials.sh`.
+The preflight decodes credentials only inside a private temporary directory,
+never prints their values, and removes every decoded file on success or failure.
+It verifies the `.p12` password, certificate/private-key match, exact Developer
+ID Application common name, code-signing usage, at least seven days of remaining
+certificate validity, and an unencrypted PKCS#8 P-256 App Store Connect key. The
+signing identity may be that exact certificate name or its 40-character SHA-1
+identity hash; both remain pinned to `APPLE_TEAM_ID`. Base64 secrets must use
+canonical unwrapped encoding. Legacy-encrypted Keychain `.p12` exports remain
+supported without weakening the downstream identity checks.
+Maintainers can run the same script locally with the seven variables above set
+before uploading or rotating repository secrets.
+
+This material check is deliberately separate from Apple authorization. GitHub
+does not expose stored secret values to the release starter, and only Apple's
+`notarytool` can prove that a configured key ID and issuer are still authorized.
+The macOS runner therefore retains its private-keychain identity/team check and
+the packaging jobs retain the real notarization, stapling, and validation gate.
+
 Partial configuration and malformed identifiers fail before decoded files are
 created. Once files can exist, any setup failure deletes the private keychain and
 complete signing directory locally; only successful setup transfers cleanup
