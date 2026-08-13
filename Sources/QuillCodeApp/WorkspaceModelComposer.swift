@@ -195,7 +195,7 @@ extension QuillCodeWorkspaceModel {
         }
         updateThreadFromAgentRun(startedThread)
         threadPersistence.save(startedThread)
-        beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
+        let runID = beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
         onStarted?()
 
         // A directory open can block indefinitely and cannot be interrupted by task cancellation.
@@ -205,10 +205,11 @@ extension QuillCodeWorkspaceModel {
 
         let outcome = await runAgentSession(
             sendStart,
+            runID: runID,
             workspaceRoot: workspaceRoot,
             onProgressUpdated: onProgressUpdated
         )
-        finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID, runID: runID)
         if draftThreadID != nil, Self.normalizedComposerDraft(composer.draft) == nil {
             clearComposerDraft(for: draftThreadID)
         }
@@ -272,9 +273,9 @@ extension QuillCodeWorkspaceModel {
             threadID: thread.id,
             lifecycle: WorkspaceComposerSendLifecycle.started(from: composer)
         )
-        beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
-        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
-        finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        let runID = beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
+        let outcome = await runAgentSession(sendStart, runID: runID, workspaceRoot: workspaceRoot)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID, runID: runID)
         // NOTE: the follow-up drain is NOT here — it runs at the single approval-decision choke
         // point (`approveToolCardAndResume`), which fires after EVERY gate resolution (approve/deny,
         // any mode), so this Plan-mode resume path and the deny/auto/review paths all drain once and
@@ -300,14 +301,15 @@ extension QuillCodeWorkspaceModel {
             threadID: thread.id,
             lifecycle: WorkspaceComposerSendLifecycle.started(from: composer)
         )
-        beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
-        let outcome = await runAgentSession(sendStart, workspaceRoot: workspaceRoot)
-        finishAgentSend(outcome, runThreadID: sendStart.threadID)
+        let runID = beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
+        let outcome = await runAgentSession(sendStart, runID: runID, workspaceRoot: workspaceRoot)
+        finishAgentSend(outcome, runThreadID: sendStart.threadID, runID: runID)
     }
 
     private func finishCompletedSend(
         _ result: WorkspaceAgentSendSessionResult,
-        runThreadID: UUID
+        runThreadID: UUID,
+        runID: UUID
     ) throws {
         let completion = WorkspaceAgentSendTerminalPlanner.completed(
             result: result,
@@ -343,25 +345,31 @@ extension QuillCodeWorkspaceModel {
             refreshFileMentionIndex()
         }
         recordAgentRunStopReason(result.stopReason, threadID: runThreadID)
-        finishAgentRun(threadID: runThreadID, lifecycle: completion.lifecycle)
+        finishAgentRun(threadID: runThreadID, runID: runID, lifecycle: completion.lifecycle)
     }
 
-    private func finishAgentSend(_ outcome: WorkspaceAgentSendTaskOutcome, runThreadID: UUID) {
+    private func finishAgentSend(
+        _ outcome: WorkspaceAgentSendTaskOutcome,
+        runThreadID: UUID,
+        runID: UUID
+    ) {
+        guard agentRuns.isRunning(runThreadID, runID: runID) else { return }
         switch outcome {
         case .completed(let result):
             do {
-                try finishCompletedSend(result, runThreadID: runThreadID)
+                try finishCompletedSend(result, runThreadID: runThreadID, runID: runID)
             } catch {
-                finishFailedSend(error, runThreadID: runThreadID)
+                finishFailedSend(error, runThreadID: runThreadID, runID: runID)
             }
         case .cancelled(let cancellation):
             finishCancelledSend(
                 userPrompt: cancellation.userPrompt,
                 threadID: cancellation.threadID,
-                runThreadID: runThreadID
+                runThreadID: runThreadID,
+                runID: runID
             )
         case .failed(let error):
-            finishFailedSend(error, runThreadID: runThreadID)
+            finishFailedSend(error, runThreadID: runThreadID, runID: runID)
         }
         // Surface any self-heal that happened during the run, pinned to the RUN's thread — not whatever
         // thread happens to be selected now, so a mid-run thread switch never misattributes the notice.
@@ -372,10 +380,21 @@ extension QuillCodeWorkspaceModel {
         notifyRunFinishedIfNeeded(outcome: outcome, threadID: runThreadID)
     }
 
-    func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
+    func applyAgentProgress(
+        _ thread: ChatThread,
+        expectedThreadID: UUID,
+        expectedRunID: UUID? = nil
+    ) {
         // Stop removes the run before cancellation has necessarily drained every queued progress
         // callback. Never let a late snapshot overwrite the stopped thread or presentation.
-        guard agentRuns.isRunning(expectedThreadID) else { return }
+        if let expectedRunID {
+            guard agentRuns.isRunning(expectedThreadID, runID: expectedRunID) else { return }
+        } else {
+            guard agentRuns.isRunning(expectedThreadID) else { return }
+        }
+        let previousLastEvent = root.threads
+            .first(where: { $0.id == expectedThreadID })?
+            .events.last
         guard let progress = WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
             expectedThreadID: expectedThreadID,
@@ -383,19 +402,35 @@ extension QuillCodeWorkspaceModel {
         ) else { return }
         guard let mutation = updateThreadFromAgentProgress(progress.thread) else { return }
         agentTranscriptRefreshTracker.record(mutation, selectedThreadID: root.selectedThreadID)
-        updateAgentRun(threadID: expectedThreadID, status: progress.agentStatus)
+        if let liveThread = root.threads.first(where: { $0.id == expectedThreadID }),
+           WorkspaceAgentProgressPersistencePolicy.shouldPersist(
+               previousLastEvent: previousLastEvent,
+               currentLastEvent: liveThread.events.last
+           ) {
+            threadPersistence.save(liveThread)
+        }
+        updateAgentRun(
+            threadID: expectedThreadID,
+            runID: expectedRunID,
+            status: progress.agentStatus
+        )
     }
 
-    private func finishCancelledSend(userPrompt: String, threadID: UUID, runThreadID: UUID) {
+    private func finishCancelledSend(
+        userPrompt: String,
+        threadID: UUID,
+        runThreadID: UUID,
+        runID: UUID
+    ) {
         clearAgentRunStopReason(threadID: runThreadID)
         let terminal = WorkspaceAgentSendTerminalPlanner.cancelled(composer: composer)
         mutateThread(threadID) { thread in
             WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
         }
-        finishAgentRun(threadID: runThreadID, lifecycle: terminal.lifecycle)
+        finishAgentRun(threadID: runThreadID, runID: runID, lifecycle: terminal.lifecycle)
     }
 
-    private func finishFailedSend(_ error: any Error, runThreadID: UUID) {
+    private func finishFailedSend(_ error: any Error, runThreadID: UUID, runID: UUID) {
         clearAgentRunStopReason(threadID: runThreadID)
         // A terminal run failure must leave a DURABLE trace on its own thread. A background run that
         // failed while the user was on another thread otherwise vanishes silently: finishAgentRun
@@ -410,7 +445,7 @@ extension QuillCodeWorkspaceModel {
             ))
         }
         let terminal = WorkspaceAgentSendTerminalPlanner.failed(error, composer: composer)
-        finishAgentRun(threadID: runThreadID, lifecycle: terminal.lifecycle)
+        finishAgentRun(threadID: runThreadID, runID: runID, lifecycle: terminal.lifecycle)
     }
 
     func applyComposerSendLifecycle(_ plan: WorkspaceComposerSendLifecyclePlan) {

@@ -10,6 +10,9 @@ enum WorkspaceRunFailureNoticePlanner {
     /// Single source of truth for recognizing a persisted run-failure notice (the retry gate keys off
     /// this prefix — keep summary construction and detection in lockstep).
     static let noticePrefix = "Run stopped after an error"
+    static let interruptedRelaunchDiagnostic =
+        "Quill Cowork closed before the run finished. Review any partial work before retrying."
+    static let interruptedRelaunchSummary = "\(noticePrefix): \(interruptedRelaunchDiagnostic)"
 
     /// Reuses the summary sanitizer so a persisted failure can never carry an API key or private key
     /// out of the raw error, and is collapsed to a single bounded line fit for the Activity row.

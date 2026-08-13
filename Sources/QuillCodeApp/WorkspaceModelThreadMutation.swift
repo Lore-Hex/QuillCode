@@ -88,6 +88,9 @@ extension QuillCodeWorkspaceModel {
         if let liveThread = root.threads.first(where: { $0.id == thread.id }) {
             thread.composerDraft = liveThread.composerDraft
             thread.composerAttachments = liveThread.composerAttachments
+            // The session's producer snapshot was captured before the model installed its durable
+            // run generation. Only the owning model clears that checkpoint at a terminal boundary.
+            thread.activeRunCheckpoint = liveThread.activeRunCheckpoint
             // Project context can refresh while an agent runs. A progress snapshot captured at
             // send start must not roll that newer model-owned context back.
             thread.instructions = liveThread.instructions

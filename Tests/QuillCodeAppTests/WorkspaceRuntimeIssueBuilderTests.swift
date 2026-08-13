@@ -3,6 +3,19 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
+    func testInterruptedRunGetsSpecificRecoveryCopyAndTelemetry() throws {
+        let issue = try XCTUnwrap(WorkspaceRuntimeIssueBuilder.issue(
+            from: WorkspaceAgentRunRelaunchReconciler.recoveryMessage,
+            config: AppConfig()
+        ))
+
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "Run interrupted")
+        XCTAssertEqual(issue.actionLabel, "Review and retry")
+        XCTAssertEqual(issue.recovery?.route, .retryLastTurn)
+        XCTAssertEqual(issue.recovery?.reason, .runInterrupted)
+    }
+
     func testStatusIssueIncludesRuntimeDiagnostics() {
         let issue = WorkspaceRuntimeIssueBuilder(
             config: AppConfig(authMode: .oauth),

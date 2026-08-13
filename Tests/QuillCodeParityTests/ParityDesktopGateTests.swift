@@ -181,4 +181,21 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(packagedSmokeText, contains: "--composer-draft-crash-phase verify")
         Self.assertSource(packagedSmokeText, contains: "COMPOSER_DRAFT_CRASH_STATUS\" -ne 137")
     }
+
+    func testPackagedDesktopRecoversInterruptedAgentRunAfterHardKill() throws {
+        let crashSmokeText = try Self.desktopSourceText(
+            named: "QuillCodeDesktopAgentRunCrashSmoke.swift"
+        )
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let packagedSmokeText = try Self.scriptText(named: "packaged-macos-smoke.sh")
+
+        Self.assertSource(crashSmokeText, contains: "Darwin.kill(getpid(), SIGKILL)")
+        Self.assertSource(crashSmokeText, contains: "activeRunCheckpoint == nil")
+        Self.assertSource(crashSmokeText, contains: "toolCards.last?.status == .failed")
+        Self.assertSource(crashSmokeText, contains: "failedRunRetryPrompt")
+        Self.assertSource(appText, contains: "QuillCodeDesktopAgentRunCrashSmoke.runAndExit")
+        Self.assertSource(packagedSmokeText, contains: "--agent-run-crash-phase write")
+        Self.assertSource(packagedSmokeText, contains: "--agent-run-crash-phase verify")
+        Self.assertSource(packagedSmokeText, contains: "AGENT_RUN_CRASH_STATUS\" -ne 137")
+    }
 }

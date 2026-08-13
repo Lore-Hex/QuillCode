@@ -82,6 +82,15 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         guard !trimmed.isEmpty else { return nil }
         let normalized = trimmed.lowercased()
 
+        if trimmed == WorkspaceAgentRunRelaunchReconciler.recoveryMessage {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "Run interrupted",
+                message: trimmed,
+                actionLabel: "Review and retry",
+                recovery: .retry(reason: .runInterrupted)
+            )
+        }
         if normalized.contains("api key is not configured") {
             return RuntimeIssueSurface(
                 severity: .warning,

@@ -128,6 +128,15 @@ and is rejected after a selection change, while a durable tombstone prevents sen
 returning after relaunch. A first message without a chat owner has its own pending record and moves to
 the created chat on send. Confidential and side-conversation drafts remain memory-only.
 
+Parent-chat runs also carry a content-free generation checkpoint containing only a run identifier,
+start time, and message/event boundaries. Tool and approval boundaries are saved durably, while
+continuous tool output is coalesced so recovery does not turn streaming into a disk-write loop. If
+the process disappears mid-run, bootstrap clears the dead generation, closes any Running tool card
+as Failed, records one durable interruption notice, and offers **Review and retry** with a cautious
+continuation prompt. A completed assistant answer or still-undecided approval gate is preserved
+without a false failure. The packaged release smoke starts a real shell tool, kills the app with
+`SIGKILL`, and relaunches the same bundle to verify this path end to end.
+
 ## Build Cadence
 
 The tester release is refreshed:

@@ -29,6 +29,12 @@ extension QuillCodeWorkspaceModel {
 
     private func stopActiveWorkspaceWork() -> WorkspaceStoppedActiveWork {
         let hadRunningMCPServers = mcpRuntime.cancelAll(extensions: &extensions)
+        let activeAgentThreadIDs = agentRuns.activeThreadIDs
+        for threadID in activeAgentThreadIDs {
+            mutateThread(threadID) { thread in
+                WorkspaceComposerCancellationPlanner.applyStoppedRun(to: &thread)
+            }
+        }
         let hadAgentRuns = agentRuns.finishAll()
         let hadActiveWork = hadAgentRuns || terminal.isRunning
         composer.isSending = false

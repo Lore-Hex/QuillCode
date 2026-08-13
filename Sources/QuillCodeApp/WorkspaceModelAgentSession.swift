@@ -11,6 +11,7 @@ extension QuillCodeWorkspaceModel {
     /// was appended for a submit; nothing is appended for a resume).
     func runAgentSession(
         _ sendStart: WorkspaceAgentSendStartPlan,
+        runID: UUID,
         workspaceRoot: URL,
         onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
     ) async -> WorkspaceAgentSendTaskOutcome {
@@ -25,7 +26,11 @@ extension QuillCodeWorkspaceModel {
                 recordsUserMessage: false
             )
         let progressRelay = WorkspaceAgentProgressRelay { [weak self] progressThread in
-            self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
+            self?.applyAgentProgress(
+                progressThread,
+                expectedThreadID: sendStart.threadID,
+                expectedRunID: runID
+            )
             onProgressUpdated?()
         }
         defer { progressRelay.cancel() }

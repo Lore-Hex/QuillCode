@@ -72,12 +72,16 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             calendar: calendar,
             now: currentDate
         )
-        let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
+        let subagentReconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
             threadListing.threads,
             childStore: childStore,
             payloadStore: payloadStore
         )
-        let threads = reconciliation.threads
+        let runReconciliation = WorkspaceAgentRunRelaunchReconciler.reconcile(
+            subagentReconciliation.threads,
+            now: currentDate
+        )
+        let threads = runReconciliation.threads
         var projects = storedProjects
         if !WorkspaceBootstrapProjectMigration.isComplete(in: paths.home)
             && !unreadableDataKinds.contains(.projects) {
@@ -98,7 +102,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 try? WorkspaceBootstrapProjectMigration.markComplete(in: paths.home)
             }
         }
-        for thread in threads where reconciliation.changedThreadIDs.contains(thread.id) {
+        let reconciledThreadIDs = subagentReconciliation.changedThreadIDs
+            .union(runReconciliation.changedThreadIDs)
+        for thread in threads where reconciledThreadIDs.contains(thread.id) {
             do {
                 try threadStore.save(thread)
             } catch {
@@ -149,6 +155,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             ),
             automations: AutomationsState(items: automations),
             sidebarSavedSearches: sidebarSavedSearches,
+            interruptedRunRecoveryThreadIDs: runReconciliation.interruptedThreadIDs,
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,

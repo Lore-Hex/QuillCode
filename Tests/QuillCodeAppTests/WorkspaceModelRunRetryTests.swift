@@ -54,6 +54,24 @@ final class WorkspaceModelRunRetryTests: XCTestCase {
 
     // MARK: - Retry turn
 
+    func testPrepareRetryUsesCautiousContinuationForInterruptedRun() {
+        var thread = ChatThread(
+            messages: [.init(role: .user, content: "Change the project")],
+            events: [failureNotice()]
+        )
+        thread.composerAttachments = []
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertTrue(model.prepareRetryLastUserTurn())
+
+        XCTAssertEqual(model.composer.draft, QuillCodeWorkspaceModel.failedRunRetryPrompt)
+        XCTAssertTrue(model.composer.attachments.isEmpty)
+        XCTAssertNil(model.lastError)
+    }
+
     func testRetryFailedRunSendsTheContinuationTurnThroughTheSharedEngine() async throws {
         let root = try makeQuillCodeTestDirectory()
         let model = QuillCodeWorkspaceModel()

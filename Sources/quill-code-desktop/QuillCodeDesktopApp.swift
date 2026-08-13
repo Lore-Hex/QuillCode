@@ -87,6 +87,20 @@ struct QuillCodeDesktopApp: App {
             return
         }
 
+        if let request = QuillCodeDesktopAgentRunCrashSmokeRequest(arguments: CommandLine.arguments) {
+            let workspaceRoot = QuillCodeDesktopAgentRunCrashSmokeWorkspaceRoot(request: request)
+            let controller = workspaceRoot.makeController()
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopAgentRunCrashSmoke.runAndExit(
+                    request,
+                    controller: controller,
+                    workspaceRoot: workspaceRoot
+                )
+            }
+            return
+        }
+
         if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
             let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
             let controller = workspaceRoot.makeController()
