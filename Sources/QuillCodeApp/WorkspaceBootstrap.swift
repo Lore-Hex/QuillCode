@@ -6,6 +6,10 @@ import QuillCodePersistence
 import QuillCodeTools
 
 public struct QuillCodeWorkspaceBootstrap: Sendable {
+    /// Launch only needs the selected transcript. Navigation grows into the separate bounded
+    /// runtime working set as the user opens other chats.
+    public static let maximumLaunchResidentActivePayloads = 1
+
     public typealias ModelCatalogFetcher = @Sendable (AppConfig) async -> TrustedRouterModelCatalog
     public typealias AccountCreditsFetcher = @Sendable (AppConfig) async -> TrustedRouterCreditsRefreshResult
 
@@ -64,7 +68,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let calendar = Calendar.current
         let threadListing = threadStore.bootstrapListing(
             deferArchivedBefore: .distantFuture,
-            maximumResidentActivePayloads: JSONThreadStore.defaultMaximumResidentActivePayloads,
+            maximumResidentActivePayloads: Self.maximumLaunchResidentActivePayloads,
             retainingUsageSince: ThreadPeriodUsageSnapshot.currentPeriodRetentionStart(
                 now: currentDate,
                 calendar: calendar

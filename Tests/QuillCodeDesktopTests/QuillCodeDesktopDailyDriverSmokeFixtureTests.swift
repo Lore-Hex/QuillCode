@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeApp
 import QuillCodePersistence
 import XCTest
 @testable import quill_code_desktop
@@ -84,7 +85,7 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         }
         XCTAssertEqual(
             loadedActiveThreads.count,
-            JSONThreadStore.defaultMaximumResidentActivePayloads
+            QuillCodeWorkspaceBootstrap.maximumLaunchResidentActivePayloads
         )
         XCTAssertEqual(loadedActiveThreads.first?.id, selectedThread.id)
         XCTAssertTrue(
