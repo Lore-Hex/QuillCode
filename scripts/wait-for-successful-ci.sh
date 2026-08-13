@@ -5,6 +5,7 @@ REPOSITORY="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 COMMIT="${GITHUB_SHA:?GITHUB_SHA is required}"
 BASE_BRANCH="main"
 WAIT_SECONDS="${DOWNLOAD_BUILD_CI_WAIT_SECONDS:-1800}"
+ACTIVE_GRACE_SECONDS="${DOWNLOAD_BUILD_CI_ACTIVE_GRACE_SECONDS:-1800}"
 POLL_SECONDS="${DOWNLOAD_BUILD_CI_POLL_SECONDS:-15}"
 
 fail() {
@@ -18,17 +19,26 @@ fail() {
   fail "Exact-main CI requires a full lowercase commit SHA."
 [[ "$WAIT_SECONDS" =~ ^[0-9]+$ ]] ||
   fail "DOWNLOAD_BUILD_CI_WAIT_SECONDS must be a non-negative integer."
+[[ "$ACTIVE_GRACE_SECONDS" =~ ^[0-9]+$ ]] ||
+  fail "DOWNLOAD_BUILD_CI_ACTIVE_GRACE_SECONDS must be a non-negative integer."
 [[ "$POLL_SECONDS" =~ ^[1-9][0-9]*$ ]] ||
   fail "DOWNLOAD_BUILD_CI_POLL_SECONDS must be a positive integer."
 WAIT_SECONDS=$((10#$WAIT_SECONDS))
+ACTIVE_GRACE_SECONDS=$((10#$ACTIVE_GRACE_SECONDS))
 POLL_SECONDS=$((10#$POLL_SECONDS))
 (( WAIT_SECONDS <= 3600 )) ||
   fail "DOWNLOAD_BUILD_CI_WAIT_SECONDS must not exceed 3600."
+(( ACTIVE_GRACE_SECONDS <= 3600 )) ||
+  fail "DOWNLOAD_BUILD_CI_ACTIVE_GRACE_SECONDS must not exceed 3600."
+(( WAIT_SECONDS + ACTIVE_GRACE_SECONDS <= 3600 )) ||
+  fail "The combined exact-main CI wait and active grace must not exceed 3600 seconds."
 (( POLL_SECONDS <= 300 )) ||
   fail "DOWNLOAD_BUILD_CI_POLL_SECONDS must not exceed 300."
 
 deadline=$((SECONDS + WAIT_SECONDS))
 previous_state=""
+active_grace_used=false
+has_seen_active_run=false
 
 while true; do
   query_succeeded=true
@@ -85,6 +95,10 @@ while true; do
     exit 0
   fi
 
+  if (( active_count > 0 )); then
+    has_seen_active_run=true
+  fi
+
   if [[ "$query_succeeded" != "true" ]]; then
     current_state="the GitHub CI query is temporarily unavailable"
   elif (( matching_count == 0 )); then
@@ -100,7 +114,32 @@ while true; do
   fi
 
   if (( SECONDS >= deadline )); then
-    fail "Commit $COMMIT did not produce a successful exact-main CI run within ${WAIT_SECONDS}s; $current_state."
+    active_grace_eligible=false
+    if (( active_count > 0 )); then
+      active_grace_eligible=true
+    elif [[ "$query_succeeded" != "true" && "$has_seen_active_run" == "true" ]]; then
+      active_grace_eligible=true
+    fi
+
+    deadline_extended=false
+    if [[ "$active_grace_used" == "false" && "$active_grace_eligible" == "true" ]] &&
+      (( ACTIVE_GRACE_SECONDS > 0 )); then
+      active_grace_used=true
+      deadline=$((deadline + ACTIVE_GRACE_SECONDS))
+      if (( SECONDS < deadline )); then
+        deadline_extended=true
+        echo "Extending exact-main CI wait once by up to ${ACTIVE_GRACE_SECONDS}s because $current_state."
+      fi
+    fi
+
+    if [[ "$deadline_extended" != "true" ]]; then
+      total_wait_seconds="$WAIT_SECONDS"
+      if [[ "$active_grace_used" == "true" ]]; then
+        total_wait_seconds=$((total_wait_seconds + ACTIVE_GRACE_SECONDS))
+      fi
+      failure_message="Commit $COMMIT did not produce a successful exact-main CI run"
+      fail "$failure_message within ${total_wait_seconds}s; $current_state."
+    fi
   fi
 
   remaining=$((deadline - SECONDS))

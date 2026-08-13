@@ -154,6 +154,11 @@
   Intel runners. Candidate or updater failure drafts only the new release without changing the
   previous stable feed; promotion happens afterward, followed by a focused latest-feed identity
   check.
+- Download Builds now gives exact-main CI 30 minutes to appear and finish, then grants one additional
+  30-minute grace only to a matching run known to be active. Missing and terminal unsuccessful runs
+  still fail at the original boundary; transient GitHub query loss cannot authorize grace unless an
+  active run was already observed. The combined wait is capped at one hour under a 65-minute job
+  timeout, preventing normal packaged-smoke variance from requiring a manual publication rerun.
 - Tester publication now absorbs bounded transient GitHub and network failures without weakening its
   atomic release contract. Release reads and idempotent PATCH/tag operations retry recognized TLS,
   DNS, timeout, rate-limit, and 5xx diagnostics with capped exponential backoff. Candidate uploads

@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-13 Bounded Active-CI Publication Grace
+
+Overall grade after this slice: **A+ automation resilience, A+ failure isolation, A+ observability**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Automatic publication | A+ | A healthy exact-main CI run that crosses the initial 30-minute boundary receives one bounded grace period instead of forcing a manual Download Builds rerun. |
+| Failure isolation | A+ | Missing and terminal unsuccessful runs remain ineligible; grace requires a currently active exact-main run, or a prior active observation when the deadline query itself fails. |
+| Boundedness | A+ | Initial wait plus active grace cannot exceed one hour, grace cannot renew, polling remains capped, and the workflow job has five minutes of teardown headroom. |
+| Outage behavior | A+ | A transient GitHub query failure can preserve grace only after this gate observed an eligible active run; an unobserved outage cannot invent authorization. |
+| Regression evidence | A+ | Real subprocess fixtures prove grace success, transient-query recovery, real-clock expiry, missing/terminal refusal, invalid configuration rejection, and workflow policy wiring. |
+
+Validation:
+
+- Focused release-policy and download-build parity: 31 tests, 0 failures.
+- Full Swift package: 6,343 tests, 5 intentional skips, 0 failures; Python script contracts:
+  122 tests, 0 failures.
+- Complete deterministic smoke passed CLI interruption/persistence, doctor, review, app-server,
+  MCP, native desktop, packaged crash recovery, direct/Launch Services rendering, live Accessibility,
+  critical memory pressure, and 100-chat daily-driver gates. The packaged resource sample measured
+  321.59 ms median launch-ready, 40.77 MiB initial footprint, 76.02 MiB after first interaction,
+  79.94 MiB after repetition, and 0.0002% settled idle CPU.
+- Workflow YAML, shell syntax, website release contracts, `git diff --check`, conflict-marker, and
+  changed-diff credential-pattern checks passed. Deterministic grades: wait script A+ (100), focused
+  gate tests A+ (100), and workflow parity tests A+ (100).
+
 ## 2026-08-13 Bounded Updater System Tools
 
 Overall grade after this slice: **A+ memory containment, A+ cancellation, A+ updater resilience**.
