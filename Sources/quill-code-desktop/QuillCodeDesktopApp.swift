@@ -14,49 +14,46 @@ struct QuillCodeDesktopApp: App {
     init() {
         _ = QuillCodeDesktopLaunchClock.appEntryUptime
         let updateLaunchHandshake = QuillCodeDesktopUpdateLaunchHandshake()
-        if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
-            Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
-        }
-        if let seedRequest = QuillCodeDesktopDailyDriverSmokeSeedRequest(arguments: CommandLine.arguments) {
-            Darwin.exit(QuillCodeDesktopDailyDriverSmokeFixture.runAndReport(seedRequest))
-        }
-
-        if let relocationSmokeRequest = QuillCodeDesktopRelocationSmokeRequest(
-            arguments: CommandLine.arguments
-        ) {
-            let controller = QuillCodeDesktopController(
-                updateController: QuillCodeDesktopUpdateController(
-                    configuration: nil,
-                    installResultURL: nil
-                ),
-                installationLocationController: QuillCodeDesktopInstallationLocationController(
-                    configuration: nil
-                )
-            )
-            _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopRelocationSmokeRunner.runAndExit(relocationSmokeRequest)
+        let launchRoutes = QuillCodeDesktopLaunchRoute.candidates(arguments: CommandLine.arguments)
+        for route in launchRoutes {
+            switch route {
+            case .updateHelper:
+                if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(
+                    arguments: CommandLine.arguments
+                ) {
+                    Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
+                }
+            case .dailyDriverSeed:
+                if let seedRequest = QuillCodeDesktopDailyDriverSmokeSeedRequest(
+                    arguments: CommandLine.arguments
+                ) {
+                    Darwin.exit(QuillCodeDesktopDailyDriverSmokeFixture.runAndReport(seedRequest))
+                }
+            case .relocationSmoke:
+                if let request = QuillCodeDesktopRelocationSmokeRequest(
+                    arguments: CommandLine.arguments
+                ) {
+                    let controller = Self.smokeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    Task { @MainActor in
+                        await QuillCodeDesktopRelocationSmokeRunner.runAndExit(request)
+                    }
+                    return
+                }
+            case .updaterSmoke:
+                if let request = QuillCodeDesktopUpdaterSmokeRequest(
+                    arguments: CommandLine.arguments
+                ) {
+                    let controller = Self.smokeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    Task { @MainActor in
+                        await QuillCodeDesktopUpdaterSmokeRunner.runAndExit(request)
+                    }
+                    return
+                }
+            default:
+                continue
             }
-            return
-        }
-
-        if let updaterSmokeRequest = QuillCodeDesktopUpdaterSmokeRequest(
-            arguments: CommandLine.arguments
-        ) {
-            let controller = QuillCodeDesktopController(
-                updateController: QuillCodeDesktopUpdateController(
-                    configuration: nil,
-                    installResultURL: nil
-                ),
-                installationLocationController: QuillCodeDesktopInstallationLocationController(
-                    configuration: nil
-                )
-            )
-            _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopUpdaterSmokeRunner.runAndExit(updaterSmokeRequest)
-            }
-            return
         }
 
         // Quill Cowork is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
@@ -66,74 +63,78 @@ struct QuillCodeDesktopApp: App {
         // pin fixes that class of contrast bugs everywhere at once.
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
 
-        if let request = QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments) {
-            let controller = request.makeController()
-            _controller = StateObject(wrappedValue: controller)
-            QuillCodeDesktopCoworkEvalLaunch.schedule(request, controller: controller)
-            return
-        }
-
-        if let request = QuillCodeDesktopComposerDraftCrashSmokeRequest(arguments: CommandLine.arguments) {
-            let workspaceRoot = QuillCodeDesktopComposerDraftCrashSmokeWorkspaceRoot(request: request)
-            let controller = workspaceRoot.makeController()
-            _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopComposerDraftCrashSmoke.runAndExit(
-                    request,
-                    controller: controller,
-                    workspaceRoot: workspaceRoot
-                )
+        for route in launchRoutes {
+            switch route {
+            case .coworkEval:
+                if let request = QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments) {
+                    let controller = request.makeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    QuillCodeDesktopCoworkEvalLaunch.schedule(request, controller: controller)
+                    return
+                }
+            case .composerDraftCrashSmoke:
+                if let request = QuillCodeDesktopComposerDraftCrashSmokeRequest(
+                    arguments: CommandLine.arguments
+                ) {
+                    let workspaceRoot = QuillCodeDesktopComposerDraftCrashSmokeWorkspaceRoot(request: request)
+                    let controller = workspaceRoot.makeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    Task { @MainActor in
+                        await QuillCodeDesktopComposerDraftCrashSmoke.runAndExit(
+                            request,
+                            controller: controller,
+                            workspaceRoot: workspaceRoot
+                        )
+                    }
+                    return
+                }
+            case .agentRunCrashSmoke:
+                if let request = QuillCodeDesktopAgentRunCrashSmokeRequest(
+                    arguments: CommandLine.arguments
+                ) {
+                    let workspaceRoot = QuillCodeDesktopAgentRunCrashSmokeWorkspaceRoot(request: request)
+                    let controller = workspaceRoot.makeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    Task { @MainActor in
+                        await QuillCodeDesktopAgentRunCrashSmoke.runAndExit(
+                            request,
+                            controller: controller,
+                            workspaceRoot: workspaceRoot
+                        )
+                    }
+                    return
+                }
+            case .windowSmoke:
+                if let request = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
+                    let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)
+                    let controller = workspaceRoot.makeController()
+                    _controller = StateObject(wrappedValue: controller)
+                    QuillCodeDesktopWindowSmokeLaunch.schedule(
+                        request,
+                        controller: controller,
+                        workspaceRoot: workspaceRoot
+                    )
+                    return
+                }
+            case .renderSmoke:
+                if let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) {
+                    let controller: QuillCodeDesktopController
+                    if let workspaceRoot = try? QuillCodeDesktopSmokeWorkspaceRoot(request: request) {
+                        controller = workspaceRoot.makeLaunchController()
+                    } else {
+                        controller = Self.smokeController(
+                            workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
+                        )
+                    }
+                    _controller = StateObject(wrappedValue: controller)
+                    Task { @MainActor in
+                        await QuillCodeDesktopLaunchRecoverySmoke.runAndExit(request)
+                    }
+                    return
+                }
+            default:
+                continue
             }
-            return
-        }
-
-        if let request = QuillCodeDesktopAgentRunCrashSmokeRequest(arguments: CommandLine.arguments) {
-            let workspaceRoot = QuillCodeDesktopAgentRunCrashSmokeWorkspaceRoot(request: request)
-            let controller = workspaceRoot.makeController()
-            _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopAgentRunCrashSmoke.runAndExit(
-                    request,
-                    controller: controller,
-                    workspaceRoot: workspaceRoot
-                )
-            }
-            return
-        }
-
-        if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
-            let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
-            let controller = workspaceRoot.makeController()
-            _controller = StateObject(wrappedValue: controller)
-            QuillCodeDesktopWindowSmokeLaunch.schedule(
-                windowRequest,
-                controller: controller,
-                workspaceRoot: workspaceRoot
-            )
-            return
-        }
-
-        if let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) {
-            let controller: QuillCodeDesktopController
-            if let workspaceRoot = try? QuillCodeDesktopSmokeWorkspaceRoot(request: request) {
-                controller = workspaceRoot.makeLaunchController()
-            } else {
-                controller = QuillCodeDesktopController(
-                    updateController: QuillCodeDesktopUpdateController(
-                        configuration: nil,
-                        installResultURL: nil
-                    ),
-                    installationLocationController: QuillCodeDesktopInstallationLocationController(
-                        configuration: nil
-                    ),
-                    workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
-                )
-            }
-            _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopLaunchRecoverySmoke.runAndExit(request)
-            }
-            return
         }
 
         let updateController = QuillCodeDesktopUpdateController()
@@ -151,6 +152,19 @@ struct QuillCodeDesktopApp: App {
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
         _controller = StateObject(wrappedValue: controller)
+    }
+
+    private static func smokeController(workspaceRoot: URL? = nil) -> QuillCodeDesktopController {
+        QuillCodeDesktopController(
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            installationLocationController: QuillCodeDesktopInstallationLocationController(
+                configuration: nil
+            ),
+            workspaceRoot: workspaceRoot
+        )
     }
 
     var body: some Scene {

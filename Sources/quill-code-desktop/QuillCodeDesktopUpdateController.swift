@@ -1,6 +1,82 @@
 import AppKit
 import Foundation
 
+enum QuillCodeDesktopUpdateDependency: Hashable {
+    case checker
+    case preparer
+    case installer
+    case installationInspector
+    case recovery
+}
+
+@MainActor
+private final class QuillCodeDesktopUpdateDependencies {
+    private var checkerStorage: (any QuillCodeDesktopUpdateChecking)?
+    private var preparerStorage: (any QuillCodeDesktopUpdatePreparing)?
+    private var installerStorage: (any QuillCodeDesktopUpdateInstalling)?
+    private var installationInspectorStorage: (any QuillCodeDesktopUpdateInstallationInspecting)?
+    private var recoveryStorage: (any QuillCodeDesktopUpdateRecovering)?
+
+    init(
+        checker: (any QuillCodeDesktopUpdateChecking)?,
+        preparer: (any QuillCodeDesktopUpdatePreparing)?,
+        installer: (any QuillCodeDesktopUpdateInstalling)?,
+        installationInspector: (any QuillCodeDesktopUpdateInstallationInspecting)?,
+        recovery: (any QuillCodeDesktopUpdateRecovering)?
+    ) {
+        checkerStorage = checker
+        preparerStorage = preparer
+        installerStorage = installer
+        installationInspectorStorage = installationInspector
+        recoveryStorage = recovery
+    }
+
+    var checker: any QuillCodeDesktopUpdateChecking {
+        if let checkerStorage { return checkerStorage }
+        let checker = QuillCodeDesktopUpdateChecker()
+        checkerStorage = checker
+        return checker
+    }
+
+    var preparer: any QuillCodeDesktopUpdatePreparing {
+        if let preparerStorage { return preparerStorage }
+        let preparer = QuillCodeDesktopUpdatePreparer()
+        preparerStorage = preparer
+        return preparer
+    }
+
+    var installer: any QuillCodeDesktopUpdateInstalling {
+        if let installerStorage { return installerStorage }
+        let installer = QuillCodeDesktopUpdateInstaller()
+        installerStorage = installer
+        return installer
+    }
+
+    var installationInspector: any QuillCodeDesktopUpdateInstallationInspecting {
+        if let installationInspectorStorage { return installationInspectorStorage }
+        let inspector = QuillCodeDesktopUpdateInstallationInspector()
+        installationInspectorStorage = inspector
+        return inspector
+    }
+
+    var recovery: any QuillCodeDesktopUpdateRecovering {
+        if let recoveryStorage { return recoveryStorage }
+        let recovery = QuillCodeDesktopUpdateRecovery()
+        recoveryStorage = recovery
+        return recovery
+    }
+
+    var materialized: Set<QuillCodeDesktopUpdateDependency> {
+        var dependencies: Set<QuillCodeDesktopUpdateDependency> = []
+        if checkerStorage != nil { dependencies.insert(.checker) }
+        if preparerStorage != nil { dependencies.insert(.preparer) }
+        if installerStorage != nil { dependencies.insert(.installer) }
+        if installationInspectorStorage != nil { dependencies.insert(.installationInspector) }
+        if recoveryStorage != nil { dependencies.insert(.recovery) }
+        return dependencies
+    }
+}
+
 @MainActor
 final class QuillCodeDesktopUpdateController: ObservableObject {
     @Published private(set) var state: State = .idle
@@ -8,22 +84,26 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     @Published var isPresented = false
 
     let configuration: QuillCodeDesktopUpdateConfiguration?
-    private let checker: any QuillCodeDesktopUpdateChecking
-    private let preparer: any QuillCodeDesktopUpdatePreparing
-    private let installer: any QuillCodeDesktopUpdateInstalling
-    private let installationInspector: any QuillCodeDesktopUpdateInstallationInspecting
-    private let recovery: any QuillCodeDesktopUpdateRecovering
+    private let dependencies: QuillCodeDesktopUpdateDependencies
     private let defaults: UserDefaults
     private let now: () -> Date
     private let automaticSchedule: QuillCodeDesktopUpdateSchedule
     private let reminderStore: QuillCodeDesktopUpdateReminderStore
-    private let relocationContinuation: QuillCodeDesktopRelocationUpdateContinuation
+    private let relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore
+    private let relocationContinuationTimeout: Duration
+    private let installResultURL: URL?
     private let terminateApplication: @MainActor () -> Void
     private var operationTask: Task<Void, Never>?
     private var automaticTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
     private var didStartAutomaticChecks = false
+    private lazy var relocationContinuation = QuillCodeDesktopRelocationUpdateContinuation(
+        intentStore: relocationUpdateIntentStore,
+        installationInspector: dependencies.installationInspector,
+        resultURL: installResultURL,
+        timeout: relocationContinuationTimeout
+    )
 
     private enum AutomaticCheckOutcome {
         case success(nextCheckDelay: TimeInterval?)
@@ -34,12 +114,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
 
     init(
         configuration: QuillCodeDesktopUpdateConfiguration? = .bundled(),
-        checker: any QuillCodeDesktopUpdateChecking = QuillCodeDesktopUpdateChecker(),
-        preparer: any QuillCodeDesktopUpdatePreparing = QuillCodeDesktopUpdatePreparer(),
-        installer: any QuillCodeDesktopUpdateInstalling = QuillCodeDesktopUpdateInstaller(),
-        installationInspector: any QuillCodeDesktopUpdateInstallationInspecting =
-            QuillCodeDesktopUpdateInstallationInspector(),
-        recovery: any QuillCodeDesktopUpdateRecovering = QuillCodeDesktopUpdateRecovery(),
+        checker: (any QuillCodeDesktopUpdateChecking)? = nil,
+        preparer: (any QuillCodeDesktopUpdatePreparing)? = nil,
+        installer: (any QuillCodeDesktopUpdateInstalling)? = nil,
+        installationInspector: (any QuillCodeDesktopUpdateInstallationInspecting)? = nil,
+        recovery: (any QuillCodeDesktopUpdateRecovering)? = nil,
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
         automaticSchedule: QuillCodeDesktopUpdateSchedule = .production,
@@ -51,11 +130,13 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             QuillCodeDesktopSystemApplication.terminateForUpdate
     ) {
         self.configuration = configuration
-        self.checker = checker
-        self.preparer = preparer
-        self.installer = installer
-        self.installationInspector = installationInspector
-        self.recovery = recovery
+        self.dependencies = QuillCodeDesktopUpdateDependencies(
+            checker: checker,
+            preparer: preparer,
+            installer: installer,
+            installationInspector: installationInspector,
+            recovery: recovery
+        )
         self.defaults = defaults
         self.now = now
         self.automaticSchedule = automaticSchedule
@@ -63,14 +144,10 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             defaults: defaults,
             reminderInterval: reminderInterval
         )
-        let intentStore = relocationUpdateIntentStore
+        self.relocationUpdateIntentStore = relocationUpdateIntentStore
             ?? QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults, now: now)
-        self.relocationContinuation = QuillCodeDesktopRelocationUpdateContinuation(
-            intentStore: intentStore,
-            installationInspector: installationInspector,
-            resultURL: installResultURL,
-            timeout: relocationContinuationTimeout
-        )
+        self.relocationContinuationTimeout = relocationContinuationTimeout
+        self.installResultURL = installResultURL
         self.terminateApplication = terminateApplication
     }
 
@@ -84,7 +161,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         guard !didStartAutomaticChecks else { return }
         didStartAutomaticChecks = true
         guard let configuration else {
-            relocationContinuation.discardPreviousResult()
+            _ = QuillCodeDesktopUpdateInstallResultReader.take(from: installResultURL)
             return
         }
         let continuationStartup = relocationContinuation.start(
@@ -244,6 +321,30 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             return false
         }
         return installationInspector.availability(for: configuration) == .requiresRelocation
+    }
+
+    var materializedUpdateDependencies: Set<QuillCodeDesktopUpdateDependency> {
+        dependencies.materialized
+    }
+
+    private var checker: any QuillCodeDesktopUpdateChecking {
+        dependencies.checker
+    }
+
+    private var preparer: any QuillCodeDesktopUpdatePreparing {
+        dependencies.preparer
+    }
+
+    private var installer: any QuillCodeDesktopUpdateInstalling {
+        dependencies.installer
+    }
+
+    private var installationInspector: any QuillCodeDesktopUpdateInstallationInspecting {
+        dependencies.installationInspector
+    }
+
+    private var recovery: any QuillCodeDesktopUpdateRecovering {
+        dependencies.recovery
     }
 
     private func performUserCheck(generation: UUID) async {

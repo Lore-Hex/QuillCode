@@ -3,6 +3,32 @@ import XCTest
 
 @MainActor
 final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
+    func testProductionDependenciesRemainLazyUntilLocationIsInspected() {
+        let controller = QuillCodeDesktopInstallationLocationController(
+            configuration: makeDiskImageConfiguration(),
+            defaults: makeDefaults()
+        )
+
+        XCTAssertEqual(controller.materializedDependencies, [])
+
+        controller.startIfNeeded()
+
+        XCTAssertEqual(controller.materializedDependencies, [.inspector])
+    }
+
+    func testDisabledLocationControllerNeverMaterializesDependencies() {
+        let controller = QuillCodeDesktopInstallationLocationController(
+            configuration: nil,
+            defaults: makeDefaults()
+        )
+
+        controller.startIfNeeded()
+        XCTAssertFalse(controller.presentForUpdate())
+        controller.moveAndRelaunch()
+
+        XCTAssertEqual(controller.materializedDependencies, [])
+    }
+
     func testWritableApplicationDoesNotPresentReminder() {
         let controller = makeController(availability: .available)
 

@@ -9,6 +9,32 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
+    func testBrowserFetcherStaysLazyUntilPreviewWorkStarts() async throws {
+        let coordinator = QuillCodeDesktopBrowserCoordinator(
+            pageFetcher: nil,
+            liveDOMCapturer: nil,
+            sessionPresenter: NoopDesktopBrowserSessionPresenter()
+        )
+        let model = QuillCodeWorkspaceModel()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let workspaceRoot = try makeTempDirectory()
+
+        coordinator.installSessionUpdateHandler(model: model, refresh: {})
+        XCTAssertEqual(coordinator.materializedDependencies, [])
+
+        coordinator.openPreview(
+            model: model,
+            addressDraft: "http://127.0.0.1:1",
+            workspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: {}
+        )
+        try await waitUntil(timeoutSeconds: 1) {
+            coordinator.materializedDependencies == [.pageFetcher]
+        }
+        tasks.cancel(.browserPreview)
+    }
+
 
     func testOrdinaryDesktopLaunchStartsWithoutRegisteringTheProcessDirectory() throws {
         let stateRoot = try makeTempDirectory()
