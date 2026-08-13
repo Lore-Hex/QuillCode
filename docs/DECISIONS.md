@@ -4786,3 +4786,21 @@
 - **Evidence:** `WorkspaceComposerSendPlanner`, `WorkspaceComposerSubmissionPlannerTests`,
   `QuillCodeDesktopTaskCoordinator`, `QuillCodeDesktopConcurrentChatTests`, and
   `ParityPublicDistributionGateTests`.
+
+## 2026-08-13: updater system tools use one bounded process lifecycle
+
+- **Decision:** Direct system-tool execution uses `BoundedSubprocessRunner` in
+  `QuillCodePlatform`. The desktop updater supplies its own time budgets, retained-output limits,
+  user-facing error mapping, and validation policy through a focused adapter.
+- **Output boundary:** Stdout retains a bounded prefix for machine-readable results; stderr retains
+  a bounded suffix for final diagnostics. Both streams are drained continuously, report saturating
+  total byte counts and truncation, and fail updater validation when capture cannot finish cleanly.
+- **Lifecycle boundary:** The deadline is tied to direct-child termination rather than pipe EOF.
+  Cancellation is reconciled across launch, requests graceful termination, then sends a hard kill
+  after bounded grace. Descendants are not treated as owned process groups for Apple system tools,
+  but inherited pipes cannot hold the updater open indefinitely.
+- **Why:** `ditto`, `codesign`, `spctl`, and `lipo` previously had no deadline, and temporary-file
+  capture allowed output volume to follow producer volume. Cancel during hashing, extraction, or
+  validation also waited for detached work to finish.
+- **Evidence:** `BoundedSubprocessRunnerTests`, `QuillCodeDesktopUpdateModelTests`, full Swift
+  coverage, packaged crash/render/Accessibility smoke, and the three-launch resource manifest.

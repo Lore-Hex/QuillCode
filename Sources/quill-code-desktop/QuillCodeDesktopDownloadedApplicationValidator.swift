@@ -16,23 +16,81 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
         configuration: QuillCodeDesktopUpdateConfiguration
     ) throws {
         try validateSigningRequirement(release.signingRequirement, configuration: configuration)
-        try validate(
-            applicationURL,
-            requirement: QuillCodeDesktopApplicationValidationRequirement(
-                bundleIdentifier: configuration.bundleIdentifier,
-                version: release.version,
-                build: release.build,
-                commit: release.commit,
-                architecture: configuration.architecture,
-                signingRequirement: release.signingRequirement
-            )
-        )
+        try validate(applicationURL, requirement: requirement(release, configuration: configuration))
     }
 
     static func validate(
         _ applicationURL: URL,
         requirement: QuillCodeDesktopApplicationValidationRequirement
     ) throws {
+        let context = try validationContext(applicationURL, requirement: requirement)
+        for command in validationCommands(context) {
+            let result = try QuillCodeDesktopUpdateProcessRunner.run(
+                executableURL: command.executableURL,
+                arguments: command.arguments
+            )
+            try validate(result, for: command.kind, context: context)
+        }
+    }
+
+    static func validateForPreparation(
+        _ applicationURL: URL,
+        release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) async throws {
+        try Task.checkCancellation()
+        try validateSigningRequirement(release.signingRequirement, configuration: configuration)
+        let context = try validationContext(
+            applicationURL,
+            requirement: requirement(release, configuration: configuration)
+        )
+        for command in validationCommands(context) {
+            try Task.checkCancellation()
+            let result = try await QuillCodeDesktopUpdateProcessRunner.runAsync(
+                executableURL: command.executableURL,
+                arguments: command.arguments
+            )
+            try validate(result, for: command.kind, context: context)
+        }
+    }
+
+    private struct ValidationContext {
+        var applicationURL: URL
+        var executableURL: URL
+        var requirement: QuillCodeDesktopApplicationValidationRequirement
+    }
+
+    private enum ValidationCommandKind {
+        case signature
+        case signingIdentity
+        case gatekeeper
+        case architectures
+    }
+
+    private struct ValidationCommand {
+        var kind: ValidationCommandKind
+        var executableURL: URL
+        var arguments: [String]
+    }
+
+    private static func requirement(
+        _ release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) -> QuillCodeDesktopApplicationValidationRequirement {
+        QuillCodeDesktopApplicationValidationRequirement(
+            bundleIdentifier: configuration.bundleIdentifier,
+            version: release.version,
+            build: release.build,
+            commit: release.commit,
+            architecture: configuration.architecture,
+            signingRequirement: release.signingRequirement
+        )
+    }
+
+    private static func validationContext(
+        _ applicationURL: URL,
+        requirement: QuillCodeDesktopApplicationValidationRequirement
+    ) throws -> ValidationContext {
         guard applicationURL.pathExtension == "app",
               let bundle = Bundle(url: applicationURL),
               bundle.bundleIdentifier == requirement.bundleIdentifier,
@@ -49,48 +107,76 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
         ) as? String == requirement.commit else {
             throw QuillCodeDesktopUpdateError.invalidApplication("its source commit does not match")
         }
-
-        let signature = try QuillCodeDesktopUpdateProcessRunner.run(
-            executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
-            arguments: ["--verify", "--deep", "--strict", "--verbose=2", applicationURL.path]
+        return ValidationContext(
+            applicationURL: applicationURL,
+            executableURL: executableURL,
+            requirement: requirement
         )
-        guard signature.exitCode == 0 else {
-            throw QuillCodeDesktopUpdateError.invalidApplication("its code signature is invalid")
-        }
+    }
 
-        let details = try QuillCodeDesktopUpdateProcessRunner.run(
-            executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
-            arguments: ["--display", "--verbose=4", applicationURL.path]
-        )
-        guard details.exitCode == 0,
-              QuillCodeDesktopCodeSignatureMetadata(
-                codesignOutput: details.combinedOutput
-              ).satisfies(requirement.signingRequirement)
-        else {
-            throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
-        }
-
-        if case .developerID = requirement.signingRequirement {
-            let assessment = try QuillCodeDesktopUpdateProcessRunner.run(
+    private static func validationCommands(_ context: ValidationContext) -> [ValidationCommand] {
+        var commands = [
+            ValidationCommand(
+                kind: .signature,
+                executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
+                arguments: [
+                    "--verify", "--deep", "--strict", "--verbose=2", context.applicationURL.path,
+                ]
+            ),
+            ValidationCommand(
+                kind: .signingIdentity,
+                executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
+                arguments: ["--display", "--verbose=4", context.applicationURL.path]
+            ),
+        ]
+        if case .developerID = context.requirement.signingRequirement {
+            commands.append(ValidationCommand(
+                kind: .gatekeeper,
                 executableURL: URL(fileURLWithPath: "/usr/sbin/spctl"),
-                arguments: ["--assess", "--type", "execute", "--verbose=2", applicationURL.path]
-            )
-            guard assessment.exitCode == 0 else {
+                arguments: [
+                    "--assess", "--type", "execute", "--verbose=2", context.applicationURL.path,
+                ]
+            ))
+        }
+        commands.append(ValidationCommand(
+            kind: .architectures,
+            executableURL: URL(fileURLWithPath: "/usr/bin/lipo"),
+            arguments: ["-archs", context.executableURL.path]
+        ))
+        return commands
+    }
+
+    private static func validate(
+        _ result: QuillCodeDesktopUpdateProcessResult,
+        for kind: ValidationCommandKind,
+        context: ValidationContext
+    ) throws {
+        switch kind {
+        case .signature:
+            guard result.exitCode == 0 else {
+                throw QuillCodeDesktopUpdateError.invalidApplication("its code signature is invalid")
+            }
+        case .signingIdentity:
+            guard result.exitCode == 0,
+                  QuillCodeDesktopCodeSignatureMetadata(
+                    codesignOutput: result.combinedOutput
+                  ).satisfies(context.requirement.signingRequirement)
+            else {
+                throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
+            }
+        case .gatekeeper:
+            guard result.exitCode == 0 else {
                 throw QuillCodeDesktopUpdateError.invalidApplication("Gatekeeper did not accept it")
             }
-        }
-
-        let architectures = try QuillCodeDesktopUpdateProcessRunner.run(
-            executableURL: URL(fileURLWithPath: "/usr/bin/lipo"),
-            arguments: ["-archs", executableURL.path]
-        )
-        let availableArchitectures = Set(
-            architectures.standardOutput.split(whereSeparator: \.isWhitespace).map(String.init)
-        )
-        guard architectures.exitCode == 0,
-              availableArchitectures.contains(requirement.architecture)
-        else {
-            throw QuillCodeDesktopUpdateError.invalidApplication("it does not support this Mac")
+        case .architectures:
+            let availableArchitectures = Set(
+                result.standardOutput.split(whereSeparator: \.isWhitespace).map(String.init)
+            )
+            guard result.exitCode == 0,
+                  availableArchitectures.contains(context.requirement.architecture)
+            else {
+                throw QuillCodeDesktopUpdateError.invalidApplication("it does not support this Mac")
+            }
         }
     }
 
@@ -107,71 +193,5 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
            case .adHoc = requirement {
             throw QuillCodeDesktopUpdateError.invalidApplication("the stable app is not Developer ID signed")
         }
-    }
-}
-
-struct QuillCodeDesktopUpdateProcessResult: Sendable {
-    var exitCode: Int32
-    var standardOutput: String
-    var standardError: String
-
-    var combinedOutput: String {
-        [standardOutput, standardError].filter { !$0.isEmpty }.joined(separator: "\n")
-    }
-
-    var failureSummary: String {
-        let value = combinedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? "the system extraction tool failed" : String(value.prefix(500))
-    }
-}
-
-enum QuillCodeDesktopUpdateProcessRunner {
-    private static let outputByteLimit = 64 * 1_024
-
-    static func run(executableURL: URL, arguments: [String]) throws -> QuillCodeDesktopUpdateProcessResult {
-        let captureRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "quill-cowork-process-\(UUID().uuidString)",
-            isDirectory: true
-        )
-        let outputURL = captureRoot.appendingPathComponent("stdout")
-        let errorURL = captureRoot.appendingPathComponent("stderr")
-        try FileManager.default.createDirectory(at: captureRoot, withIntermediateDirectories: false)
-        defer { try? FileManager.default.removeItem(at: captureRoot) }
-        guard FileManager.default.createFile(atPath: outputURL.path, contents: nil),
-              FileManager.default.createFile(atPath: errorURL.path, contents: nil)
-        else {
-            throw QuillCodeDesktopUpdateError.installationFailed("system-tool output could not be captured")
-        }
-        let outputHandle = try FileHandle(forWritingTo: outputURL)
-        let errorHandle = try FileHandle(forWritingTo: errorURL)
-        defer {
-            try? outputHandle.close()
-            try? errorHandle.close()
-        }
-        let process = Process()
-        process.executableURL = executableURL
-        process.arguments = arguments
-        process.standardOutput = outputHandle
-        process.standardError = errorHandle
-        do {
-            try process.run()
-        } catch {
-            throw QuillCodeDesktopUpdateError.installationFailed("a required system tool could not start")
-        }
-        process.waitUntilExit()
-        try outputHandle.close()
-        try errorHandle.close()
-        return QuillCodeDesktopUpdateProcessResult(
-            exitCode: process.terminationStatus,
-            standardOutput: try capturedText(at: outputURL),
-            standardError: try capturedText(at: errorURL)
-        )
-    }
-
-    private static func capturedText(at url: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-        let data = try handle.read(upToCount: outputByteLimit) ?? Data()
-        return String(decoding: data, as: UTF8.self)
     }
 }

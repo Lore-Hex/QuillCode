@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-08-13 Bounded Updater System Tools
+
+Overall grade after this slice: **A+ memory containment, A+ cancellation, A+ updater resilience**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Output residency | A+ | Updater subprocesses continuously drain both pipes while retaining only a 64 KiB stdout prefix and 64 KiB stderr tail. Total byte counts remain saturating and diagnostics disclose truncation. |
+| Lifetime | A+ | Signature and architecture checks stop after two minutes; archive extraction stops after ten. Deadlines follow direct-child exit even when output pipes close early. |
+| Cancellation | A+ | Hashing and bundle inspection check cancellation during bounded work. Async system tools reconcile pre-launch races, terminate promptly, and hard-kill after a 500 ms grace period. |
+| Failure behavior | A+ | Launch failures and timeouts map to stable updater errors. Descendant-held pipes cannot extend the caller indefinitely, and incomplete capture fails closed before validation succeeds. |
+| Architecture | A+ | `QuillCodePlatform` owns one reusable direct-process lifecycle primitive; the desktop adapter owns updater time budgets and error policy; validation owns command plans and typed result interpretation. |
+| Regression evidence | A+ | Real child processes flood output, preserve diagnostic tails, close pipes while running, ignore termination, hold inherited pipes, and exercise unavailable-executable, updater-timeout, cancellation, and hash-cancellation paths. |
+
+Validation:
+
+- Combined focused process and updater suite: 36 tests, 0 failures.
+- Full Swift package: 6,337 tests, 5 intentional skips, 0 failures; Python script contracts:
+  122 tests, 0 failures; website JavaScript release contract passed.
+- Optimized packaged app passed both `SIGKILL` recovery paths, direct and Launch Services rendering,
+  live Accessibility interaction, critical-memory-pressure recovery, and the 100-chat daily-driver
+  resource gate.
+- Three fresh packaged launches passed every production budget: 323.54 ms median launch-ready,
+  40.83 MiB initial physical footprint, 83.34 MiB after the first interaction sweep, 88.24 MiB
+  after repetition, 4.89 MiB repeated growth, five settled threads, zero idle memory growth, and
+  0.0002% settled idle CPU.
+- Deterministic grading scores the shared runner A+ (97), its focused tests A+ (100), and every
+  affected updater production file A+ (100); `git diff --check` passed.
+
 ## 2026-08-13 Bounded Computer-Use Driver Processes
 
 Overall grade after this slice: **A+ memory containment, A+ crash resilience, A+ process lifecycle**.
