@@ -129,6 +129,13 @@
 
 ## Latest Quality Pass
 
+- Updater hashing, archive extraction, bundle inspection, and downloaded-app validation now honor
+  parent cancellation instead of leaving detached work behind. The shared platform process runner
+  continuously drains output into a 64 KiB stdout prefix and 64 KiB diagnostic tail, limits normal
+  validation tools to two minutes and extraction to ten minutes, and escalates cancellation or
+  timeout to a hard kill after 500 milliseconds. Process completion, not pipe closure, owns the
+  deadline; descendant-held pipes receive only bounded drain time, and incomplete capture fails
+  closed before an update can be accepted.
 - One-shot `cua-driver` calls now retain at most 32 MiB of response bytes and 256 KiB of diagnostic
   tail while continuously draining both pipes. Timeout follows process exit rather than pipe EOF,
   cancellation survives races before launch, and both paths use a bounded hard-kill fallback. A

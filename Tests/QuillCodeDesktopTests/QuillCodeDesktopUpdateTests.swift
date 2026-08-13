@@ -308,6 +308,85 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         }
     }
 
+    func testArchiveVerificationHonorsExistingCancellation() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let archive = root.appendingPathComponent("update.zip")
+        try Data("payload".utf8).write(to: archive)
+        let task = Task {
+            while !Task.isCancelled { await Task.yield() }
+            try await QuillCodeDesktopUpdatePreparer.verifyArchiveAsync(
+                at: archive,
+                expectedSize: 7,
+                expectedSHA256: "239f59ed55e737c77147cf55ad0c1b030b6d7ee748a7426952f9b852d5a935e5"
+            )
+        }
+        task.cancel()
+
+        do {
+            try await task.value
+            XCTFail("Expected archive verification cancellation")
+        } catch is CancellationError {
+            // Expected.
+        }
+    }
+
+    func testUpdateProcessRunnerMapsTimeoutToInstallationFailure() async throws {
+        let started = Date()
+
+        do {
+            _ = try await QuillCodeDesktopUpdateProcessRunner.runAsync(
+                executableURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: ["-c", "exec 1>&- 2>&-; trap '' TERM; while :; do :; done"],
+                timeout: 0.1
+            )
+            XCTFail("Expected the system tool to time out")
+        } catch let error as QuillCodeDesktopUpdateError {
+            XCTAssertEqual(error, .installationFailed("a required system tool timed out"))
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 3)
+    }
+
+    func testUpdateProcessRunnerPreservesCancellation() async throws {
+        let task = Task {
+            try await QuillCodeDesktopUpdateProcessRunner.runAsync(
+                executableURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: ["-c", "trap '' TERM; while :; do :; done"],
+                timeout: 30
+            )
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        let cancelledAt = Date()
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            XCTFail("Expected system-tool cancellation")
+        } catch is CancellationError {
+            // Expected.
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(cancelledAt), 3)
+    }
+
+    func testUpdateProcessRunnerKeepsFinalBoundedDiagnostic() throws {
+        let result = try QuillCodeDesktopUpdateProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: [
+                "-c",
+                "i=0; while [ \"$i\" -lt 10000 ]; do printf 'noise %04d\\n' \"$i\" >&2; " +
+                    "i=$((i + 1)); done; printf 'FINAL_UPDATE_DIAGNOSTIC\\n' >&2; exit 7",
+            ],
+            timeout: 5
+        )
+
+        XCTAssertEqual(result.exitCode, 7)
+        XCTAssertTrue(result.outputWasTruncated)
+        XCTAssertTrue(result.standardError.hasSuffix("FINAL_UPDATE_DIAGNOSTIC\n"))
+        XCTAssertTrue(result.failureSummary.contains("FINAL_UPDATE_DIAGNOSTIC"))
+        XCTAssertTrue(result.failureSummary.hasSuffix("[system-tool output truncated]"))
+        XCTAssertLessThanOrEqual(result.standardError.utf8.count, 64 * 1_024)
+    }
+
     func testDownloadedApplicationRejectsMismatchedSourceCommitBeforeSystemValidation() throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

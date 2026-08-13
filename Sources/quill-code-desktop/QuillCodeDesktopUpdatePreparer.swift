@@ -59,42 +59,45 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
             try Task.checkCancellation()
 
             progress(.verifying)
-            try await Task.detached(priority: .utility) {
-                try Self.verifyArchive(
-                    at: archiveURL,
-                    expectedSize: release.asset.sizeBytes,
-                    expectedSHA256: release.asset.sha256
-                )
-            }.value
+            try await Self.verifyArchiveAsync(
+                at: archiveURL,
+                expectedSize: release.asset.sizeBytes,
+                expectedSHA256: release.asset.sha256
+            )
 
             let extractedURL = workspaceURL.appendingPathComponent("Extracted", isDirectory: true)
             progress(.extracting)
-            try await Task.detached(priority: .utility) {
+            try await Self.runCancellableUtilityOperation {
+                try Task.checkCancellation()
                 try FileManager.default.createDirectory(
                     at: extractedURL,
                     withIntermediateDirectories: false,
                     attributes: [.posixPermissions: 0o700]
                 )
-                let result = try QuillCodeDesktopUpdateProcessRunner.run(
-                    executableURL: URL(fileURLWithPath: "/usr/bin/ditto"),
-                    arguments: ["-x", "-k", archiveURL.path, extractedURL.path]
+            }
+            let extractionResult = try await QuillCodeDesktopUpdateProcessRunner.runAsync(
+                executableURL: URL(fileURLWithPath: "/usr/bin/ditto"),
+                arguments: ["-x", "-k", archiveURL.path, extractedURL.path],
+                timeout: QuillCodeDesktopUpdateProcessRunner.extractionTimeout
+            )
+            guard extractionResult.exitCode == 0 else {
+                throw QuillCodeDesktopUpdateError.invalidApplication(
+                    extractionResult.failureSummary
                 )
-                guard result.exitCode == 0 else {
-                    throw QuillCodeDesktopUpdateError.invalidApplication(result.failureSummary)
-                }
-            }.value
+            }
 
             progress(.validatingApplication)
-            let applicationURL = try await Task.detached(priority: .utility) {
+            let applicationURL = try await Self.runCancellableUtilityOperation {
+                try Task.checkCancellation()
                 let appURL = try Self.singleApplication(in: extractedURL)
                 try Self.validateContainedLinks(in: extractedURL)
-                try QuillCodeDesktopDownloadedApplicationValidator.validate(
-                    appURL,
-                    release: release,
-                    configuration: configuration
-                )
                 return appURL
-            }.value
+            }
+            try await QuillCodeDesktopDownloadedApplicationValidator.validateForPreparation(
+                applicationURL,
+                release: release,
+                configuration: configuration
+            )
 
             return QuillCodeDesktopPreparedUpdate(
                 release: release,
@@ -149,6 +152,36 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
         expectedSize: Int64,
         expectedSHA256: String
     ) throws {
+        try verifyArchive(
+            at: archiveURL,
+            expectedSize: expectedSize,
+            expectedSHA256: expectedSHA256,
+            checkCancellation: {}
+        )
+    }
+
+    static func verifyArchiveAsync(
+        at archiveURL: URL,
+        expectedSize: Int64,
+        expectedSHA256: String
+    ) async throws {
+        try await runCancellableUtilityOperation {
+            try verifyArchive(
+                at: archiveURL,
+                expectedSize: expectedSize,
+                expectedSHA256: expectedSHA256,
+                checkCancellation: { try Task.checkCancellation() }
+            )
+        }
+    }
+
+    private static func verifyArchive(
+        at archiveURL: URL,
+        expectedSize: Int64,
+        expectedSHA256: String,
+        checkCancellation: () throws -> Void
+    ) throws {
+        try checkCancellation()
         let values = try archiveURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true,
               Int64(values.fileSize ?? -1) == expectedSize
@@ -160,10 +193,12 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
+            try checkCancellation()
             let data = try handle.read(upToCount: 1_024 * 1_024) ?? Data()
             if data.isEmpty { break }
             hasher.update(data: data)
         }
+        try checkCancellation()
         let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         guard digest == expectedSHA256 else {
             throw QuillCodeDesktopUpdateError.checksumMismatch
@@ -196,16 +231,21 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
 
     private static func validateContainedLinks(in rootURL: URL) throws {
         let canonicalRoot = rootURL.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        var enumerationFailed = false
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,
             includingPropertiesForKeys: [.isSymbolicLinkKey],
             options: [],
-            errorHandler: { _, _ in false }
+            errorHandler: { _, _ in
+                enumerationFailed = true
+                return false
+            }
         ) else {
             throw QuillCodeDesktopUpdateError.invalidApplication("the app archive could not be inspected")
         }
 
         for case let itemURL as URL in enumerator {
+            try Task.checkCancellation()
             let values = try itemURL.resourceValues(forKeys: [.isSymbolicLinkKey])
             guard values.isSymbolicLink == true else { continue }
             let resolvedPath = itemURL.resolvingSymlinksInPath().standardizedFileURL.path
@@ -215,5 +255,21 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
                 )
             }
         }
+        guard !enumerationFailed else {
+            throw QuillCodeDesktopUpdateError.invalidApplication("the app archive could not be inspected")
+        }
+    }
+
+    private static func runCancellableUtilityOperation<Value: Sendable>(
+        _ operation: @escaping @Sendable () throws -> Value
+    ) async throws -> Value {
+        let task = Task.detached(priority: .utility, operation: operation)
+        let value = try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        try Task.checkCancellation()
+        return value
     }
 }
