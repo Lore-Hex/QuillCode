@@ -216,4 +216,138 @@ final class CuaDriverProcessClientTests: XCTestCase {
         let result = try await client.callTool(name: "list_apps", argumentsJSON: Data("{}".utf8))
         XCTAssertEqual(String(data: result, encoding: .utf8), #"{"apps":[]}"#)
     }
+
+    func testZeroExitRejectsTruncatedStdoutBeforeJSONParsing() async {
+        let client = CuaDriverProcessClient(
+            driverPath: "/x/cua-driver",
+            runProcess: { _, _ in
+                .init(
+                    exitCode: 0,
+                    stdout: Data(repeating: 0x61, count: 1_024),
+                    stderr: Data(),
+                    stdoutByteCount: CuaDriverProcessClient.maximumStandardOutputBytes + 1,
+                    stdoutWasTruncated: true
+                )
+            }
+        )
+
+        do {
+            _ = try await client.callTool(name: "get_desktop_state", argumentsJSON: Data("{}".utf8))
+            XCTFail("Expected oversized output to fail closed.")
+        } catch let error as CuaDriverError {
+            guard case let .toolFailed(tool, message) = error else {
+                return XCTFail("Wrong error: \(error)")
+            }
+            XCTAssertEqual(tool, "get_desktop_state")
+            XCTAssertTrue(message.contains("32 MiB safety limit"), message)
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+    }
+
+    #if canImport(Glibc) || canImport(Darwin)
+    func testRunProcessDrainsNoisyOutputWithoutDeadlockAndBoundsResidency() async throws {
+        let command = #"i=0; while [ "$i" -lt 20000 ]; do printf '0123456789abcdef0123456789abcdef\n'; i=$((i + 1)); done"#
+        let result = try await CuaDriverProcessClient.runProcess(
+            arguments: ["/bin/sh", "-c", command],
+            stdin: nil,
+            timeout: 5,
+            stdoutByteLimit: 4_096,
+            stderrByteLimit: 128,
+            terminationGraceSeconds: 0.1
+        )
+
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdoutReadCompleted)
+        XCTAssertTrue(result.stderrReadCompleted)
+        XCTAssertTrue(result.stdoutWasTruncated)
+        XCTAssertFalse(result.stderrWasTruncated)
+        XCTAssertEqual(result.stdout.count, 4_096)
+        XCTAssertGreaterThan(result.stdoutByteCount, 64 * 1_024)
+    }
+
+    func testRunProcessRetainsBoundedDiagnosticTail() async throws {
+        let command = #"i=0; while [ "$i" -lt 300 ]; do printf 'noise-%04d\n' "$i" >&2; i=$((i + 1)); done; printf 'FINAL_DIAGNOSTIC' >&2"#
+        let result = try await CuaDriverProcessClient.runProcess(
+            arguments: ["/bin/sh", "-c", command],
+            stdin: nil,
+            timeout: 5,
+            stdoutByteLimit: 128,
+            stderrByteLimit: 96,
+            terminationGraceSeconds: 0.1
+        )
+
+        XCTAssertTrue(result.stderrWasTruncated)
+        XCTAssertLessThanOrEqual(result.stderr.count, 96)
+        XCTAssertTrue(String(decoding: result.stderr, as: UTF8.self).hasSuffix("FINAL_DIAGNOSTIC"))
+    }
+
+    func testRunProcessTimeoutTracksProcessExitAfterPipesClose() async {
+        let started = Date()
+        do {
+            _ = try await CuaDriverProcessClient.runProcess(
+                arguments: ["/bin/sh", "-c", "exec 1>&- 2>&-; while :; do :; done"],
+                stdin: nil,
+                timeout: 0.1,
+                stdoutByteLimit: 128,
+                stderrByteLimit: 128,
+                terminationGraceSeconds: 0.1
+            )
+            XCTFail("Expected a closed-pipe process to time out.")
+        } catch let error as CuaDriverError {
+            guard case let .toolFailed(_, message) = error else {
+                return XCTFail("Wrong error: \(error)")
+            }
+            XCTAssertTrue(message.contains("timed out"), message)
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+    }
+
+    func testCancellationHardKillsDriverThatIgnoresTermination() async {
+        let outcomeRecorder = CuaDriverProcessTestOutcomeRecorder()
+        let finished = expectation(description: "Cancellation finished")
+        let operation = Task {
+            let outcome: CuaDriverProcessTestOutcome
+            do {
+                _ = try await CuaDriverProcessClient.runProcess(
+                    arguments: ["/bin/sh", "-c", "trap '' TERM; while :; do :; done"],
+                    stdin: nil,
+                    timeout: 30,
+                    stdoutByteLimit: 128,
+                    stderrByteLimit: 128,
+                    terminationGraceSeconds: 0.1
+                )
+                outcome = .returned
+            } catch is CancellationError {
+                outcome = .cancelled
+            } catch {
+                outcome = .failed(String(describing: error))
+            }
+            await outcomeRecorder.record(outcome)
+            finished.fulfill()
+        }
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        operation.cancel()
+        await fulfillment(of: [finished], timeout: 2)
+        let outcome = await outcomeRecorder.outcome
+        XCTAssertEqual(outcome, .cancelled)
+    }
+    #endif
+}
+
+private enum CuaDriverProcessTestOutcome: Sendable, Equatable {
+    case returned
+    case cancelled
+    case failed(String)
+}
+
+private actor CuaDriverProcessTestOutcomeRecorder {
+    private(set) var outcome: CuaDriverProcessTestOutcome?
+
+    func record(_ outcome: CuaDriverProcessTestOutcome) {
+        self.outcome = outcome
+    }
 }

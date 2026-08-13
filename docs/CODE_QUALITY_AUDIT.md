@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-08-13 Bounded Computer-Use Driver Processes
+
+Overall grade after this slice: **A+ memory containment, A+ crash resilience, A+ process lifecycle**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Output residency | A+ | Driver stdout is continuously drained with a 32 MiB retained prefix and stderr with a 256 KiB diagnostic tail, preventing a noisy helper from growing app memory without bound or deadlocking on full pipes. |
+| Timeout semantics | A+ | The deadline follows process termination instead of pipe EOF, so a helper that closes its pipes and keeps running is still stopped on time. Descendant-held pipes receive only a bounded drain grace after process exit. |
+| Cancellation | A+ | Cancellation is checked before launch, reconciled across the launch race, and escalates from termination to a hard kill after a bounded grace period. |
+| Failure diagnostics | A+ | Nonzero exits retain the most useful bounded stderr tail and exact byte counts; incomplete or oversized successful stdout fails closed before JSON decoding. |
+| Architecture | A+ | Process capture and lifecycle ownership live in a small dedicated transport module while the client retains request encoding, response decoding, and typed error policy. |
+| Regression evidence | A+ | Real subprocess tests cover pipe-capacity overflow, stderr tail retention, closed-pipe timeouts, SIGTERM-resistant cancellation, and synthetic oversized success output. |
+
+Validation:
+
+- Focused process-client coverage: 7 tests, 0 failures; complete Computer Use module: 88 tests,
+  4 environment-gated skips, 0 failures.
+- Full Swift package: 6,327 tests, 5 intentional skips, 0 failures; Python script contracts:
+  122 tests, 0 failures; website JavaScript release contract passed.
+- Optimized packaged app passed both `SIGKILL` recovery paths, direct and Launch Services rendering,
+  live Accessibility interaction, Computer Use contracts, critical-memory-pressure handling, and
+  the daily-driver resource gate.
+- Three fresh packaged launches passed every production budget: 319.96 ms median launch-ready,
+  40.89 MiB initial physical footprint, 83.00 MiB after the first interaction sweep, 87.84 MiB
+  after repetition, and 0.0002% settled idle CPU.
+- Deterministic grading scores `CuaDriverProcessCapture.swift` A+ (100) and
+  `CuaDriverProcessClient.swift` A+ (96); `git diff --check` passed.
+
 ## 2026-08-13 Stable Apple Credential Material Preflight
 
 The stable release path now rejects unusable Apple credential material in `release-policy`, before

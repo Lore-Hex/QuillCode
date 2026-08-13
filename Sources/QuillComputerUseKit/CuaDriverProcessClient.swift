@@ -13,10 +13,33 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
         public var exitCode: Int32
         public var stdout: Data
         public var stderr: Data
-        public init(exitCode: Int32, stdout: Data, stderr: Data) {
+        public var stdoutByteCount: Int
+        public var stderrByteCount: Int
+        public var stdoutWasTruncated: Bool
+        public var stderrWasTruncated: Bool
+        public var stdoutReadCompleted: Bool
+        public var stderrReadCompleted: Bool
+
+        public init(
+            exitCode: Int32,
+            stdout: Data,
+            stderr: Data,
+            stdoutByteCount: Int? = nil,
+            stderrByteCount: Int? = nil,
+            stdoutWasTruncated: Bool = false,
+            stderrWasTruncated: Bool = false,
+            stdoutReadCompleted: Bool = true,
+            stderrReadCompleted: Bool = true
+        ) {
             self.exitCode = exitCode
             self.stdout = stdout
             self.stderr = stderr
+            self.stdoutByteCount = max(stdout.count, stdoutByteCount ?? stdout.count)
+            self.stderrByteCount = max(stderr.count, stderrByteCount ?? stderr.count)
+            self.stdoutWasTruncated = stdoutWasTruncated
+            self.stderrWasTruncated = stderrWasTruncated
+            self.stdoutReadCompleted = stdoutReadCompleted
+            self.stderrReadCompleted = stderrReadCompleted
         }
     }
 
@@ -32,12 +55,30 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
         let argsString = String(data: argumentsJSON, encoding: .utf8) ?? "{}"
         let result = try await runProcess([driverPath, "call", name, argsString], nil)
         guard result.exitCode == 0 else {
-            let stderr = String(data: result.stderr, encoding: .utf8) ?? ""
-            let stdout = String(data: result.stdout, encoding: .utf8) ?? ""
+            let stderr = String(decoding: result.stderr, as: UTF8.self)
+            let stdout = String(decoding: result.stdout, as: UTF8.self)
             let message = stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? stdout.trimmingCharacters(in: .whitespacesAndNewlines)
                 : stderr.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw CuaDriverError.toolFailed(tool: name, message: String(message.prefix(400)))
+            let truncationNote = result.stderrWasTruncated || (stderr.isEmpty && result.stdoutWasTruncated)
+                ? "[diagnostic tail truncated] "
+                : ""
+            throw CuaDriverError.toolFailed(
+                tool: name,
+                message: truncationNote + String(message.prefix(400))
+            )
+        }
+        guard result.stdoutReadCompleted else {
+            throw CuaDriverError.toolFailed(
+                tool: name,
+                message: "cua-driver response ended before its output stream could be read completely"
+            )
+        }
+        guard !result.stdoutWasTruncated else {
+            throw CuaDriverError.toolFailed(
+                tool: name,
+                message: "cua-driver response exceeded the 32 MiB safety limit and was rejected"
+            )
         }
         return result.stdout
     }
@@ -46,14 +87,17 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
     /// well under a second; this only bounds a hung/streaming child so the computer-use loop can never
     /// wedge indefinitely in the unattended-coworker case.
     public static let defaultTimeout: TimeInterval = 60
+    public static let maximumStandardOutputBytes = 32 * 1_024 * 1_024
+    public static let maximumStandardErrorBytes = 256 * 1_024
+    private static let defaultTerminationGraceSeconds: TimeInterval = 2
 
     /// Runs the driver binary directly (argv[0] is the executable path, not a shell), so no argument
     /// is ever interpreted by a shell.
     ///
-    /// Three properties the naive version lacked: (1) stdout and stderr are drained **concurrently**,
-    /// so a child that fills the stderr pipe (verbose logs, a backtrace) while we read the multi-MB
-    /// screenshot on stdout can't deadlock; (2) a timeout terminates — then hard-kills — a hung child;
-    /// (3) cancelling the owning Task terminates the child instead of leaking it.
+    /// The process boundary drains stdout and stderr concurrently with independent residency caps,
+    /// tracks timeout against process exit rather than pipe closure, and gives timeout/cancellation a
+    /// bounded terminate-then-kill path. A noisy or uncooperative driver therefore cannot deadlock a
+    /// pipe, grow the app without bound, or outlive the task that owns it.
     public static let defaultRunProcess: @Sendable (_ arguments: [String], _ stdin: Data?) async throws -> ProcessRunResult = { arguments, stdin in
         try await runProcess(arguments: arguments, stdin: stdin, timeout: defaultTimeout)
     }
@@ -61,17 +105,21 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
     static func runProcess(
         arguments: [String],
         stdin: Data?,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        stdoutByteLimit: Int = maximumStandardOutputBytes,
+        stderrByteLimit: Int = maximumStandardErrorBytes,
+        terminationGraceSeconds: TimeInterval = defaultTerminationGraceSeconds
     ) async throws -> ProcessRunResult {
         #if canImport(Glibc) || canImport(Darwin)
+        try Task.checkCancellation()
         guard let executable = arguments.first else {
             throw CuaDriverError.driverNotFound("(empty argv)")
         }
         guard FileManager.default.isExecutableFile(atPath: executable) else {
             throw CuaDriverError.driverNotFound(executable)
         }
-        let handle = ProcessHandle()
-        return try await withTaskCancellationHandler {
+        let handle = CuaDriverProcessHandle()
+        let result = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ProcessRunResult, Error>) in
                 // Run the blocking Foundation work off the cooperative pool so a slow child never ties
                 // up a Swift-concurrency worker thread.
@@ -82,6 +130,9 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
                             arguments: Array(arguments.dropFirst()),
                             stdin: stdin,
                             timeout: timeout,
+                            stdoutByteLimit: stdoutByteLimit,
+                            stderrByteLimit: stderrByteLimit,
+                            terminationGraceSeconds: terminationGraceSeconds,
                             handle: handle
                         )
                         continuation.resume(returning: result)
@@ -91,8 +142,10 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
                 }
             }
         } onCancel: {
-            handle.terminate()
+            handle.requestCancellation(terminationGraceSeconds: terminationGraceSeconds)
         }
+        try Task.checkCancellation()
+        return result
         #else
         throw CuaDriverError.driverNotFound("Subprocess execution unavailable on this platform")
         #endif
@@ -104,7 +157,10 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
         arguments: [String],
         stdin: Data?,
         timeout: TimeInterval,
-        handle: ProcessHandle
+        stdoutByteLimit: Int,
+        stderrByteLimit: Int,
+        terminationGraceSeconds: TimeInterval,
+        handle: CuaDriverProcessHandle
     ) throws -> ProcessRunResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -116,65 +172,59 @@ public struct CuaDriverProcessClient: CuaDriverToolInvoking {
         if stdin != nil {
             process.standardInput = Pipe()
         }
+        let processCompletion = DispatchGroup()
+        processCompletion.enter()
+        process.terminationHandler = { _ in processCompletion.leave() }
         handle.attach(process)
         try process.run()
+        handle.terminateIfCancellationRequested()
+
+        let stdoutCapture = CuaDriverBoundedPipeCapture(
+            handle: stdoutPipe.fileHandleForReading,
+            byteLimit: stdoutByteLimit,
+            retention: .prefix
+        )
+        let stderrCapture = CuaDriverBoundedPipeCapture(
+            handle: stderrPipe.fileHandleForReading,
+            byteLimit: stderrByteLimit,
+            retention: .suffix
+        )
+        stdoutCapture.start()
+        stderrCapture.start()
+
         if let stdin, let inputPipe = process.standardInput as? Pipe {
             inputPipe.fileHandleForWriting.write(stdin)
             try? inputPipe.fileHandleForWriting.close()
         }
 
-        // Drain both pipes on independent queues; each read completes when the child closes that pipe
-        // (at exit). Waiting on the group therefore waits for exit AND full drain, with no ordering
-        // hazard between the two streams.
-        let outBox = DataBox()
-        let errBox = DataBox()
-        let group = DispatchGroup()
-        let ioQueue = DispatchQueue(label: "com.quillcode.cua.pipe", attributes: .concurrent)
-        group.enter()
-        ioQueue.async { outBox.set(stdoutPipe.fileHandleForReading.readDataToEndOfFile()); group.leave() }
-        group.enter()
-        ioQueue.async { errBox.set(stderrPipe.fileHandleForReading.readDataToEndOfFile()); group.leave() }
-
-        if group.wait(timeout: .now() + timeout) == .timedOut {
-            process.terminate()
-            if group.wait(timeout: .now() + 2) == .timedOut {
+        let boundedTimeout = max(0, timeout)
+        if processCompletion.wait(timeout: .now() + boundedTimeout) == .timedOut {
+            handle.terminate()
+            if processCompletion.wait(timeout: .now() + max(0, terminationGraceSeconds)) == .timedOut {
                 handle.kill()
-                _ = group.wait(timeout: .now() + 2)
+                _ = processCompletion.wait(timeout: .now() + max(0, terminationGraceSeconds))
             }
-            process.waitUntilExit()
+            _ = stdoutCapture.finishAfterProcessExit(graceSeconds: terminationGraceSeconds)
+            _ = stderrCapture.finishAfterProcessExit(graceSeconds: terminationGraceSeconds)
             throw CuaDriverError.toolFailed(
                 tool: (arguments.first ?? "cua-driver"),
                 message: "cua-driver timed out after \(Int(timeout))s"
             )
         }
-        process.waitUntilExit()
-        return ProcessRunResult(exitCode: process.terminationStatus, stdout: outBox.get(), stderr: errBox.get())
+
+        let stdout = stdoutCapture.finishAfterProcessExit(graceSeconds: terminationGraceSeconds)
+        let stderr = stderrCapture.finishAfterProcessExit(graceSeconds: terminationGraceSeconds)
+        return ProcessRunResult(
+            exitCode: process.terminationStatus,
+            stdout: stdout.data,
+            stderr: stderr.data,
+            stdoutByteCount: stdout.totalByteCount,
+            stderrByteCount: stderr.totalByteCount,
+            stdoutWasTruncated: stdout.wasTruncated,
+            stderrWasTruncated: stderr.wasTruncated,
+            stdoutReadCompleted: stdout.readCompleted,
+            stderrReadCompleted: stderr.readCompleted
+        )
     }
     #endif
 }
-
-#if canImport(Glibc) || canImport(Darwin)
-/// Lock-guarded accumulator so pipe reads on background queues don't data-race the captured buffers.
-private final class DataBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var data = Data()
-    func set(_ value: Data) { lock.lock(); data = value; lock.unlock() }
-    func get() -> Data { lock.lock(); defer { lock.unlock() }; return data }
-}
-
-/// Holds the running process so the Task-cancellation handler can terminate/kill it from another
-/// thread. `Process` isn't `Sendable`; access is serialized by the lock.
-private final class ProcessHandle: @unchecked Sendable {
-    private let lock = NSLock()
-    private var process: Process?
-    func attach(_ process: Process) { lock.lock(); self.process = process; lock.unlock() }
-    func terminate() {
-        lock.lock(); defer { lock.unlock() }
-        if let process, process.isRunning { process.terminate() }
-    }
-    func kill() {
-        lock.lock(); defer { lock.unlock() }
-        if let process, process.isRunning { Foundation.kill(process.processIdentifier, SIGKILL) }
-    }
-}
-#endif
