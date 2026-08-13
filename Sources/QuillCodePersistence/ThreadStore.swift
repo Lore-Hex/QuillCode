@@ -161,18 +161,18 @@ public struct JSONThreadStore: Sendable {
         var issues: [ThreadFileIssue] = []
         var cacheHitThreadIDs = Set<UUID>()
         let defersActivePayloads = maximumResidentActivePayloads != .max
+        let summaryLoader = ThreadPayloadSummaryStore.Loader(from: directory)
 
         for url in urls {
             let fingerprint = ThreadFileFingerprint.read(from: url)
             let threadID = UUID(uuidString: url.deletingPathExtension().lastPathComponent)
             let cachedEntry = threadID.flatMap { id in
                 fingerprint.flatMap { fingerprint in
-                    ThreadPayloadSummaryStore.load(
+                    summaryLoader.load(
                         threadID: id,
                         authoritativeFileURL: url,
                         fingerprint: fingerprint,
-                        calendar: calendar,
-                        from: directory
+                        calendar: calendar
                     )
                 }
             }

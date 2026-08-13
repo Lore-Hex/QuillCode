@@ -26,6 +26,99 @@ enum PrivateFileStoreFileSystem {
     private static let filePermissions = mode_t(0o600)
     private static let readChunkBytes = 64 * 1_024
 
+    /// Reuses one validated directory descriptor across a bounded group of private-file reads.
+    /// Holding the descriptor also prevents a path replacement from redirecting later reads.
+    final class DirectoryReader {
+        private let descriptor: Int32
+        private var buffer = [UInt8](repeating: 0, count: 1)
+
+        init?(
+            directory: URL,
+            repairDirectoryPermissions: Bool = false
+        ) throws {
+            guard let descriptor = try PrivateFileStoreFileSystem.openDirectory(
+                at: directory,
+                createIfMissing: false,
+                repairPermissions: repairDirectoryPermissions
+            ) else {
+                return nil
+            }
+            self.descriptor = descriptor
+        }
+
+        deinit {
+            PrivateFileStoreFileSystem.closeIgnoringErrors(descriptor)
+        }
+
+        func read(
+            filename: String,
+            maximumBytes: Int,
+            requiresPrivateFilePermissions: Bool = true
+        ) throws -> Data? {
+            guard maximumBytes >= 0 else {
+                throw BoundedFileDataError.invalidSizeLimit
+            }
+
+            let fileDescriptor = filename.withCString {
+                openat(descriptor, $0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+            }
+            guard fileDescriptor >= 0 else {
+                switch errno {
+                case ENOENT:
+                    return nil
+                case ELOOP:
+                    throw BoundedFileDataError.symbolicLink
+                default:
+                    throw PrivateFileStoreFileSystem.posixError()
+                }
+            }
+            defer { PrivateFileStoreFileSystem.closeIgnoringErrors(fileDescriptor) }
+
+            let metadata = try PrivateFileStoreFileSystem.fileMetadata(fileDescriptor)
+            try PrivateFileStoreFileSystem.validateEntry(
+                metadata,
+                requiresPrivatePermissions: requiresPrivateFilePermissions
+            )
+            guard metadata.st_size >= 0,
+                  UInt64(metadata.st_size) <= UInt64(maximumBytes)
+            else {
+                throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: maximumBytes)
+            }
+
+            let fileSize = Int(metadata.st_size)
+            var data = Data()
+            data.reserveCapacity(fileSize)
+            let requiredBufferSize = min(readChunkBytes, max(1, fileSize))
+            if buffer.count < requiredBufferSize {
+                buffer = [UInt8](repeating: 0, count: requiredBufferSize)
+            }
+            while true {
+                let remaining = maximumBytes - data.count
+                let requested = remaining == 0 ? 1 : min(buffer.count, remaining)
+                let count = buffer.withUnsafeMutableBytes { bytes in
+                    PrivateFileStoreFileSystem.systemRead(
+                        fileDescriptor,
+                        bytes.baseAddress,
+                        requested
+                    )
+                }
+                if count < 0, errno == EINTR {
+                    continue
+                }
+                guard count >= 0 else {
+                    throw PrivateFileStoreFileSystem.posixError()
+                }
+                guard count > 0 else {
+                    return data
+                }
+                guard count <= remaining else {
+                    throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: maximumBytes)
+                }
+                data.append(contentsOf: buffer.prefix(count))
+            }
+        }
+    }
+
     static func read(
         directory: URL,
         filename: String,
@@ -33,64 +126,15 @@ enum PrivateFileStoreFileSystem {
         requiresPrivateFilePermissions: Bool = true,
         repairDirectoryPermissions: Bool = false
     ) throws -> Data? {
-        guard maximumBytes >= 0 else {
-            throw BoundedFileDataError.invalidSizeLimit
-        }
-        guard let directoryDescriptor = try openDirectory(
-            at: directory,
-            createIfMissing: false,
-            repairPermissions: repairDirectoryPermissions
-        ) else {
-            return nil
-        }
-        defer { closeIgnoringErrors(directoryDescriptor) }
-
-        let descriptor = filename.withCString {
-            openat(directoryDescriptor, $0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
-        }
-        guard descriptor >= 0 else {
-            switch errno {
-            case ENOENT:
-                return nil
-            case ELOOP:
-                throw BoundedFileDataError.symbolicLink
-            default:
-                throw posixError()
-            }
-        }
-        defer { closeIgnoringErrors(descriptor) }
-
-        let metadata = try fileMetadata(descriptor)
-        try validateEntry(metadata, requiresPrivatePermissions: requiresPrivateFilePermissions)
-        guard metadata.st_size >= 0,
-              UInt64(metadata.st_size) <= UInt64(maximumBytes)
-        else {
-            throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: maximumBytes)
-        }
-
-        var data = Data()
-        data.reserveCapacity(Int(metadata.st_size))
-        var buffer = [UInt8](repeating: 0, count: min(readChunkBytes, max(1, maximumBytes)))
-        while true {
-            let remaining = maximumBytes - data.count
-            let requested = remaining == 0 ? 1 : min(buffer.count, remaining)
-            let count = buffer.withUnsafeMutableBytes { bytes in
-                systemRead(descriptor, bytes.baseAddress, requested)
-            }
-            if count < 0, errno == EINTR {
-                continue
-            }
-            guard count >= 0 else {
-                throw posixError()
-            }
-            guard count > 0 else {
-                return data
-            }
-            guard count <= remaining else {
-                throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: maximumBytes)
-            }
-            data.append(contentsOf: buffer.prefix(count))
-        }
+        guard let reader = try DirectoryReader(
+            directory: directory,
+            repairDirectoryPermissions: repairDirectoryPermissions
+        ) else { return nil }
+        return try reader.read(
+            filename: filename,
+            maximumBytes: maximumBytes,
+            requiresPrivateFilePermissions: requiresPrivateFilePermissions
+        )
     }
 
     static func write(_ data: Data, directory: URL, filename: String) throws {
