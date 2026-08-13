@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-08-12 Owned Shell Process Groups
+
+Overall grade after this slice: **A+ crash containment, A+ process hygiene, A+ distribution integrity**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Parent-death containment | A+ | A 34 KiB native supervisor watches the exact desktop parent with `kqueue` on macOS and a parent-death signal on Linux, then terminates the owned shell process group when Quill Cowork disappears. |
+| Descendant cleanup | A+ | Shell, streaming, and PTY execution place the command in a distinct process group; Stop, timeout, suspend/resume, normal leader exit, and crash cleanup cover pipelines and background descendants. |
+| Signal safety | A+ | Termination intent cannot be overwritten by racing stop/continue signals, and the leader remains waitable but unreaped until group cleanup prevents PID/PGID reuse from targeting unrelated processes. |
+| Resource cost | A+ | The supervisor is a stripped native C helper with no framework runtime; executable discovery is cached once per app process and no additional app-resident cache or monitor thread is introduced. |
+| Packaging | A+ | macOS and Linux CLI archives include the helper; app bundles strip and sign it; universal packaging independently validates and merges arm64/x86_64 helper slices before signing the final app. |
+| Regression evidence | A+ | Behavioral tests kill a supervised shell with a background child, while the packaged smoke records a live shell PID, hard-kills the app, and refuses recovery until that exact child is gone. |
+
+Validation:
+
+- Full Swift package coverage: 6,293 tests executed, 5 platform skips, 0 failures.
+- Focused shell, streaming, PTY, resolver, packaging, and crash contracts: 40 tests, 0 failures.
+- Independent native parent-death and cancellation probes removed the supervisor, shell leader, and
+  background child; the optimized packaged crash probe reaped its recorded child within the first
+  20-millisecond polling interval and recovered the interrupted transcript in a fresh process.
+- Full optimized packaged macOS smoke passed direct executable and Launch Services launches, live
+  Accessibility interaction, coworker, browser, computer-use, 100-chat daily-driver, and both
+  `SIGKILL` recovery paths.
+- Packaged performance measured 342.04 ms launch-ready, 44.59 MiB initial physical footprint,
+  75.95 MiB after the first interaction sweep, 79.95 MiB after repetition, six settled threads,
+  zero idle memory/thread growth, and 0.0003% settled idle CPU.
+- Strict C compilation (`-Wall -Wextra -Werror`), shell syntax checks, signature verification,
+  `git diff --check`, and deterministic quality grading passed; every source and test module summary
+  remains A+.
+
 ## 2026-08-12 Runtime-Attested macOS Keychain Credential Storage
 
 Overall grade after this slice: **A+ credential architecture, A+ update compatibility, A+ migration safety**.

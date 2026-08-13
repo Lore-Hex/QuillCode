@@ -23,6 +23,10 @@ let package = Package(
         .executable(name: "quill-code", targets: ["quill-code"]),
         .executable(name: "quill-code-desktop", targets: ["quill-code-desktop"]),
         .executable(
+            name: "quill-code-process-supervisor",
+            targets: ["quill-code-process-supervisor"]
+        ),
+        .executable(
             name: "quillcode-linux-computer-use-smoke",
             targets: ["quillcode-linux-computer-use-smoke"]
         )
@@ -132,6 +136,7 @@ let package = Package(
                 "QuillCodePlatform"
             ]
         ),
+        .executableTarget(name: "quill-code-process-supervisor"),
         .executableTarget(
             name: "quillcode-linux-computer-use-smoke",
             dependencies: ["QuillComputerUseKit"]

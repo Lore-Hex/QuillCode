@@ -193,6 +193,8 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(crashSmokeText, contains: "activeRunCheckpoint == nil")
         Self.assertSource(crashSmokeText, contains: "toolCards.last?.status == .failed")
         Self.assertSource(crashSmokeText, contains: "failedRunRetryPrompt")
+        Self.assertSource(crashSmokeText, contains: "crash-child.pid")
+        Self.assertSource(crashSmokeText, contains: "guard !processIsAlive(childPID)")
         Self.assertSource(appText, contains: "QuillCodeDesktopAgentRunCrashSmoke.runAndExit")
         Self.assertSource(packagedSmokeText, contains: "--agent-run-crash-phase write")
         Self.assertSource(packagedSmokeText, contains: "--agent-run-crash-phase verify")
