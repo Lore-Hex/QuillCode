@@ -20,11 +20,14 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - First-launch installation guidance: writable-copy suppression, already-installed suppression,
   read-only presentation, once-per-build dismissal, a new-build reminder, disabled smoke
   configuration, Applications-folder routing, fixed-size rendering, coordinated updater-sheet
-  presentation, and a normal launch from a real mounted packaged DMG.
+  presentation, update-requested reminder override, bounded continuation expiry, and a normal launch
+  from a real mounted packaged DMG.
 - Updater install-location UX: writable/read-only parent detection, missing app/executable refusal,
   non-directory app and out-of-bundle executable refusal, zero preparation from a non-replaceable
   copy, trusted architecture-matching DMG selection, hostile/malformed/duplicate installer rejection,
-  release-page fallback, fixed-size manual-installer UI, and a real mounted-DMG update check.
+  release-page fallback, fixed-size move-to-Applications UI, delayed helper-result continuation,
+  exact version/build matching, missing-result fallback, relocation-failure preservation, and a real
+  mounted-DMG update check.
 - Updater reminder UX: exact-release 24-hour persistence across controller/store recreation, normal
   automatic polling while deferred, changed-build and explicit-check override, exact cached deadline
   presentation without a redundant request, small clock rollback tolerance, fail-open expiry and

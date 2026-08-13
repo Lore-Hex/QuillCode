@@ -1,5 +1,29 @@
 # QuillCode Decisions
 
+## 2026-08-12: updates continue after transactional relocation
+
+- **Decision:** When an update is available to a copy running outside `/Applications`, the update
+  sheet offers **Move to Applications** instead of making the user download the DMG again. That
+  action presents the existing verified first-install flow, stages the current app transactionally,
+  relaunches it from `/Applications`, and resumes the update check automatically.
+- **Ordering:** A build-scoped, 15-minute continuation intent is recorded only after the detached
+  relocation helper launches successfully. The relaunched app waits for the helper's bounded success
+  result before contacting the release feed, so update preparation cannot overlap the helper's
+  three-second launch-stability observation.
+- **Recovery:** The intent remains pending if the relocated app fails its handshake or stability
+  window. The restored source copy therefore presents the installation flow again even when the
+  ordinary once-per-build reminder was dismissed. A helper failure stays visible instead of being
+  replaced by a network check. An installed, writable copy may continue after a bounded wait if the
+  helper result file cannot be read.
+- **Trust boundary:** The updater continues only for an exact current version/build success result.
+  Intent state is one-shot, scoped by bundle, channel, and build, tolerant of a small clock skew, and
+  rejected after expiry. Existing bundle, architecture, commit, signature, atomic activation,
+  handshake, stability, and rollback checks remain authoritative.
+- **Evidence:** Controller tests cover update-requested relocation, once-per-build override,
+  one-shot consumption, expiry, delayed helper completion, missing-result fallback, and failure
+  preservation. Fixed-size rendering covers the revised update sheet; packaged relocation and
+  updater smokes continue to exercise the shared production helper.
+
 ## 2026-08-12: native memory pressure releases only reconstructible state
 
 - **Decision:** The packaged macOS app observes dispatch memory-pressure warning and critical events
@@ -4720,3 +4744,18 @@
   new release so GitHub falls back to the previous stable version.
 - **Evidence:** `download-builds.yml`, `ParityDownloadBuildsGateTests`,
   `ParityPackagedUpdaterGateTests`, and the stable publication contract in `docs/DOWNLOADS.md`.
+
+## 2026-08-13: disconnected sends enter one recoverable sign-in flow
+
+- **Decision:** Composer submission planning separates local slash commands from model-backed agent
+  and scheduled work before any transcript mutation. Without a stored TrustedRouter credential,
+  model-backed Send preserves the draft and attachments and starts sign-in; local commands remain
+  available offline.
+- **Concurrency boundary:** Desktop OAuth uses one task-coordinator slot. Repeated Sign in buttons or
+  Return presses cannot create competing loopback callback servers or replace the first flow's live
+  status with an address-in-use failure.
+- **Why:** A public download should never turn its primary Send action into a deep missing-key error,
+  and recovery should not consume the task the user was trying to run.
+- **Evidence:** `WorkspaceComposerSendPlanner`, `WorkspaceComposerSubmissionPlannerTests`,
+  `QuillCodeDesktopTaskCoordinator`, `QuillCodeDesktopConcurrentChatTests`, and
+  `ParityPublicDistributionGateTests`.

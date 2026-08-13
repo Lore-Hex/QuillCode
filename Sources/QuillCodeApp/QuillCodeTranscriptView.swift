@@ -370,7 +370,6 @@ struct QuillCodeTranscriptView: View {
             VStack(spacing: 14) {
                 Text(transcript.emptyTitle)
                     .font(.title3.weight(.semibold))
-                    .tracking(-0.3)
                     .foregroundStyle(QuillCodePalette.text)
                 Text(transcript.emptySubtitle)
                     .font(.callout)
@@ -402,7 +401,6 @@ struct QuillCodeTranscriptView: View {
             .accessibilityHidden(true)
             Text("This chat is confidential")
                 .font(.title3.weight(.semibold))
-                .tracking(-0.3)
                 .foregroundStyle(QuillCodePalette.text)
             VStack(alignment: .leading, spacing: 8) {
                 confidentialGuarantee("internaldrive", "Never saved — destroyed when you leave")

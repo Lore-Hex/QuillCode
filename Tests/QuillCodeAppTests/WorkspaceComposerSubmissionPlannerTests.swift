@@ -71,4 +71,75 @@ final class WorkspaceComposerSubmissionPlannerTests: XCTestCase {
             .slash(command: .workspaceCommand("toggle-activity"), originalPrompt: "/activity")
         )
     }
+
+    func testSignedOutModelWorkRequestsSignInWithoutConsumingTheSubmission() {
+        let presentedCommands: Set<String> = ["settings"]
+
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: .agent(prompt: "Fix the failing test"),
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: presentedCommands
+            ),
+            .requestTrustedRouterSignIn
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: WorkspaceComposerSubmissionPlanner.plan(draft: "", hasAttachments: true),
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: presentedCommands
+            ),
+            .requestTrustedRouterSignIn
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: WorkspaceComposerSubmissionPlanner.plan(
+                    draft: "Every Monday at 8am, review open pull requests"
+                ),
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: presentedCommands
+            ),
+            .requestTrustedRouterSignIn
+        )
+    }
+
+    func testSignedOutLocalCommandsRemainAvailable() {
+        let presentedCommands: Set<String> = ["settings"]
+
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: WorkspaceComposerSubmissionPlanner.plan(draft: "/settings"),
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: presentedCommands
+            ),
+            .presentWorkspaceCommand("settings")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: WorkspaceComposerSubmissionPlanner.plan(draft: "/plugins"),
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: presentedCommands
+            ),
+            .submit
+        )
+    }
+
+    func testConnectedModelWorkAndBlankSubmissionsKeepTheirExistingRoutes() {
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: .agent(prompt: "Fix the failing test"),
+                hasStoredAPIKey: true,
+                presentedWorkspaceCommandIDs: []
+            ),
+            .submit
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSendPlanner.action(
+                for: .ignore,
+                hasStoredAPIKey: false,
+                presentedWorkspaceCommandIDs: []
+            ),
+            .ignore
+        )
+    }
 }

@@ -215,7 +215,13 @@ private struct QuillCodeDesktopDistributionPresentation: ViewModifier {
                     controller: installationLocationController
                 )
             } else {
-                QuillCodeDesktopUpdateView(controller: updateController)
+                QuillCodeDesktopUpdateView(
+                    controller: updateController,
+                    onMoveToApplications: {
+                        guard !installationLocationController.presentForUpdate() else { return }
+                        updateController.openManualInstaller()
+                    }
+                )
             }
         }
     }

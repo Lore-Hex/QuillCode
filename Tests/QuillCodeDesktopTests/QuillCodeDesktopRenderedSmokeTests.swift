@@ -190,7 +190,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         defer { controller.cancelCurrentOperation() }
 
         let image = try renderHostedView(
-            QuillCodeDesktopUpdateView(controller: controller),
+            QuillCodeDesktopUpdateView(controller: controller, onMoveToApplications: {}),
             width: 470,
             height: 340,
             debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_PROGRESS_IMAGE_PATH"
@@ -220,7 +220,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
 
         let image = try renderHostedView(
-            QuillCodeDesktopUpdateView(controller: controller),
+            QuillCodeDesktopUpdateView(controller: controller, onMoveToApplications: {}),
             width: 470,
             height: 340,
             debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_REMINDER_IMAGE_PATH"
@@ -257,7 +257,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         }
 
         let image = try renderHostedView(
-            QuillCodeDesktopUpdateView(controller: controller),
+            QuillCodeDesktopUpdateView(controller: controller, onMoveToApplications: {}),
             width: 470,
             height: 340,
             debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_FAILURE_IMAGE_PATH"
@@ -272,7 +272,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.0008)
     }
 
-    func testRenderedUpdaterOffersManualInstallerFromReadOnlyLocation() async throws {
+    func testRenderedUpdaterOffersMoveToApplicationsFromReadOnlyLocation() async throws {
         var release = makeRelease(version: "0.2.0", build: "7")
         release.installerAsset = makeManualInstallerAsset()
         let controller = QuillCodeDesktopUpdateController(
@@ -285,10 +285,10 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         )
         controller.checkForUpdates()
         try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
-        XCTAssertTrue(controller.updateRequiresManualInstallation)
+        XCTAssertTrue(controller.updateRequiresRelocation)
 
         let image = try renderHostedView(
-            QuillCodeDesktopUpdateView(controller: controller),
+            QuillCodeDesktopUpdateView(controller: controller, onMoveToApplications: {}),
             width: 470,
             height: 340,
             debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_RELOCATION_IMAGE_PATH"

@@ -3,6 +3,7 @@ import QuillCodeApp
 
 struct QuillCodeDesktopUpdateView: View {
     @ObservedObject var controller: QuillCodeDesktopUpdateController
+    let onMoveToApplications: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -172,10 +173,10 @@ struct QuillCodeDesktopUpdateView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                if controller.updateRequiresManualInstallation {
+                if controller.updateRequiresRelocation {
                     Label(
-                        "Install Quill Cowork in Applications, then reopen it to receive updates.",
-                        systemImage: "externaldrive.badge.exclamationmark"
+                        "Move Quill Cowork to Applications once. It will reopen and continue this update.",
+                        systemImage: "folder.badge.plus"
                     )
                 } else {
                     Label("SHA-256 integrity verified before install", systemImage: "checkmark.shield")
@@ -255,13 +256,13 @@ struct QuillCodeDesktopUpdateView: View {
                     .quillCodeFormActionTarget(minWidth: 154)
                     .accessibilityIdentifier("quillcode-update-remind-later")
                 Spacer()
-                if controller.updateRequiresManualInstallation {
-                    Button(action: controller.openManualInstaller) {
-                        Label("Download Installer", systemImage: "arrow.down.app.fill")
+                if controller.updateRequiresRelocation {
+                    Button(action: onMoveToApplications) {
+                        Label("Move to Applications", systemImage: "folder.badge.plus")
                     }
-                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 168))
-                    .quillCodeFormActionTarget(minWidth: 168)
-                    .accessibilityIdentifier("quillcode-update-manual-installer")
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 184))
+                    .quillCodeFormActionTarget(minWidth: 184)
+                    .accessibilityIdentifier("quillcode-update-move-to-applications")
                 } else {
                     Button(action: controller.updateAndRelaunch) {
                         Label("Update and Relaunch", systemImage: "arrow.down.circle.fill")
@@ -281,7 +282,7 @@ struct QuillCodeDesktopUpdateView: View {
                     .font(.caption)
                     .foregroundStyle(QuillCodeCharterTheme.body)
             case .failed(_, let release):
-                if release != nil && !controller.updateRequiresManualInstallation {
+                if release != nil && !controller.updateRequiresRelocation {
                     Button(action: controller.openManualInstaller) {
                         Label("Download Installer", systemImage: "arrow.down.app")
                     }
@@ -289,13 +290,13 @@ struct QuillCodeDesktopUpdateView: View {
                     .quillCodeFormActionTarget()
                 }
                 Spacer()
-                if release != nil && controller.updateRequiresManualInstallation {
-                    Button(action: controller.openManualInstaller) {
-                        Label("Download Installer", systemImage: "arrow.down.app.fill")
+                if release != nil && controller.updateRequiresRelocation {
+                    Button(action: onMoveToApplications) {
+                        Label("Move to Applications", systemImage: "folder.badge.plus")
                     }
-                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 150))
-                    .quillCodeFormActionTarget(minWidth: 150)
-                    .accessibilityIdentifier("quillcode-update-manual-installer")
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 184))
+                    .quillCodeFormActionTarget(minWidth: 184)
+                    .accessibilityIdentifier("quillcode-update-move-to-applications")
                 } else if release != nil {
                     Button(action: controller.updateAndRelaunch) {
                         Label("Try Again", systemImage: "arrow.down.circle.fill")

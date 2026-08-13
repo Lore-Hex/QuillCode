@@ -129,6 +129,10 @@
 
 ## Latest Quality Pass
 
+- Signed-out model submissions now preserve their complete draft and image attachments and open the
+  existing TrustedRouter sign-in flow instead of producing a failed transcript turn. Pure submission
+  routing keeps local slash commands available offline, and desktop OAuth is single-flight so repeat
+  clicks cannot compete for the loopback listener.
 - Public macOS performance evidence now includes a process-specific two-second settled-idle phase
   after two complete native interaction sweeps. Release and post-publication gates recompute CPU,
   memory, and thread deltas under tighter native-baseline limits: 2.5-second launch majority,

@@ -93,6 +93,12 @@ an independent private store; configure it with `quill-code auth set-key KEY`. K
 activates automatically for the desktop when the Apple Developer ID signing secrets are configured
 and the packaged identity passes runtime attestation.
 
+When a signed-out user presses Send on a model-backed task, Quill Cowork preserves the complete draft
+and any image attachments, then starts TrustedRouter sign-in instead of creating a failed transcript
+turn. Local slash commands remain usable while signed out. Sign-in is single-flight, so repeated
+buttons or Return presses reuse the active browser flow rather than starting competing loopback
+listeners.
+
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
@@ -309,10 +315,15 @@ and app-validation phases separately.
 Before downloading, the app verifies that its running bundle exists beside a
 writable destination and has a runnable helper executable. Copies launched from
 the read-only DMG, App Translocation, or another non-replaceable location show a
-direct **Download Installer** action instead. That action uses only an
-architecture-matching DMG whose bounded metadata and GitHub release URL passed
-the same manifest scope checks. Its URL must use the declared `.dmg` filename
-exactly and cannot carry a query or fragment; older manifests fall back to the release page.
+direct **Move to Applications** action instead. It reuses the verified transactional
+first-install helper, relaunches the current build from `/Applications`, waits for
+the helper's launch-stability result, and automatically resumes the update check.
+A short-lived, build-scoped continuation survives rollback so a restored source
+copy can offer the move again even after an earlier reminder was dismissed. If
+that relocation cannot be offered, the fallback uses only an architecture-matching
+DMG whose bounded metadata and GitHub release URL passed the same manifest scope
+checks. Its URL must use the declared `.dmg` filename exactly and cannot carry a
+query or fragment; older manifests fall back to the release page.
 The installer repeats the destination checks immediately before staging, so a
 permission change after preflight still fails without replacing the app.
 
