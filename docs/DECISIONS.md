@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-13: the public website deploys from reviewed main-branch source
+
+- **Decision:** `website/` is the canonical source for `cowork.quillos.cloud`; the manually maintained
+  `gh-pages` branch is no longer the source of truth. A dedicated GitHub Pages workflow stages and
+  deploys the site after relevant changes merge to `main` using only GitHub's official Pages actions.
+- **Download contract:** Every primary website action uses the moving universal macOS DMG, so visitors
+  never need to identify their processor. JavaScript is progressive enhancement only: the static
+  installer remains usable while a live update date appears only after GitHub's CORS-enabled
+  release API passes release name, tester tag/state, commit, installer, URL, size, and digest checks.
+- **Review boundary:** The staging script copies an explicit source inventory and the reviewed product
+  screenshot. The verifier rejects missing or unexpected assets, thin primary installers, broken
+  local references, custom-domain drift, symlinks, unvalidated release metadata, and oversized site
+  payloads. The same executable contract runs in pull-request CI and immediately before deployment.
+- **Why:** A polished download page is part of distribution, but an independently edited output branch
+  can lag behind the app's release architecture. Keeping source and gates on protected `main` makes
+  human download guidance follow the same review and publication model as the updater.
+
 ## 2026-08-12: updates continue after transactional relocation
 
 - **Decision:** When an update is available to a copy running outside `/Applications`, the update
