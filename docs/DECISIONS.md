@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-13: active exact-main CI receives one bounded publication grace period
+
+- **Decision:** Download Builds keeps its original 30-minute exact-main CI discovery/completion
+  budget. At that deadline it may extend once for another 30 minutes only when a matching run is
+  still active, or when a matching run was observed active before a transient GitHub query failure.
+  The combined script budget is capped at one hour inside a 65-minute release-policy job timeout.
+- **Why:** Build 752's healthy packaged smoke ran for 30 minutes 39 seconds. Release-policy run
+  `31726497096` stopped at exactly 1,800 seconds, 26 seconds before CI run `31726497333` completed
+  successfully, so automatic publication required a manual failed-job rerun even though no product
+  or release check failed.
+- **Failure boundary:** Missing runs and runs that have completed without success do not receive the
+  extension. Grace is never renewed, configuration is validated before the first GitHub query, and
+  a successful run must still match the exact commit, `main`, and an authorized event.
+- **Evidence:** `scripts/wait-for-successful-ci.sh`, `.github/workflows/download-builds.yml`,
+  `ParityDownloadBuildCIGateTests`, and `ParityDownloadBuildsGateTests` cover success during grace,
+  transient query loss, real-clock expiry, ineligible states, bounds, and workflow timeout headroom.
+
 ## 2026-08-13: validate Apple credential material before stable build fan-out
 
 - **Decision:** Stable `v*` workflows validate all seven Apple distribution credentials in the
@@ -4585,16 +4602,18 @@
 
 ## 2026-08-07: downloads wait for successful exact-main CI before packaging
 
-- **Decision:** The **Download Builds** release-policy job validates its ref, then waits up to 30
-  minutes for a successful `CI` workflow run with the exact requested commit, `main` as its head
-  branch, and a `push` or `workflow_dispatch` event before planning or packaging any release.
+- **Decision:** The **Download Builds** release-policy job validates its ref, then waits for a
+  successful `CI` workflow run with the exact requested commit, `main` as its head branch, and a
+  `push` or `workflow_dispatch` event before planning or packaging any release. The initial
+  30-minute bound now has the single active-run grace period recorded in the 2026-08-13 decision.
 - **Why:** Merge-train dispatches CI and downloads independently. Build 629 demonstrated that
   packaging and publication could finish while exact-main CI was still running and temporarily red,
   even though branch CI and the eventual rerun were green. Public updater state must never outrun the
   authoritative main test result.
 - **Failure behavior:** Missing, active, failed, cancelled, or mismatched runs remain non-authorizing.
-  The bounded gate reports state changes without log spam and fails closed at timeout; a later green
-  CI result requires a new or rerun Download Builds attempt.
+  The bounded gate reports state changes without log spam and fails closed at its applicable
+  deadline; only a run observed active can extend the initial deadline, and a later green result
+  after the combined bound requires a new or rerun Download Builds attempt.
 - **Evidence:** `scripts/wait-for-successful-ci.sh`, `.github/workflows/download-builds.yml`,
   `ParityDownloadBuildCIGateTests`, and `ParityDownloadBuildsGateTests`.
 

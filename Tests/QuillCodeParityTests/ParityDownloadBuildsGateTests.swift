@@ -64,7 +64,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
                 atomically: true,
                 encoding: .utf8
             )
-        try Data("linux cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz"))
+        try Data("linux cli".utf8).write(
+            to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz")
+        )
         try "placeholder checksums\n"
             .write(to: temporaryDirectory.appendingPathComponent("SHASUMS256.txt"), atomically: true, encoding: .utf8)
 
@@ -308,6 +310,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "scripts/validate-apple-distribution-credentials.sh",
             "Wait for successful exact-main CI",
             "scripts/wait-for-successful-ci.sh",
+            "timeout-minutes: 65",
+            "DOWNLOAD_BUILD_CI_WAIT_SECONDS: \"1800\"",
+            "DOWNLOAD_BUILD_CI_ACTIVE_GRACE_SECONDS: \"1800\"",
             "scripts/plan-download-build.sh",
             "build-required: ${{ steps.plan.outputs.build-required }}",
             "if: needs.release-policy.outputs.build-required == 'true'",
