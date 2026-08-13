@@ -23,6 +23,9 @@ PERFORMANCE_WINDOW_STATE_ROOT="$SMOKE_ROOT/performance-window-state"
 COMPOSER_DRAFT_CRASH_STATE_ROOT="$SMOKE_ROOT/composer-draft-crash-state"
 COMPOSER_DRAFT_CRASH_WRITE_LOG="$SMOKE_ROOT/composer-draft-crash-write.log"
 COMPOSER_DRAFT_CRASH_VERIFY_LOG="$SMOKE_ROOT/composer-draft-crash-verify.log"
+AGENT_RUN_CRASH_STATE_ROOT="$SMOKE_ROOT/agent-run-crash-state"
+AGENT_RUN_CRASH_WRITE_LOG="$SMOKE_ROOT/agent-run-crash-write.log"
+AGENT_RUN_CRASH_VERIFY_LOG="$SMOKE_ROOT/agent-run-crash-verify.log"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
@@ -88,6 +91,12 @@ cleanup() {
     if [[ -e "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" ]]; then
       cp "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" "$ARTIFACT_DIR/composer-draft-crash-verify.log"
     fi
+    if [[ -e "$AGENT_RUN_CRASH_WRITE_LOG" ]]; then
+      cp "$AGENT_RUN_CRASH_WRITE_LOG" "$ARTIFACT_DIR/agent-run-crash-write.log"
+    fi
+    if [[ -e "$AGENT_RUN_CRASH_VERIFY_LOG" ]]; then
+      cp "$AGENT_RUN_CRASH_VERIFY_LOG" "$ARTIFACT_DIR/agent-run-crash-verify.log"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -117,6 +126,8 @@ cleanup() {
       printf 'performance_window_screenshot=performance-window.png\n'
       printf 'composer_draft_crash_write=composer-draft-crash-write.log\n'
       printf 'composer_draft_crash_verify=composer-draft-crash-verify.log\n'
+      printf 'agent_run_crash_write=agent-run-crash-write.log\n'
+      printf 'agent_run_crash_verify=agent-run-crash-verify.log\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -238,6 +249,43 @@ if ! wait_for_smoke_process \
   "Packaged composer draft recovery verifier"
 then
   cat "$COMPOSER_DRAFT_CRASH_VERIFY_LOG" >&2
+  exit 1
+fi
+
+echo "==> Running packaged agent run SIGKILL recovery smoke"
+"$APP_EXECUTABLE" \
+  --agent-run-crash-smoke \
+  --agent-run-crash-phase write \
+  --agent-run-crash-state-root "$AGENT_RUN_CRASH_STATE_ROOT" \
+  >"$AGENT_RUN_CRASH_WRITE_LOG" 2>&1 &
+AGENT_RUN_CRASH_PID="$!"
+set +e
+wait_for_smoke_process \
+  "$AGENT_RUN_CRASH_PID" \
+  15 \
+  "Packaged agent run SIGKILL writer"
+AGENT_RUN_CRASH_STATUS="$?"
+set -e
+if [[ "$AGENT_RUN_CRASH_STATUS" -ne 137 ]]; then
+  echo "Packaged agent run writer expected SIGKILL status 137 but found $AGENT_RUN_CRASH_STATUS." >&2
+  cat "$AGENT_RUN_CRASH_WRITE_LOG" >&2
+  exit 1
+fi
+
+(
+  "$APP_EXECUTABLE" \
+    --agent-run-crash-smoke \
+    --agent-run-crash-phase verify \
+    --agent-run-crash-state-root "$AGENT_RUN_CRASH_STATE_ROOT" \
+    >"$AGENT_RUN_CRASH_VERIFY_LOG" 2>&1
+) &
+AGENT_RUN_CRASH_VERIFY_PID="$!"
+if ! wait_for_smoke_process \
+  "$AGENT_RUN_CRASH_VERIFY_PID" \
+  15 \
+  "Packaged agent run recovery verifier"
+then
+  cat "$AGENT_RUN_CRASH_VERIFY_LOG" >&2
   exit 1
 fi
 

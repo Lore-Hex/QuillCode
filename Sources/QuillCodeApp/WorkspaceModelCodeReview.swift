@@ -126,7 +126,7 @@ public extension QuillCodeWorkspaceModel {
             : (request.model ?? root.config.reviewModel ?? targetThread.model)
         appendStartedCodeReview(request, to: targetThreadID)
         codeReviewRequest = nil
-        beginAgentRun(
+        let runID = beginAgentRun(
             threadID: targetThreadID,
             lifecycle: WorkspaceComposerSendLifecycle.started(from: composer)
         )
@@ -156,6 +156,7 @@ public extension QuillCodeWorkspaceModel {
                     guard let self else { return }
                     await self.updateAgentRun(
                         threadID: targetThreadID,
+                        runID: runID,
                         status: WorkspaceAgentStatusBuilder.status(for: progress)
                     )
                     await onProgressUpdated?()
@@ -170,6 +171,7 @@ public extension QuillCodeWorkspaceModel {
             finishCodeReview(report, request: request, threadID: targetThreadID, workspaceRoot: workspaceRoot)
             finishAgentRun(
                 threadID: targetThreadID,
+                runID: runID,
                 lifecycle: WorkspaceComposerSendLifecycle.completed(from: composer)
             )
             onProgressUpdated?()
@@ -178,6 +180,7 @@ public extension QuillCodeWorkspaceModel {
             appendCodeReviewFailure("Code review stopped.", to: targetThreadID)
             finishAgentRun(
                 threadID: targetThreadID,
+                runID: runID,
                 lifecycle: WorkspaceComposerSendLifecycle.cancelled(from: composer)
             )
             onProgressUpdated?()
@@ -186,6 +189,7 @@ public extension QuillCodeWorkspaceModel {
             appendCodeReviewFailure("Code review failed: \(error)", to: targetThreadID)
             finishAgentRun(
                 threadID: targetThreadID,
+                runID: runID,
                 lifecycle: WorkspaceComposerSendLifecycle.failed(error, from: composer)
             )
             onProgressUpdated?()

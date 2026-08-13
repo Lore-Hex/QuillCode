@@ -411,7 +411,11 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             threadID: threadID,
             lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
         )
+        model.mutateThread(threadID) { thread in
+            thread.events.append(ThreadEvent(kind: .toolRunning, summary: "Running tool"))
+        }
         XCTAssertTrue(model.composer.isSending)
+        XCTAssertNotNil(model.selectedThread?.activeRunCheckpoint)
 
         model.cancelActiveWork()
         var staleProgress = try XCTUnwrap(model.selectedThread)
@@ -423,7 +427,38 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertFalse(model.composer.isSending)
         XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.stopped)
         XCTAssertEqual(model.selectedThread?.title, "Live stopped thread")
+        XCTAssertNil(model.selectedThread?.activeRunCheckpoint)
+        XCTAssertEqual(model.selectedThread?.events.suffix(2).map(\.kind), [.toolFailed, .notice])
         XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Still running" } == true)
+    }
+
+    func testOldGenerationProgressCannotOverwriteReplacementRun() throws {
+        let model = QuillCodeWorkspaceModel()
+        let threadID = model.newChat()
+        let firstRunID = model.beginAgentRun(
+            threadID: threadID,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        model.cancelActiveWork()
+        let replacementRunID = model.beginAgentRun(
+            threadID: threadID,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        var staleProgress = try XCTUnwrap(model.selectedThread)
+        staleProgress.title = "Stale first generation"
+        staleProgress.events.append(ThreadEvent(kind: .toolRunning, summary: "Stale tool"))
+
+        model.applyAgentProgress(
+            staleProgress,
+            expectedThreadID: threadID,
+            expectedRunID: firstRunID
+        )
+
+        XCTAssertNotEqual(firstRunID, replacementRunID)
+        XCTAssertTrue(model.agentRuns.isRunning(threadID, runID: replacementRunID))
+        XCTAssertEqual(model.selectedThread?.activeRunCheckpoint?.id, replacementRunID)
+        XCTAssertNotEqual(model.selectedThread?.title, "Stale first generation")
+        XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Stale tool" } == true)
     }
 
     func testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent() throws {

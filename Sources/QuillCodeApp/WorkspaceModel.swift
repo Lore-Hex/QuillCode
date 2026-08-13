@@ -35,6 +35,9 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSavedSearches: [SidebarSavedSearch]
     public internal(set) var sidebarSelection: SidebarSelectionState
     public internal(set) var agentRuns: WorkspaceAgentRunRegistry
+    /// Session-only chats whose dead-process checkpoints were closed during this launch. Selecting
+    /// one presents a focused recovery action until the user prepares or starts its continuation.
+    var interruptedRunRecoveryThreadIDs: Set<UUID>
     /// Session-only terminal outcomes keyed by chat. Keeping these separate from the active-run
     /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
     /// the running entry has been removed.
@@ -183,6 +186,7 @@ public final class QuillCodeWorkspaceModel {
         sidebarSavedSearches: [SidebarSavedSearch] = [],
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         agentRuns: WorkspaceAgentRunRegistry = WorkspaceAgentRunRegistry(),
+        interruptedRunRecoveryThreadIDs: Set<UUID> = [],
         runner: AgentRunner = AgentRunner(),
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
@@ -233,6 +237,7 @@ public final class QuillCodeWorkspaceModel {
             : nil
         self.sidebarSelection = sidebarSelection
         self.agentRuns = agentRuns
+        self.interruptedRunRecoveryThreadIDs = interruptedRunRecoveryThreadIDs
         self.runner = runner
         self.subagentSchedulerOverride = nil
         self.subagentDelegationBudgetOverride = nil
@@ -300,6 +305,7 @@ public final class QuillCodeWorkspaceModel {
         restorePersistedSelectedComposerDraftIfNeeded()
         syncTerminalSessionToSelectedProject()
         refreshTopBar()
+        presentInterruptedRunRecoveryIfNeeded(for: root.selectedThreadID)
         refreshFileMentionIndex()
     }
 

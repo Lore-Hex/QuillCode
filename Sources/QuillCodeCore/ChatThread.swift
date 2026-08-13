@@ -34,6 +34,9 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     /// queue persists with the conversation and survives a reload; decodes to empty for
     /// threads written before this field existed.
     public var followUpQueue: [FollowUpItem]
+    /// Content-free durable ownership for an in-flight parent-chat run. Graceful terminal paths
+    /// clear it; relaunch recovery closes only the checkpoint left by a dead process.
+    public var activeRunCheckpoint: ThreadRunCheckpoint?
     /// The git worktree this thread's runs operate in. nil = inherit the project root (every legacy
     /// thread, and any thread not bound to a fork worktree). See `WorktreeBinding`.
     public var worktree: WorktreeBinding?
@@ -72,6 +75,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         composerDraft: String? = nil,
         composerAttachments: [ChatAttachment] = [],
         followUpQueue: [FollowUpItem] = [],
+        activeRunCheckpoint: ThreadRunCheckpoint? = nil,
         worktree: WorktreeBinding? = nil,
         pullRequest: PullRequestLink? = nil,
         forkParentThreadID: UUID? = nil,
@@ -99,6 +103,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.composerDraft = composerDraft
         self.composerAttachments = Array(composerAttachments.prefix(ChatAttachment.maximumCountPerTurn))
         self.followUpQueue = followUpQueue
+        self.activeRunCheckpoint = activeRunCheckpoint
         self.worktree = worktree
         self.pullRequest = pullRequest
         self.forkParentThreadID = forkParentThreadID
@@ -128,6 +133,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case composerDraft
         case composerAttachments
         case followUpQueue
+        case activeRunCheckpoint
         case worktree
         case pullRequest
         case forkParentThreadID
@@ -167,6 +173,10 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
                 .prefix(ChatAttachment.maximumCountPerTurn)
         )
         self.followUpQueue = try container.decodeIfPresent([FollowUpItem].self, forKey: .followUpQueue) ?? []
+        self.activeRunCheckpoint = try container.decodeIfPresent(
+            ThreadRunCheckpoint.self,
+            forKey: .activeRunCheckpoint
+        )
         self.worktree = try container.decodeIfPresent(WorktreeBinding.self, forKey: .worktree)
         self.pullRequest = try container.decodeIfPresent(PullRequestLink.self, forKey: .pullRequest)
         self.forkParentThreadID = try container.decodeIfPresent(UUID.self, forKey: .forkParentThreadID)
@@ -197,6 +207,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(followUpQueue, forKey: .followUpQueue)
+        try container.encodeIfPresent(activeRunCheckpoint, forKey: .activeRunCheckpoint)
         try container.encodeIfPresent(worktree, forKey: .worktree)
         try container.encodeIfPresent(pullRequest, forKey: .pullRequest)
         try container.encodeIfPresent(forkParentThreadID, forKey: .forkParentThreadID)

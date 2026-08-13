@@ -11,6 +11,10 @@ struct WorkspaceComposerCancellationPlanner {
         if !thread.messages.contains(where: { $0.role == .user && $0.content == userPrompt }) {
             thread.messages.append(ChatMessage(role: .user, content: userPrompt))
         }
+        applyStoppedRun(to: &thread)
+    }
+
+    static func applyStoppedRun(to thread: inout ChatThread) {
         if shouldAppendToolFailure(after: thread.events.last) {
             thread.events.append(ThreadEvent(
                 kind: .toolFailed,
@@ -21,6 +25,7 @@ struct WorkspaceComposerCancellationPlanner {
         if shouldAppendNotice(after: thread.events.last) {
             thread.events.append(ThreadEvent(kind: .notice, summary: stoppedSummary))
         }
+        thread.activeRunCheckpoint = nil
     }
 
     private static func shouldAppendToolFailure(after event: ThreadEvent?) -> Bool {

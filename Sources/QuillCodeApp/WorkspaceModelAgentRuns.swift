@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeAgent
+import QuillCodeCore
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -20,19 +21,42 @@ extension QuillCodeWorkspaceModel {
         return completedAgentRunStopReasons[threadID]
     }
 
-    func beginAgentRun(threadID: UUID, lifecycle: WorkspaceComposerSendLifecyclePlan) {
+    @discardableResult
+    func beginAgentRun(
+        threadID: UUID,
+        lifecycle: WorkspaceComposerSendLifecyclePlan,
+        runID: UUID = UUID(),
+        startedAt: Date = Date()
+    ) -> UUID {
         completedAgentRunStopReasons.removeValue(forKey: threadID)
-        agentRuns.begin(threadID: threadID, status: lifecycle.agentStatus)
+        interruptedRunRecoveryThreadIDs.remove(threadID)
+        if lastError == WorkspaceAgentRunRelaunchReconciler.recoveryMessage {
+            setLastError(nil)
+        }
+        mutateThread(threadID) { thread in
+            thread.activeRunCheckpoint = ThreadRunCheckpoint(
+                id: runID,
+                startedAt: startedAt,
+                messageCountAtStart: thread.messages.count,
+                eventCountAtStart: thread.events.count
+            )
+        }
+        agentRuns.begin(threadID: threadID, runID: runID, status: lifecycle.agentStatus)
         guard root.selectedThreadID == threadID else {
             refreshSelectedAgentRunPresentation()
-            return
+            return runID
         }
         applyComposerSendLifecycle(lifecycle)
+        return runID
     }
 
-    func updateAgentRun(threadID: UUID, status: String) {
-        guard agentRuns.isRunning(threadID) else { return }
-        agentRuns.update(threadID: threadID, status: status)
+    func updateAgentRun(threadID: UUID, runID: UUID? = nil, status: String) {
+        if let runID {
+            guard agentRuns.isRunning(threadID, runID: runID) else { return }
+        } else {
+            guard agentRuns.isRunning(threadID) else { return }
+        }
+        agentRuns.update(threadID: threadID, runID: runID, status: status)
         guard root.selectedThreadID == threadID else { return }
         composer.isSending = true
         setLastError(nil)
@@ -49,9 +73,19 @@ extension QuillCodeWorkspaceModel {
 
     func finishAgentRun(
         threadID: UUID,
+        runID: UUID? = nil,
         lifecycle: WorkspaceComposerSendLifecyclePlan
     ) {
-        agentRuns.finish(threadID: threadID)
+        let resolvedRunID = runID ?? agentRuns.runID(for: threadID)
+        guard let resolvedRunID,
+              agentRuns.finish(threadID: threadID, runID: resolvedRunID) != nil
+        else {
+            return
+        }
+        mutateThread(threadID) { thread in
+            guard thread.activeRunCheckpoint?.id == resolvedRunID else { return }
+            thread.activeRunCheckpoint = nil
+        }
         enforceManagedWorktreeRetention()
         enforceThreadPayloadResidency()
         guard root.selectedThreadID == threadID else {

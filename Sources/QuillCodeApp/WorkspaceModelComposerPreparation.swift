@@ -37,12 +37,16 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func prepareRetryLastUserTurn() -> Bool {
-        guard let message = WorkspaceRetryPlanner.retryMessage(in: selectedThread) else {
+        guard let selectedThread,
+              let message = WorkspaceRetryPlanner.retryMessage(in: selectedThread)
+        else {
             return false
         }
-        setDraft(message.content)
-        composer.attachments = message.attachments
-        persistComposerAttachments(message.attachments, for: root.selectedThreadID)
+        let retryingFailedRun = Self.lastRunFailed(in: selectedThread)
+        setDraft(retryingFailedRun ? Self.failedRunRetryPrompt : message.content)
+        composer.attachments = retryingFailedRun ? [] : message.attachments
+        persistComposerAttachments(composer.attachments, for: root.selectedThreadID)
+        interruptedRunRecoveryThreadIDs.remove(selectedThread.id)
         setLastError(nil)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true

@@ -249,11 +249,15 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "submitComposer should delegate typed send outcome handling."
         )
         XCTAssertTrue(
-            composerText.contains("try finishCompletedSend(result, runThreadID: runThreadID)"),
+            composerText.contains(
+                "try finishCompletedSend(result, runThreadID: runThreadID, runID: runID)"
+            ),
             "The terminal helper should delegate successful send completion."
         )
         XCTAssertTrue(
-            composerText.contains("finishFailedSend(error, runThreadID: runThreadID)"),
+            composerText.contains(
+                "finishFailedSend(error, runThreadID: runThreadID, runID: runID)"
+            ),
             "The terminal helper should delegate failed send completion."
         )
         XCTAssertFalse(

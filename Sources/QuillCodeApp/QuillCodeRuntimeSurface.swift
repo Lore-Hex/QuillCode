@@ -21,6 +21,7 @@ public enum RuntimeRecoveryReason: String, Codable, Sendable, Hashable {
     case networkUnreachable = "network-unreachable"
     case emptyResponse = "empty-response"
     case malformedModelAction = "malformed-model-action"
+    case runInterrupted = "run-interrupted"
     case runFailed = "run-failed"
     case savedChatsUnreadable = "saved-chats-unreadable"
     case savedWorkspaceDataUnreadable = "saved-workspace-data-unreadable"

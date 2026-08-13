@@ -202,6 +202,20 @@ extension QuillCodeWorkspaceModel {
         touchProject(root.selectedProjectID)
         saveProjects()
         refreshSelectedAgentRunPresentation()
+        presentInterruptedRunRecoveryIfNeeded(for: id)
         scheduleSelectedPullRequestReconciliation()
+    }
+
+    func presentInterruptedRunRecoveryIfNeeded(for threadID: UUID?) {
+        guard let threadID,
+              interruptedRunRecoveryThreadIDs.contains(threadID)
+        else {
+            if lastError == WorkspaceAgentRunRelaunchReconciler.recoveryMessage {
+                setLastError(nil)
+            }
+            return
+        }
+        setLastError(WorkspaceAgentRunRelaunchReconciler.recoveryMessage)
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
     }
 }

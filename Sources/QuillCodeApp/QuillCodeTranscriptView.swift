@@ -122,7 +122,8 @@ struct QuillCodeTranscriptView: View {
             return true
         case .trustedRouterKeyRejected, .rateLimited, .providerUnavailable,
              .networkUnreachable, .emptyResponse, .malformedModelAction,
-             .runFailed, .savedChatsUnreadable, .savedWorkspaceDataUnreadable, nil:
+             .runInterrupted, .runFailed, .savedChatsUnreadable,
+             .savedWorkspaceDataUnreadable, nil:
             return false
         }
     }
