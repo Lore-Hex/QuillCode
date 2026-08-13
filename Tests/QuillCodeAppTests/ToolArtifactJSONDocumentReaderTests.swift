@@ -105,6 +105,21 @@ final class ToolArtifactJSONDocumentReaderTests: XCTestCase {
         XCTAssertEqual(ToolArtifactJSONDocumentReader.diagnosticsForTesting().parseCount, 1)
     }
 
+    func testPurgingCacheReleasesDocumentWithoutResettingDiagnostics() throws {
+        let fileURL = try fixtureFile(contents: #"{"value":42}"#)
+        defer { try? FileManager.default.removeItem(at: fileURL.deletingLastPathComponent()) }
+
+        XCTAssertNotNil(try ToolArtifactJSONDocumentReader.document(for: fileURL, byteLimit: 1_024))
+        XCTAssertNotNil(try ToolArtifactJSONDocumentReader.document(for: fileURL, byteLimit: 1_024))
+        ToolArtifactJSONDocumentReader.purgeCache()
+        XCTAssertNotNil(try ToolArtifactJSONDocumentReader.document(for: fileURL, byteLimit: 1_024))
+
+        XCTAssertEqual(
+            ToolArtifactJSONDocumentReader.diagnosticsForTesting(),
+            .init(fileReadCount: 2, parseCount: 2, cacheHitCount: 1)
+        )
+    }
+
     private func fixtureFile(contents: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quill-cowork-json-preview-tests-\(UUID().uuidString)", isDirectory: true)

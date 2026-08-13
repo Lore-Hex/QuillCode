@@ -198,6 +198,13 @@ enum ToolArtifactTextPreviewBuilder {
             storage.setObject(Box(payload), forKey: key, cost: payload.estimatedByteCount)
         }
 
+        func purge() {
+            storage.removeAllObjects()
+        }
+    }
+
+    static func purgeCache() {
+        cache.purge()
     }
 
     private static let cache = TextPreviewCache()

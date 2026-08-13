@@ -27,6 +27,17 @@ extension QuillCodeParityTestCase {
           "windowTitle": "Quill Cowork",
           "workspaceWindowCount": 1,
           "screenshotPath": "window.png",
+          "memoryPressure": {
+            "level": "critical",
+            "loadedThreadPayloadCountBefore": 12,
+            "loadedThreadPayloadCountAfter": 1,
+            "releasedThreadPayloadCount": 11,
+            "releasedFileMentionEntryCount": 200,
+            "releasedInactiveProjectSurfaceCount": 2,
+            "selectedThreadPreserved": true,
+            "composerDraftPreserved": true,
+            "renderedAfterReclamation": true
+          },
           "image": {
             "width": 1280,
             "height": 900,

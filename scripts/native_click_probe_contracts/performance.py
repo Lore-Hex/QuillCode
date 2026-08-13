@@ -113,6 +113,38 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
     report = load_report(report_path)
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
     require(report.get("appName") == PERFORMANCE_PRODUCT, f"{report_path} has the wrong app identity")
+    memory_pressure = report.get("memoryPressure")
+    require(isinstance(memory_pressure, dict), f"{report_path} is missing memory-pressure evidence")
+    require(
+        memory_pressure.get("level") == "critical",
+        "packaged performance run did not exercise critical memory pressure",
+    )
+    require(
+        memory_pressure.get("selectedThreadPreserved") is True
+        and memory_pressure.get("composerDraftPreserved") is True
+        and memory_pressure.get("renderedAfterReclamation") is True,
+        "packaged performance run did not preserve and re-render active state under memory pressure",
+    )
+    pressure_before = _nonnegative_integer(
+        memory_pressure.get("loadedThreadPayloadCountBefore"),
+        "memoryPressure.loadedThreadPayloadCountBefore",
+    )
+    pressure_after = _nonnegative_integer(
+        memory_pressure.get("loadedThreadPayloadCountAfter"),
+        "memoryPressure.loadedThreadPayloadCountAfter",
+    )
+    pressure_released = _nonnegative_integer(
+        memory_pressure.get("releasedThreadPayloadCount"),
+        "memoryPressure.releasedThreadPayloadCount",
+    )
+    require(
+        pressure_before - pressure_after == pressure_released,
+        "packaged memory-pressure payload counts are inconsistent",
+    )
+    require(
+        pressure_after <= 1,
+        "packaged critical memory pressure retained inactive thread payloads",
+    )
     performance = report.get("performance")
     require(isinstance(performance, dict), f"{report_path} is missing performance evidence")
     require(

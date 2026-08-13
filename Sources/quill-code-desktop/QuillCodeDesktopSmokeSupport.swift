@@ -649,6 +649,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var appStatePath: String
     var workspacePath: String
     var performance: QuillCodeDesktopPerformanceSnapshot
+    var memoryPressure: QuillCodeDesktopMemoryPressureSmokeReport
     var image: QuillCodeDesktopSmokePixelReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     var accessibilityFrameSamples: QuillCodeDesktopAccessibilityFrameSampleReport
@@ -678,6 +679,7 @@ struct QuillCodeDesktopWindowSmokeReport {
                 "appStatePath": appStatePath,
                 "workspacePath": workspacePath,
                 "performance": performance.dictionary,
+                "memoryPressure": memoryPressure.dictionary,
                 "image": image.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary,
                 "accessibilityFrameSamples": accessibilityFrameSamples.dictionary,
@@ -686,6 +688,32 @@ struct QuillCodeDesktopWindowSmokeReport {
             ],
             options: [.prettyPrinted, .sortedKeys]
         )
+    }
+}
+
+struct QuillCodeDesktopMemoryPressureSmokeReport {
+    var level: String
+    var loadedThreadPayloadCountBefore: Int
+    var loadedThreadPayloadCountAfter: Int
+    var releasedThreadPayloadCount: Int
+    var releasedFileMentionEntryCount: Int
+    var releasedInactiveProjectSurfaceCount: Int
+    var selectedThreadPreserved: Bool
+    var composerDraftPreserved: Bool
+    var renderedAfterReclamation: Bool
+
+    var dictionary: [String: Any] {
+        [
+            "level": level,
+            "loadedThreadPayloadCountBefore": loadedThreadPayloadCountBefore,
+            "loadedThreadPayloadCountAfter": loadedThreadPayloadCountAfter,
+            "releasedThreadPayloadCount": releasedThreadPayloadCount,
+            "releasedFileMentionEntryCount": releasedFileMentionEntryCount,
+            "releasedInactiveProjectSurfaceCount": releasedInactiveProjectSurfaceCount,
+            "selectedThreadPreserved": selectedThreadPreserved,
+            "composerDraftPreserved": composerDraftPreserved,
+            "renderedAfterReclamation": renderedAfterReclamation
+        ]
     }
 }
 
@@ -831,6 +859,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case htmlMissingResult
     case incompleteTranscript
     case invalidImageSize(Int, Int)
+    case memoryPressureStateMismatch(String)
     case computerUseActionMismatch(String)
     case multiFileArtifactMismatch(String)
     case oneTurnCoworkerMismatch(String)

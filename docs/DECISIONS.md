@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-12: native memory pressure releases only reconstructible state
+
+- **Decision:** The packaged macOS app observes dispatch memory-pressure warning and critical events
+  after its first window appears. Both levels purge bounded artifact-preview caches and compact
+  durable inactive transcript payloads; critical pressure also cancels and drops the reconstructible
+  workspace file-mention index. Inactive project environment surfaces are trimmed to the selected
+  project at either level.
+- **Safety boundary:** Selected, running, ephemeral, and persistence-failed chats stay resident.
+  Composer drafts, active terminal processes, browser sessions, and agent tasks are untouched.
+  Optional language-server processes are retired only at critical pressure when no agent run is
+  active, and teardown runs outside the main actor. Later use reconstructs every released resource.
+- **Evidence:** Focused model/controller tests inject warning and critical events and prove protected
+  state, idempotent observation, and off-actor service teardown. Packaged live-window and 100-chat
+  performance smoke now inject critical pressure, verify inactive transcript eviction, selected-chat
+  and composer-draft preservation, and a valid native render afterward. Offline release validators
+  require that evidence and reject inconsistent payload counts.
+
 ## 2026-08-12: Developer ID desktop credentials migrate to macOS Keychain
 
 - **Decision:** The canonical user-account store selects macOS Keychain only when the packaged app
