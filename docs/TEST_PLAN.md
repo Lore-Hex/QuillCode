@@ -7,6 +7,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- Native memory pressure: warning/critical cache reclamation, durable inactive-transcript deferral,
+  selected/running/persistence-failed chat retention, critical file-index release, active-run
+  language-service protection, idempotent dispatch observation, and off-main teardown. Packaged
+  live-window and daily-driver smoke additionally force critical pressure and require selected-chat
+  and draft preservation plus a successful post-reclamation render.
 - Unexpected-exit recovery: early packaged launch registration, Starting-to-Ready transition,
   graceful Terminating cleanup, dead-process detection, live-PID/same-process suppression, stale and
   future timestamp rejection, unsafe metadata rejection, private directory/file permissions,

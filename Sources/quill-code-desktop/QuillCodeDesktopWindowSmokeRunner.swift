@@ -70,7 +70,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
 
         let screenshotURL = screenshotURL(request: request)
         markStage("validating-window-render")
-        let stats = try await captureValidatedImageStats(
+        _ = try await captureValidatedImageStats(
             window: window,
             contentView: contentView,
             bounds: bounds,
@@ -111,6 +111,14 @@ enum QuillCodeDesktopWindowSmokeRunner {
         let performance = try await initialPerformance.completingRepeatedInteractionSweep(
             firstSweepResources: firstSweepResources
         )
+        markStage("validating-critical-memory-pressure")
+        let memoryPressure = try await validateCriticalMemoryPressure(controller: smokeController)
+        let postPressureStats = try await captureValidatedImageStats(
+            window: window,
+            contentView: contentView,
+            bounds: bounds,
+            to: screenshotURL
+        )
         markStage("report-ready")
 
         return QuillCodeDesktopWindowSmokeReport(
@@ -126,11 +134,64 @@ enum QuillCodeDesktopWindowSmokeRunner {
             appStatePath: workspaceRoot.appState.path,
             workspacePath: workspaceRoot.workspace.path,
             performance: performance,
-            image: stats.report,
+            memoryPressure: memoryPressure,
+            image: postPressureStats.report,
             nativeHitTargets: nativeHitTargets,
             accessibilityFrameSamples: accessibilityFrameSamples,
             accessibilityActivation: accessibilityActivation,
             surface: surface
+        )
+    }
+
+    private static func validateCriticalMemoryPressure(
+        controller: QuillCodeDesktopController
+    ) async throws -> QuillCodeDesktopMemoryPressureSmokeReport {
+        let selectedThreadBefore = controller.model.selectedThread
+        let draftBefore = controller.draft
+        let loadedThreadPayloadCountBefore = controller.model.root.threads.lazy.filter {
+            $0.payloadResidency.isLoaded
+        }.count
+
+        controller.memoryPressureController.handle(.critical)
+        await controller.memoryPressureController.waitForLanguageServiceReclamation()
+
+        let selectedThreadAfter = controller.model.selectedThread
+        let selectedThreadPreserved = selectedThreadBefore?.id == selectedThreadAfter?.id
+            && selectedThreadBefore?.messages == selectedThreadAfter?.messages
+            && selectedThreadBefore?.events == selectedThreadAfter?.events
+        let composerDraftPreserved = controller.draft == draftBefore
+        let loadedThreadPayloadCountAfter = controller.model.root.threads.lazy.filter {
+            $0.payloadResidency.isLoaded
+        }.count
+        let maximumExpectedLoadedPayloads = controller.model.activeAgentRunThreadIDs
+            .union(controller.model.root.selectedThreadID.map { [$0] } ?? [])
+            .count
+
+        guard selectedThreadPreserved else {
+            throw QuillCodeDesktopSmokeFailure.memoryPressureStateMismatch("selected thread changed")
+        }
+        guard composerDraftPreserved else {
+            throw QuillCodeDesktopSmokeFailure.memoryPressureStateMismatch("composer draft changed")
+        }
+        guard loadedThreadPayloadCountAfter <= maximumExpectedLoadedPayloads else {
+            throw QuillCodeDesktopSmokeFailure.memoryPressureStateMismatch(
+                "inactive payloads remained resident: \(loadedThreadPayloadCountAfter) > \(maximumExpectedLoadedPayloads)"
+            )
+        }
+        guard let reclamation = controller.memoryPressureController.lastReclamation else {
+            throw QuillCodeDesktopSmokeFailure.memoryPressureStateMismatch("missing reclamation result")
+        }
+
+        return QuillCodeDesktopMemoryPressureSmokeReport(
+            level: "critical",
+            loadedThreadPayloadCountBefore: loadedThreadPayloadCountBefore,
+            loadedThreadPayloadCountAfter: loadedThreadPayloadCountAfter,
+            releasedThreadPayloadCount: reclamation.releasedThreadPayloadCount,
+            releasedFileMentionEntryCount: reclamation.releasedFileMentionEntryCount,
+            releasedInactiveProjectSurfaceCount: reclamation.releasedInactiveProjectSurfaceCount,
+            selectedThreadPreserved: selectedThreadPreserved,
+            composerDraftPreserved: composerDraftPreserved,
+            renderedAfterReclamation: true
         )
     }
 

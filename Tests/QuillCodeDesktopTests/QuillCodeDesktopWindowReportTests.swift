@@ -630,6 +630,17 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 ),
                 idleDurationMilliseconds: 2_000
             ),
+            memoryPressure: QuillCodeDesktopMemoryPressureSmokeReport(
+                level: "critical",
+                loadedThreadPayloadCountBefore: 12,
+                loadedThreadPayloadCountAfter: 1,
+                releasedThreadPayloadCount: 11,
+                releasedFileMentionEntryCount: 250,
+                releasedInactiveProjectSurfaceCount: 3,
+                selectedThreadPreserved: true,
+                composerDraftPreserved: true,
+                renderedAfterReclamation: true
+            ),
             image: QuillCodeDesktopSmokePixelReport(
                 width: 2560,
                 height: 1800,
@@ -661,6 +672,13 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""activation" : "AXPress""#))
         XCTAssertTrue(json.contains(#""interactionEvidence" : "AXPress changed observable controller state""#))
         XCTAssertTrue(json.contains(#""resourceMeasurement" : "physical-footprint""#))
+        XCTAssertTrue(json.contains(#""memoryPressure""#))
+        XCTAssertEqual(
+            (jsonObject["memoryPressure"] as? [String: Any])?["loadedThreadPayloadCountAfter"] as? Int,
+            1
+        )
+        XCTAssertTrue(json.contains(#""selectedThreadPreserved" : true"#))
+        XCTAssertTrue(json.contains(#""renderedAfterReclamation" : true"#))
         XCTAssertTrue(json.contains(#""peakPresentedContractID" : "command.settings""#))
         XCTAssertEqual(
             (jsonObject["accessibilityActivation"] as? [String: Any])?["peakPresentedResidentMemoryBytes"] as? Int,

@@ -472,6 +472,19 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    func releaseFileMentionIndexForMemoryPressure() -> Int {
+        let releasedEntryCount = fileMentionIndex.entries.count
+        fileMentionIndexRefreshGeneration &+= 1
+        fileMentionIndexRefreshTask?.cancel()
+        fileMentionIndexRefreshTask = nil
+        fileMentionIndexRefreshRoot = nil
+        fileMentionIndex = WorkspaceFileIndex()
+        if releasedEntryCount > 0 {
+            onFileMentionIndexChanged?()
+        }
+        return releasedEntryCount
+    }
+
     func waitForFileMentionIndexRefresh() async {
         while let task = fileMentionIndexRefreshTask {
             await task.value

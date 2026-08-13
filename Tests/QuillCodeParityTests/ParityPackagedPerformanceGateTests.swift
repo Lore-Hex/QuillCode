@@ -75,6 +75,11 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"markStage("interaction-sweep-1")"#,
             #"markStage("interaction-sweep-2")"#,
             #"markStage("measuring-settled-idle-resources")"#,
+            #"markStage("validating-critical-memory-pressure")"#,
+            "memoryPressureController.handle(.critical)",
+            "selectedThreadPreserved",
+            "composerDraftPreserved",
+            "captureValidatedImageStats(",
             #"markStage("complete")"#
         ])
         XCTAssertEqual(
@@ -94,6 +99,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(performanceIndex, screenshotIndex)
         XCTAssertLessThan(interactionIndex, completedPerformanceIndex)
         Self.assertSource(support, contains: #""performance": performance.dictionary"#)
+        Self.assertSource(support, contains: #""memoryPressure": memoryPressure.dictionary"#)
         Self.assertSource(activationSampler, containsAll: [
             "candidateIdentifiers(for: probe)",
             "matchingAnyIdentifier: directCandidates",
@@ -699,6 +705,17 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let payload: [String: Any] = [
             "ok": true,
             "appName": "Quill Cowork",
+            "memoryPressure": [
+                "level": "critical",
+                "loadedThreadPayloadCountBefore": 12,
+                "loadedThreadPayloadCountAfter": 1,
+                "releasedThreadPayloadCount": 11,
+                "releasedFileMentionEntryCount": 250,
+                "releasedInactiveProjectSurfaceCount": 3,
+                "selectedThreadPreserved": true,
+                "composerDraftPreserved": true,
+                "renderedAfterReclamation": true
+            ],
             "performance": [
                 "schemaVersion": 6,
                 "workload": "daily-driver-100-chats",

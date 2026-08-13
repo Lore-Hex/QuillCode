@@ -40,6 +40,10 @@ enum ToolArtifactJSONDocumentReader {
         cache.diagnosticsSnapshot()
     }
 
+    static func purgeCache() {
+        cache.purge()
+    }
+
     static func resetCacheForTesting() {
         cache.reset()
     }
@@ -147,6 +151,12 @@ enum ToolArtifactJSONDocumentReader {
             lock.lock()
             defer { lock.unlock() }
             return diagnostics
+        }
+
+        func purge() {
+            lock.lock()
+            defer { lock.unlock() }
+            storage.removeAllObjects()
         }
 
         func reset() {

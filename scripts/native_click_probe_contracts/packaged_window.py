@@ -27,6 +27,8 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
         f"{report_path} must report exactly one visible Quill Cowork workspace window",
     )
 
+    _validate_memory_pressure(report, report_path)
+
     probe_contracts = normalized_probe_contracts(report, "packaged live-window")
 
     surface = report.get("surface")
@@ -79,6 +81,33 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
         screenshot_bytes >= MINIMUM_WINDOW_SCREENSHOT_BYTES,
         f"packaged live-window screenshot is suspiciously small: {screenshot_bytes} bytes",
     )
+
+
+def _validate_memory_pressure(report: dict[str, Any], report_path: Path) -> None:
+    evidence = report.get("memoryPressure")
+    require(isinstance(evidence, dict), f"{report_path} is missing memory-pressure evidence")
+    require(evidence.get("level") == "critical", f"{report_path} did not exercise critical memory pressure")
+    before = evidence.get("loadedThreadPayloadCountBefore")
+    after = evidence.get("loadedThreadPayloadCountAfter")
+    released = evidence.get("releasedThreadPayloadCount")
+    for label, value in (
+        ("loadedThreadPayloadCountBefore", before),
+        ("loadedThreadPayloadCountAfter", after),
+        ("releasedThreadPayloadCount", released),
+        ("releasedFileMentionEntryCount", evidence.get("releasedFileMentionEntryCount")),
+        ("releasedInactiveProjectSurfaceCount", evidence.get("releasedInactiveProjectSurfaceCount")),
+    ):
+        require(
+            not isinstance(value, bool) and isinstance(value, int) and value >= 0,
+            f"{report_path} memoryPressure.{label} is invalid: {value!r}",
+        )
+    require(
+        before - after == released,
+        f"{report_path} memory-pressure payload counts are inconsistent",
+    )
+    require(evidence.get("selectedThreadPreserved") is True, f"{report_path} did not preserve the selected thread")
+    require(evidence.get("composerDraftPreserved") is True, f"{report_path} did not preserve the composer draft")
+    require(evidence.get("renderedAfterReclamation") is True, f"{report_path} did not render after reclamation")
 
 def write_comparison_manifest(
     direct_report_path: Path,

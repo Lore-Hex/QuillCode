@@ -63,6 +63,7 @@ final class QuillCodeDesktopController: ObservableObject {
     var updateLaunchHandshake: QuillCodeDesktopUpdateLaunchHandshake?
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
+    private(set) lazy var memoryPressureController = QuillCodeDesktopMemoryPressureController(owner: self)
     var automaticStartupState: QuillCodeDesktopStartupState
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until app services start.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
@@ -186,6 +187,7 @@ final class QuillCodeDesktopController: ObservableObject {
     /// The owned controllers keep repeat calls idempotent for recovery and repeated scene tasks.
     func startApplicationServicesAfterFirstWindow() {
         composerDraftCheckpointCoordinator.startLifecycleFlushes(model: model)
+        memoryPressureController.start()
         installApprovalNotificationHandling()
         installationLocationController.startIfNeeded()
         updateController.startAutomaticChecks()
