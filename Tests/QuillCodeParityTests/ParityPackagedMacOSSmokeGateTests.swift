@@ -3,6 +3,7 @@ import XCTest
 final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
     func testPackagedMacOSSmokeIncludesLiveWindowProof() throws {
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let launchRouteText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchRoute.swift")
         let supportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
         let windowSmokeText = try Self.desktopSourceText(named: "QuillCodeDesktopWindowSmokeRunner.swift")
         let packagedSmoke = try String(
@@ -12,8 +13,10 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         let clickProbeValidator = try Self.nativeClickProbeValidatorText()
 
         XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments)"))
-        XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)"))
+        XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeWorkspaceRoot(request: request)"))
         XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeLaunch.schedule("))
+        XCTAssertTrue(launchRouteText.contains(#"case "--native-window-smoke":"#))
+        XCTAssertTrue(launchRouteText.contains("case windowSmoke"))
         XCTAssertTrue(appText.contains("NSApplication.didFinishLaunchingNotification"))
         XCTAssertTrue(appText.contains("QuillCodeDesktopWindowSmokeRunner.runAndExit("))
         XCTAssertTrue(appText.contains(".defaultSize(width: 1280, height: 900)"))

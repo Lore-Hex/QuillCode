@@ -72,7 +72,7 @@ final class QuillCodeDesktopController: ObservableObject {
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator =
             QuillCodeDesktopComputerUseCoordinator(),
-        browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
+        browserPageFetcher: (any BrowserPageFetching)? = nil,
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
         automationNotifier: any QuillCodeAutomationNotifying = DesktopAutomationNotifierFactory.platformDefault(),

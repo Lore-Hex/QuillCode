@@ -18,8 +18,8 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
     @Published private(set) var state: State = .ready
 
     private let configuration: QuillCodeDesktopUpdateConfiguration?
-    private let inspector: any QuillCodeDesktopUpdateInstallationInspecting
-    private let relocator: any QuillCodeDesktopApplicationRelocating
+    private var inspectorStorage: (any QuillCodeDesktopUpdateInstallationInspecting)?
+    private var relocatorStorage: (any QuillCodeDesktopApplicationRelocating)?
     private let defaults: UserDefaults
     private let relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore
     private let applicationsURL: URL
@@ -32,10 +32,8 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
 
     init(
         configuration: QuillCodeDesktopUpdateConfiguration? = .bundled(),
-        inspector: any QuillCodeDesktopUpdateInstallationInspecting =
-            QuillCodeDesktopUpdateInstallationInspector(),
-        relocator: any QuillCodeDesktopApplicationRelocating =
-            QuillCodeDesktopApplicationRelocator(),
+        inspector: (any QuillCodeDesktopUpdateInstallationInspecting)? = nil,
+        relocator: (any QuillCodeDesktopApplicationRelocating)? = nil,
         defaults: UserDefaults = .standard,
         relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore? = nil,
         applicationsURL: URL = URL(fileURLWithPath: "/Applications", isDirectory: true),
@@ -54,8 +52,8 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
             QuillCodeDesktopSystemApplication.terminateForUpdate
     ) {
         self.configuration = configuration
-        self.inspector = inspector
-        self.relocator = relocator
+        self.inspectorStorage = inspector
+        self.relocatorStorage = relocator
         self.defaults = defaults
         self.relocationUpdateIntentStore = relocationUpdateIntentStore
             ?? QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
@@ -170,6 +168,32 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
                 self.state = .failed(message: error.localizedDescription)
             }
         }
+    }
+
+    var materializedDependencies: Set<Dependency> {
+        var dependencies: Set<Dependency> = []
+        if inspectorStorage != nil { dependencies.insert(.inspector) }
+        if relocatorStorage != nil { dependencies.insert(.relocator) }
+        return dependencies
+    }
+
+    enum Dependency: Hashable {
+        case inspector
+        case relocator
+    }
+
+    private var inspector: any QuillCodeDesktopUpdateInstallationInspecting {
+        if let inspectorStorage { return inspectorStorage }
+        let inspector = QuillCodeDesktopUpdateInstallationInspector()
+        inspectorStorage = inspector
+        return inspector
+    }
+
+    private var relocator: any QuillCodeDesktopApplicationRelocating {
+        if let relocatorStorage { return relocatorStorage }
+        let relocator = QuillCodeDesktopApplicationRelocator()
+        relocatorStorage = relocator
+        return relocator
     }
 
     private func dismissalKey(for configuration: QuillCodeDesktopUpdateConfiguration) -> String {

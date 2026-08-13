@@ -2,20 +2,48 @@ import Foundation
 import QuillCodeApp
 import QuillCodeCore
 
+enum QuillCodeDesktopBrowserDependency: Hashable {
+    case pageFetcher
+}
+
+@MainActor
+private final class QuillCodeDesktopBrowserDependencies {
+    private var pageFetcherStorage: (any BrowserPageFetching)?
+
+    init(pageFetcher: (any BrowserPageFetching)?) {
+        pageFetcherStorage = pageFetcher
+    }
+
+    var pageFetcher: any BrowserPageFetching {
+        if let pageFetcherStorage { return pageFetcherStorage }
+        let pageFetcher = URLSessionBrowserPageFetcher()
+        pageFetcherStorage = pageFetcher
+        return pageFetcher
+    }
+
+    var materialized: Set<QuillCodeDesktopBrowserDependency> {
+        pageFetcherStorage == nil ? [] : [.pageFetcher]
+    }
+}
+
 @MainActor
 struct QuillCodeDesktopBrowserCoordinator {
-    private let pageFetcher: any BrowserPageFetching
+    private let dependencies: QuillCodeDesktopBrowserDependencies
     private let liveDOMCapturer: (any BrowserLiveDOMCapturing)?
     private let sessionPresenter: any DesktopBrowserSessionPresenting
 
     init(
-        pageFetcher: any BrowserPageFetching,
+        pageFetcher: (any BrowserPageFetching)?,
         liveDOMCapturer: (any BrowserLiveDOMCapturing)?,
         sessionPresenter: any DesktopBrowserSessionPresenting
     ) {
-        self.pageFetcher = pageFetcher
+        self.dependencies = QuillCodeDesktopBrowserDependencies(pageFetcher: pageFetcher)
         self.liveDOMCapturer = liveDOMCapturer
         self.sessionPresenter = sessionPresenter
+    }
+
+    var materializedDependencies: Set<QuillCodeDesktopBrowserDependency> {
+        dependencies.materialized
     }
 
     func installSessionUpdateHandler(
@@ -44,7 +72,7 @@ struct QuillCodeDesktopBrowserCoordinator {
         syncOpenSession(model: model)
 
         tasks.replace(.browserPreview) {
-            _ = await model.refreshBrowserSnapshot(pageFetcher: pageFetcher)
+            _ = await model.refreshBrowserSnapshot(pageFetcher: dependencies.pageFetcher)
             if let liveDOMCapturer {
                 _ = await model.refreshRenderedBrowserSnapshot(capturer: liveDOMCapturer)
             }

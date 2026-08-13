@@ -39,10 +39,6 @@ final class QuillCodeDesktopRelocationUpdateContinuation {
         resultTask?.cancel()
     }
 
-    func discardPreviousResult() {
-        _ = QuillCodeDesktopUpdateInstallResultReader.take(from: resultURL)
-    }
-
     func start(
         configuration: QuillCodeDesktopUpdateConfiguration,
         onCompletion: @escaping @MainActor (Action) -> Void

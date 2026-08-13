@@ -3,6 +3,37 @@ import XCTest
 
 @MainActor
 final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
+    func testProductionDependenciesRemainLazyUntilAutomaticServicesStart() {
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(initialDelay: 60),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        XCTAssertEqual(controller.materializedUpdateDependencies, [])
+
+        controller.startAutomaticChecks()
+
+        XCTAssertEqual(
+            controller.materializedUpdateDependencies,
+            [.installationInspector, .recovery]
+        )
+    }
+
+    func testDisabledUpdaterDoesNotMaterializeDependencies() {
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: nil,
+            defaults: makeDefaults(),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+        controller.checkForUpdates()
+
+        XCTAssertEqual(controller.materializedUpdateDependencies, [])
+    }
+
     func testManualCheckShowsAvailableUpdateThenInstallsAndTerminates() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
         let checker = UpdateCheckerSpy(result: .updateAvailable(release))
