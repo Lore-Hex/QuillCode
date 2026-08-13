@@ -158,38 +158,48 @@ enum ThreadPayloadSummaryStore {
     private static let directoryName = ".thread-payload-summaries-v2"
     private static let legacyIndexName = ".archived-thread-summary-index-v1"
 
-    static func load(
-        threadID: UUID,
-        authoritativeFileURL: URL,
-        fingerprint: ThreadFileFingerprint,
-        calendar: Calendar,
-        from threadDirectory: URL
-    ) -> ThreadPayloadSummaryEntry? {
-        let directory = cacheDirectory(in: threadDirectory)
-        let filename = cacheFilename(for: threadID)
-        do {
-            guard let data = try PrivateFileStoreFileSystem.read(
-                directory: directory,
-                filename: filename,
-                maximumBytes: maximumEntryBytes
-            ) else {
-                return nil
-            }
-            let entry = try JSONDecoder().decode(ThreadPayloadSummaryEntry.self, from: data)
-            guard entry.id == threadID,
-                  entry.matches(
-                      fileURL: authoritativeFileURL,
-                      fingerprint: fingerprint,
-                      calendar: calendar
-                  )
-            else {
+    final class Loader {
+        private let threadDirectory: URL
+        private let reader: PrivateFileStoreFileSystem.DirectoryReader?
+        private let decoder = JSONDecoder()
+
+        init(from threadDirectory: URL) {
+            self.threadDirectory = threadDirectory
+            self.reader = try? PrivateFileStoreFileSystem.DirectoryReader(
+                directory: cacheDirectory(in: threadDirectory)
+            )
+        }
+
+        func load(
+            threadID: UUID,
+            authoritativeFileURL: URL,
+            fingerprint: ThreadFileFingerprint,
+            calendar: Calendar
+        ) -> ThreadPayloadSummaryEntry? {
+            let filename = cacheFilename(for: threadID)
+            do {
+                guard let data = try reader?.read(
+                    filename: filename,
+                    maximumBytes: maximumEntryBytes
+                ) else {
+                    return nil
+                }
+                let entry = try decoder.decode(ThreadPayloadSummaryEntry.self, from: data)
+                guard entry.id == threadID,
+                      entry.matches(
+                          fileURL: authoritativeFileURL,
+                          fingerprint: fingerprint,
+                          calendar: calendar
+                      )
+                else {
+                    remove(threadID: threadID, from: threadDirectory)
+                    return nil
+                }
+                return entry
+            } catch {
                 remove(threadID: threadID, from: threadDirectory)
                 return nil
             }
-            return entry
-        } catch {
-            remove(threadID: threadID, from: threadDirectory)
-            return nil
         }
     }
 
