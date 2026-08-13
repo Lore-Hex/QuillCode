@@ -22,7 +22,7 @@ final class WorkspaceThreadPayloadResidencyTests: XCTestCase {
         }
         let threads = store.bootstrapListing(
             deferArchivedBefore: .distantFuture,
-            maximumResidentActivePayloads: JSONThreadStore.defaultMaximumResidentActivePayloads,
+            maximumResidentActivePayloads: QuillCodeWorkspaceBootstrap.maximumLaunchResidentActivePayloads,
             retainingUsageSince: .distantPast
         ).threads
         let model = QuillCodeWorkspaceModel(
@@ -32,6 +32,11 @@ final class WorkspaceThreadPayloadResidencyTests: XCTestCase {
             ),
             threadStore: store
         )
+        XCTAssertEqual(
+            model.root.threads.filter { !$0.isArchived && $0.payloadResidency.isLoaded }.count,
+            QuillCodeWorkspaceBootstrap.maximumLaunchResidentActivePayloads
+        )
+        XCTAssertEqual(model.selectedThread?.messages.count, 1)
 
         for id in threads.reversed().map(\.id) {
             model.selectThread(id)

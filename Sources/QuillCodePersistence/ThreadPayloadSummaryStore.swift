@@ -5,7 +5,7 @@ import QuillCodeCore
 /// an authoritative thread write invalidates only its own derived cache instead of rewriting a
 /// workspace-wide index during streaming updates.
 struct ThreadPayloadSummaryEntry: Codable, Hashable {
-    static let schemaVersion = 2
+    static let schemaVersion = 3
     static let maximumAttachmentIDs = 10_000
 
     var schemaVersion: Int
@@ -49,7 +49,8 @@ struct ThreadPayloadSummaryEntry: Codable, Hashable {
         )
         let attachmentIDs = thread.payloadResidency.deferredSummary?.attachmentIDs
             ?? loadedAttachmentIDs
-        guard attachmentIDs.count <= Self.maximumAttachmentIDs,
+        guard !Self.hasRelaunchCriticalState(thread),
+              attachmentIDs.count <= Self.maximumAttachmentIDs,
               fileURL.lastPathComponent == "\(thread.id.uuidString).json",
               let periodUsage = ThreadPeriodUsageSnapshot(
                   thread: thread,
@@ -85,6 +86,15 @@ struct ThreadPayloadSummaryEntry: Codable, Hashable {
         self.agentImportProvenance = AgentImportThreadProvenance.value(in: thread)
         self.attentionItem = AttentionModel.build(from: [thread]).items.first
         self.periodUsage = periodUsage
+    }
+
+    private static func hasRelaunchCriticalState(_ thread: ChatThread) -> Bool {
+        thread.activeRunCheckpoint != nil
+            || thread.subagentRuns.lazy.flatMap(\.workers).contains {
+                $0.status == .running
+                    || $0.status == .awaitingApproval
+                    || $0.pendingApproval != nil
+            }
     }
 
     func matches(

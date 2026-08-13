@@ -498,6 +498,63 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(warm.summaryCacheHitCount, activeCount - residentLimit)
     }
 
+    func testBootstrapKeepsRelaunchCriticalPayloadsResidentOutsideLaunchLimit() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let checkpointed = ChatThread(
+            title: "Interrupted parent run",
+            messages: [ChatMessage(role: .user, content: "keep the parent transcript")],
+            events: [ThreadEvent(kind: .toolRunning, summary: "host.shell.run running")],
+            createdAt: baseDate,
+            updatedAt: baseDate,
+            activeRunCheckpoint: ThreadRunCheckpoint(
+                messageCountAtStart: 1,
+                eventCountAtStart: 0
+            )
+        )
+        let runningWorker = SubagentWorkerRecord(
+            name: "Verifier",
+            role: "verify the build",
+            status: .running,
+            updatedAt: baseDate
+        )
+        let delegated = ChatThread(
+            title: "Interrupted delegated run",
+            messages: [ChatMessage(role: .user, content: "keep the delegated transcript")],
+            subagentRuns: [SubagentRunRecord(
+                objective: "Verify",
+                workers: [runningWorker],
+                createdAt: baseDate,
+                updatedAt: baseDate
+            )],
+            createdAt: baseDate,
+            updatedAt: baseDate.addingTimeInterval(1)
+        )
+        let selected = ChatThread(
+            title: "Selected chat",
+            messages: [ChatMessage(role: .user, content: "selected payload")],
+            createdAt: baseDate,
+            updatedAt: baseDate.addingTimeInterval(2)
+        )
+        try [checkpointed, delegated, selected].forEach(store.save)
+
+        let listing = store.bootstrapListing(
+            deferArchivedBefore: .distantFuture,
+            maximumResidentActivePayloads: 1
+        )
+
+        XCTAssertEqual(listing.threads.filter(\.payloadResidency.isLoaded).count, 3)
+        XCTAssertEqual(
+            listing.threads.first { $0.id == checkpointed.id }?.messages.map(\.content),
+            ["keep the parent transcript"]
+        )
+        XCTAssertEqual(
+            listing.threads.first { $0.id == delegated.id }?.messages.map(\.content),
+            ["keep the delegated transcript"]
+        )
+    }
+
     func testDeferredPayloadRetainsCompactSubagentManifestAndHydratesTranscript() throws {
         let directory = try makeTempDirectory()
         let store = JSONThreadStore(directory: directory)
