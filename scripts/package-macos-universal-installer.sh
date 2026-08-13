@@ -19,6 +19,7 @@ UPDATE_CHANNEL="${QUILLCODE_UPDATE_CHANNEL:-tester}"
 MAXIMUM_ARCHIVE_BYTES=$((1024 * 1024 * 1024))
 APP_NAME="Quill Cowork.app"
 EXECUTABLE_RELATIVE_PATH="Contents/MacOS/Quill Cowork"
+SUPERVISOR_RELATIVE_PATH="Contents/Helpers/quill-code-process-supervisor"
 
 usage() {
   cat <<'USAGE'
@@ -112,6 +113,7 @@ validate_app_bundle() {
   local expected_architecture="$2"
   local app_bundle="$extraction_root/$APP_NAME"
   local executable="$app_bundle/$EXECUTABLE_RELATIVE_PATH"
+  local supervisor="$app_bundle/$SUPERVISOR_RELATIVE_PATH"
   local entries=("$extraction_root"/*)
 
   [[ ${#entries[@]} -eq 1 && "${entries[0]}" == "$app_bundle" && -d "$app_bundle" && ! -L "$app_bundle" ]] || \
@@ -120,6 +122,8 @@ validate_app_bundle() {
     fail "$expected_architecture app has no regular Info.plist." 2
   [[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] || \
     fail "$expected_architecture app has no executable Quill Cowork binary." 2
+  [[ -f "$supervisor" && -x "$supervisor" && ! -L "$supervisor" ]] || \
+    fail "$expected_architecture app has no process supervisor helper." 2
   if find "$app_bundle" \( -type l -o \( ! -type d ! -type f \) \) -print -quit | grep -q .; then
     fail "$expected_architecture app contains a symlink or special filesystem entry." 2
   fi
@@ -131,6 +135,9 @@ validate_app_bundle() {
   architectures="$("$LIPO_BIN" -archs "$executable")"
   [[ "$architectures" == "$expected_architecture" ]] || \
     fail "$expected_architecture source app must contain exactly one $expected_architecture executable slice; found: $architectures" 2
+  architectures="$("$LIPO_BIN" -archs "$supervisor")"
+  [[ "$architectures" == "$expected_architecture" ]] || \
+    fail "$expected_architecture process supervisor must contain exactly one $expected_architecture executable slice; found: $architectures" 2
   "$CODESIGN_BIN" --verify --deep --strict --verbose=2 "$app_bundle"
 }
 
@@ -149,6 +156,7 @@ bundle_inventory() {
     find Contents \
       -path 'Contents/_CodeSignature' -prune -o \
       -path 'Contents/MacOS/Quill Cowork' -prune -o \
+      -path 'Contents/Helpers/quill-code-process-supervisor' -prune -o \
       -print | LC_ALL=C sort
   )
 }
@@ -182,6 +190,15 @@ MERGED_EXECUTABLE="$WORK_DIRECTORY/Quill Cowork"
 chmod 755 "$MERGED_EXECUTABLE"
 mv "$MERGED_EXECUTABLE" "$UNIVERSAL_EXECUTABLE"
 "$LIPO_BIN" "$UNIVERSAL_EXECUTABLE" -verify_arch arm64 x86_64
+UNIVERSAL_SUPERVISOR="$UNIVERSAL_APP/$SUPERVISOR_RELATIVE_PATH"
+MERGED_SUPERVISOR="$WORK_DIRECTORY/quill-code-process-supervisor"
+"$LIPO_BIN" -create \
+  "$ARM64_APP/$SUPERVISOR_RELATIVE_PATH" \
+  "$X86_64_APP/$SUPERVISOR_RELATIVE_PATH" \
+  -output "$MERGED_SUPERVISOR"
+chmod 755 "$MERGED_SUPERVISOR"
+mv "$MERGED_SUPERVISOR" "$UNIVERSAL_SUPERVISOR"
+"$LIPO_BIN" "$UNIVERSAL_SUPERVISOR" -verify_arch arm64 x86_64
 
 if [[ -n "$SIGNING_IDENTITY" ]]; then
   CODESIGN_ARGUMENTS=(
@@ -193,8 +210,10 @@ if [[ -n "$SIGNING_IDENTITY" ]]; then
   if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGUMENTS+=(--keychain "$SIGNING_KEYCHAIN")
   fi
+  "$CODESIGN_BIN" "${CODESIGN_ARGUMENTS[@]}" "$UNIVERSAL_SUPERVISOR"
   "$CODESIGN_BIN" "${CODESIGN_ARGUMENTS[@]}" "$UNIVERSAL_APP"
 else
+  "$CODESIGN_BIN" --force --sign - "$UNIVERSAL_SUPERVISOR"
   "$CODESIGN_BIN" --force --deep --sign - "$UNIVERSAL_APP"
 fi
 "$CODESIGN_BIN" --verify --deep --strict --verbose=2 "$UNIVERSAL_APP"

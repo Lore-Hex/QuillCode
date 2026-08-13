@@ -23,14 +23,18 @@ mkdir -p "$ASSET_DIR" "$CLI_DIR"
 
 echo "==> Packaging quill-code Linux CLI ($ARCH, version $VERSION build $BUILD_NUMBER)"
 swift build --configuration "$CONFIGURATION" --product quill-code >&2
+swift build --configuration "$CONFIGURATION" --product quill-code-process-supervisor >&2
 BIN_DIR="$(swift build --configuration "$CONFIGURATION" --product quill-code --show-bin-path)"
 cp "$BIN_DIR/quill-code" "$CLI_DIR/quill-code"
+cp "$BIN_DIR/quill-code-process-supervisor" "$CLI_DIR/quill-code-process-supervisor"
 chmod 755 "$CLI_DIR/quill-code"
+chmod 755 "$CLI_DIR/quill-code-process-supervisor"
 cat > "$CLI_DIR/README.txt" <<README
 Quill Cowork CLI for Linux $ARCH
 
 Install:
   sudo install -m 755 quill-code /usr/local/bin/quill-code
+  sudo install -m 755 quill-code-process-supervisor /usr/local/bin/quill-code-process-supervisor
 
 Smoke test:
   quill-code "run whoami"

@@ -135,7 +135,12 @@ the process disappears mid-run, bootstrap clears the dead generation, closes any
 as Failed, records one durable interruption notice, and offers **Review and retry** with a cautious
 continuation prompt. A completed assistant answer or still-undecided approval gate is preserved
 without a false failure. The packaged release smoke starts a real shell tool, kills the app with
-`SIGKILL`, and relaunches the same bundle to verify this path end to end.
+`SIGKILL`, and relaunches the same bundle to verify this path end to end. Packaged shells run through
+a tiny native supervisor that places the command and its descendants in an owned process group. A
+Stop, timeout, terminal cancellation, or unexpected app exit terminates that whole group, with a
+bounded `SIGKILL` fallback. The crash smoke records the live shell PID before killing the app and
+refuses to pass recovery while that process is still alive, so transcript repair cannot hide an
+orphaned side-effecting command.
 
 ## Build Cadence
 

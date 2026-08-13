@@ -39,6 +39,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     private let windowSize: PTYWindowSize?
     private let lock = NSLock()
     private var process: Process?
+    private var processIsSupervised = false
     private var masterFD: Int32 = -1
     private var output = ShellOutputAccumulator()
     private var didFinish = false
@@ -82,10 +83,9 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
     /// three terminate paths against a `suspend()` that races in after `didSuspend` was cleared, with no
     /// dependency on which guard flag happened to be set.
     ///
-    /// Like `cancel()` before it, this signals only the session's direct child (`/bin/sh`); a pipeline
-    /// or backgrounded grandchild in a separate process group is not covered. True process-group job
-    /// control would require spawning the child as a group leader (`posix_spawn` with a new pgid), a
-    /// larger change than this session's Foundation `Process` model — left for a follow-up.
+    /// Packaged sessions run through the lightweight process supervisor, which forwards these signals
+    /// to the command's full process group. Development hosts without that helper retain direct-child
+    /// behavior instead of making shell execution depend on packaging state.
     private static func terminate(_ process: Process) {
         kill(process.processIdentifier, SIGCONT)
         process.terminate()
@@ -141,7 +141,8 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         // unconditional SIGCONT in `terminate(_:)`, this closes the window where a suspend racing a
         // cancel/timeout could re-stop the process after it was continued for termination.
         guard !didFinish, !didCancel, !didTimeOut, !didSuspend, let process, process.isRunning else { return false }
-        guard kill(process.processIdentifier, SIGSTOP) == 0 else { return false }
+        let signal = processIsSupervised ? SIGTSTP : SIGSTOP
+        guard kill(process.processIdentifier, signal) == 0 else { return false }
         didSuspend = true
         return true
     }
@@ -190,9 +191,15 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
             _ = cquill_pty_set_winsize(master, windowSize.rows, windowSize.columns)
         }
 
+        let shellLaunch = ShellProcessLaunch(
+            executable: request.shellExecutableURL,
+            arguments: ["-lc", trimmed],
+            isSandboxed: false
+        )
+        let launch = ShellProcessSupervisor.wrapping(shellLaunch)
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-lc", trimmed]
+        process.executableURL = launch.executable
+        process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
         process.environment = ptyEnvironment(request.environment)
 
@@ -226,11 +233,12 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
 
         lock.lock()
         self.process = process
+        self.processIsSupervised = launch.executable != shellLaunch.executable
         self.masterFD = master
         let shouldTerminate = didCancel
         lock.unlock()
         if shouldTerminate {
-            process.terminate()
+            Self.terminate(process)
         }
 
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + request.timeoutSeconds) { [weak self] in
@@ -346,6 +354,7 @@ public final class PTYProcessSession: ShellInteractiveSession, @unchecked Sendab
         activeProcess = process
         didSuspend = false
         process = nil
+        processIsSupervised = false
         masterFD = -1
         lock.unlock()
 

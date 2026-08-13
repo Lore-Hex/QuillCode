@@ -1,6 +1,11 @@
 import XCTest
 import QuillCodeCore
 @testable import QuillCodeTools
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 final class ShellToolExecutorTests: XCTestCase {
     func testShellRunsWhoami() {
@@ -104,6 +109,44 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error?.contains("cancelled") == true, result.error ?? "")
         XCTAssertFalse(result.stdout.contains("should-not-print"))
+    }
+
+    func testCancellableShellStopsBackgroundDescendants() async throws {
+        let root = try makeTempDirectory()
+        let leaderURL = root.appendingPathComponent("leader.pid")
+        let childURL = root.appendingPathComponent("child.pid")
+        let task = Task {
+            await ShellToolExecutor().runCancellable(.init(
+                command: [
+                    "printf '%s' \"$$\" > '\(leaderURL.path)'",
+                    "sleep 30 & printf '%s' \"$!\" > '\(childURL.path)'",
+                    "wait"
+                ].joined(separator: "; "),
+                cwd: root,
+                timeoutSeconds: 40
+            ))
+        }
+
+        for _ in 0..<100 where !FileManager.default.fileExists(atPath: childURL.path) {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let leaderPID = try recordedPID(at: leaderURL)
+        let childPID = try recordedPID(at: childURL)
+        defer {
+            _ = kill(leaderPID, SIGKILL)
+            _ = kill(childPID, SIGKILL)
+        }
+
+        task.cancel()
+        let result = await task.value
+        for _ in 0..<100 where processIsAlive(leaderPID) || processIsAlive(childPID) {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("cancelled") == true, result.error ?? "")
+        XCTAssertFalse(processIsAlive(leaderPID), "The shell leader survived cancellation.")
+        XCTAssertFalse(processIsAlive(childPID), "A background shell descendant survived cancellation.")
     }
 
     func testStreamingShellYieldsOutputBeforeCompletion() async throws {
@@ -313,6 +356,17 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertTrue(request.command.contains("'feather.local'"))
         XCTAssertTrue(request.command.contains("cd ~/"))
         XCTAssertTrue(request.command.contains("'Quill Projects'"))
+    }
+
+    private func recordedPID(at url: URL) throws -> pid_t {
+        let value = try String(contentsOf: url, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return try XCTUnwrap(pid_t(value))
+    }
+
+    private func processIsAlive(_ pid: pid_t) -> Bool {
+        if kill(pid, 0) == 0 { return true }
+        return errno != ESRCH
     }
 
     func testSSHRemoteShellRejectsUnsafeDestinationFields() {

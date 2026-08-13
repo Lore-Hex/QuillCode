@@ -158,6 +158,7 @@ APP_BUNDLE="$(
 )"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/Quill Cowork"
+PROCESS_SUPERVISOR="$APP_BUNDLE/Contents/Helpers/quill-code-process-supervisor"
 EXPECTED_BUILD_COMMIT="$(git rev-parse HEAD)"
 
 assert_plist_value() {
@@ -197,6 +198,10 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
 fi
 if [[ ! -x "$APP_EXECUTABLE" ]]; then
   echo "Packaged app executable is missing or not executable: $APP_EXECUTABLE" >&2
+  exit 1
+fi
+if [[ ! -x "$PROCESS_SUPERVISOR" ]]; then
+  echo "Packaged process supervisor is missing or not executable: $PROCESS_SUPERVISOR" >&2
   exit 1
 fi
 

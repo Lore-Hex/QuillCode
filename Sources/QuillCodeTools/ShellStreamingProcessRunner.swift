@@ -112,9 +112,10 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
             return
         }
 
+        let supervisedLaunch = ShellProcessSupervisor.wrapping(launch)
         let process = Process()
-        process.executableURL = launch.executable
-        process.arguments = launch.arguments
+        process.executableURL = supervisedLaunch.executable
+        process.arguments = supervisedLaunch.arguments
         process.currentDirectoryURL = request.cwd
         process.environment = environment
 

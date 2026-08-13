@@ -52,6 +52,7 @@ if [[ "$BUILD_COMMIT" != "development" && ! "$BUILD_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 fi
 
 SWIFT_BUILD_ARGUMENTS=(--configuration "$CONFIGURATION" --product quill-code-desktop)
+SUPERVISOR_BUILD_ARGUMENTS=(--configuration "$CONFIGURATION" --product quill-code-process-supervisor)
 if [[ -n "$SWIFT_DEBUG_INFO_FORMAT" ]]; then
   case "$SWIFT_DEBUG_INFO_FORMAT" in
     dwarf|codeview|none) ;;
@@ -61,15 +62,23 @@ if [[ -n "$SWIFT_DEBUG_INFO_FORMAT" ]]; then
       ;;
   esac
   SWIFT_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")
+  SUPERVISOR_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")
 fi
 
 echo "==> Building quill-code-desktop ($CONFIGURATION)" >&2
 swift build "${SWIFT_BUILD_ARGUMENTS[@]}" >&2
+echo "==> Building quill-code-process-supervisor ($CONFIGURATION)" >&2
+swift build "${SUPERVISOR_BUILD_ARGUMENTS[@]}" >&2
 BIN_DIR="$(swift build "${SWIFT_BUILD_ARGUMENTS[@]}" --show-bin-path)"
 SOURCE_EXECUTABLE="$BIN_DIR/quill-code-desktop"
+SOURCE_SUPERVISOR="$BIN_DIR/quill-code-process-supervisor"
 
 if [[ ! -x "$SOURCE_EXECUTABLE" ]]; then
   echo "Built executable is missing or not executable: $SOURCE_EXECUTABLE" >&2
+  exit 1
+fi
+if [[ ! -x "$SOURCE_SUPERVISOR" ]]; then
+  echo "Built process supervisor is missing or not executable: $SOURCE_SUPERVISOR" >&2
   exit 1
 fi
 
@@ -77,15 +86,20 @@ APP_BUNDLE="$OUTPUT_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+HELPERS_DIR="$CONTENTS_DIR/Helpers"
 APP_ICON_SOURCE="$ROOT_DIR/Resources/AppIcon/QuillCode.icns"
 MENU_BAR_ICON_SOURCE="$ROOT_DIR/Resources/MenuBar/QuillCodeMenuBarTemplate.png"
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$HELPERS_DIR"
 cp "$SOURCE_EXECUTABLE" "$MACOS_DIR/$APP_NAME"
+cp "$SOURCE_SUPERVISOR" "$HELPERS_DIR/quill-code-process-supervisor"
 chmod 755 "$MACOS_DIR/$APP_NAME"
+chmod 755 "$HELPERS_DIR/quill-code-process-supervisor"
 if [[ "$CONFIGURATION" == "release" ]]; then
   "$ROOT_DIR/scripts/strip-macos-release-executable.sh" "$MACOS_DIR/$APP_NAME"
+  "$ROOT_DIR/scripts/strip-macos-release-executable.sh" \
+    "$HELPERS_DIR/quill-code-process-supervisor"
 fi
 if [[ -f "$APP_ICON_SOURCE" ]]; then
   cp "$APP_ICON_SOURCE" "$RESOURCES_DIR/QuillCode.icns"
@@ -168,9 +182,11 @@ if [[ -n "$SIGNING_IDENTITY" ]]; then
   if [[ -n "$SIGNING_KEYCHAIN" ]]; then
     CODESIGN_ARGUMENTS+=(--keychain "$SIGNING_KEYCHAIN")
   fi
+  codesign "${CODESIGN_ARGUMENTS[@]}" "$HELPERS_DIR/quill-code-process-supervisor" >&2
   codesign "${CODESIGN_ARGUMENTS[@]}" "$APP_BUNDLE" >&2
   codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" >&2
 elif [[ "${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}" == "1" ]]; then
+  codesign --force --sign - "$HELPERS_DIR/quill-code-process-supervisor" >&2
   codesign --force --deep --sign - "$APP_BUNDLE" >&2
 fi
 
