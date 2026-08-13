@@ -17729,3 +17729,27 @@ Validation:
 - `scripts/packaged-macos-performance-smoke.sh` (3/3 fresh launches within all budgets)
 - `python3 scripts/grade-code-quality.py --root .` (all affected production and test modules A+)
 - `git diff --check`
+
+## 2026-08-13 Main-Sourced Public Website Distribution
+
+Overall grade after this slice: **A+ distribution architecture, A+ progressive enhancement, A+ responsive usability**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Source ownership | A+ | The reviewed `website/` tree on protected `main` is canonical; a dedicated Pages workflow deploys an explicit staged inventory instead of maintaining product copy directly on an output branch. |
+| Download ergonomics | A+ | Every primary action uses the universal DMG, so Apple silicon and Intel visitors follow one path. Release notes and checksums remain adjacent without competing with the install action. |
+| Failure behavior | A+ | Static download and installation guidance is complete without JavaScript. Public release metadata only upgrades freshness copy after strict release, commit, asset, URL, size, and digest validation; malformed, unavailable, or rate-limited responses leave the static experience unchanged. |
+| Deployment safety | A+ | The builder rejects unsafe output roots and symlinked sources. The independent verifier rejects inventory drift, thin primary installers, broken local assets, duplicate IDs, missing image dimensions, custom-domain drift, symlinks, and oversized payloads. |
+| Workflow scope | A+ | Pull-request CI runs syntax, isolated JavaScript behavior, staging, and verification. Deployment uses official GitHub Pages actions with read-only contents plus only Pages and OIDC write permissions. |
+| Responsive UX | A+ | Desktop and 375x812 mobile browser checks found no overflow, broken images, console errors, or undersized visible controls. The first mobile viewport contains the complete download decision and reveals the workflow preview below it. |
+| Visual system | A+ | A neutral white/green base, gold final-download band, restrained four-pixel geometry, stable media dimensions, bundled fonts, and a purpose-built 404 page preserve the product's quiet native-work aesthetic without a one-note palette. |
+
+Validation:
+
+- Website Python contract suite (4 tests, 0 failures)
+- Website JavaScript success, malformed-release, and offline cases (0 failures)
+- Full script suite (122 tests, 0 failures)
+- `swift test` (6,310 tests; 5 skipped; 0 failures)
+- Desktop and mobile browser runtime inspection, including live GitHub release metadata
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+; affected Python files A+)
+- JavaScript syntax checks, workflow YAML parsing, static-site verification, and `git diff --check`

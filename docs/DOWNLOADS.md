@@ -4,7 +4,17 @@ Quill Cowork publishes automated tester builds from GitHub Actions.
 
 ## What To Send Testers
 
-Send testers this moving prerelease link:
+Send ordinary Mac testers to the public website:
+
+- [Quill Cowork](https://cowork.quillos.cloud/)
+
+The website's primary download always uses the universal installer and works without JavaScript.
+When GitHub's public release API is reachable, the page additionally shows the release update date
+only after validating the release name, tester tag and state, exact commit shape, and the sole
+universal installer's upload state, URL, size, and SHA-256 digest. A malformed, rate-limited, or
+unavailable response leaves the known-good moving link and static installation guidance intact.
+
+Send technical testers this moving prerelease link for provenance and secondary artifacts:
 
 - [Quill Cowork Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
@@ -50,6 +60,13 @@ app-executable byte size. Release builds remove debug and local symbols before a
 Developer ID signature is applied. Public verification compares the declared size with the Mach-O
 inside each downloaded app ZIP, so a skipped strip step, stale metadata, or post-sign mutation
 cannot pass publication.
+
+The website source lives in `website/` on `main`. `scripts/build-website.py` stages only its explicit
+asset inventory plus the reviewed product screenshot, and `scripts/verify-website.py` rejects thin
+architecture-specific primary installers, missing assets, unvalidated release metadata, custom-domain
+drift, broken local references, symlinks, or payload growth beyond the static-site budget. Pull
+request CI runs those contracts, and the Website workflow deploys the exact staged artifact through
+GitHub's official Pages actions after the change reaches `main`.
 
 When Quill Cowork is launched directly from the read-only DMG or another
 non-replaceable location outside `/Applications`, it offers **Move & Relaunch**.

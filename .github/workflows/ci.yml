@@ -15,6 +15,23 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check website JavaScript
+        run: node --check website/static/site.js
+      - name: Test website JavaScript
+        run: node Tests/ScriptTests/test_website_js.mjs
+      - name: Test website release contract
+        run: python3 Tests/ScriptTests/test_website.py
+      - name: Build and verify website
+        run: |
+          python3 scripts/build-website.py --output "$RUNNER_TEMP/quill-cowork-site"
+          python3 scripts/verify-website.py --site "$RUNNER_TEMP/quill-cowork-site"
+
   swift:
     runs-on: macos-15
     steps:

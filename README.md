@@ -5,7 +5,7 @@
 
 **A 100% Swift coding agent and AI coworker for real project work.**
 
-[Download Quill Cowork for Mac](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
+[Quill Cowork website](https://cowork.quillos.cloud/) · [Download for Mac](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
 ![Quill Cowork showing a code review with TrustedRouter billing limits expanded](docs/images/quill-cowork-desktop.png)
 
@@ -85,6 +85,10 @@ The moving `tester-latest` release is refreshed after verified main-branch chang
 recovery check rebuilds only when the public manifest is missing, malformed, stale, or points at a
 different commit. Direct links, the machine-readable build manifest, checksums, channel behavior,
 and signing details are in [Downloadable Builds](docs/DOWNLOADS.md).
+
+The public [Quill Cowork website](https://cowork.quillos.cloud/) is also sourced from `main` and
+deployed through the verified GitHub Pages workflow. Its primary buttons always use the universal
+installer, while optional release-freshness text is populated from validated public release metadata.
 
 ## Release Status
 
