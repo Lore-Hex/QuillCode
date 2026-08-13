@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-08-13 Stable Apple Credential Material Preflight
+
+The stable release path now rejects unusable Apple credential material in `release-policy`, before
+the exact-main wait and native build fan-out. The validator is bounded, emits only named contract
+errors, keeps decoded material in a private temporary directory, and removes it on every exit.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Failure timing | A+ | Stable tags validate missing values, identifier shape, archive password, certificate/key pairing, expiry, code-signing usage, identity, and notary-key structure before packaging. |
+| Secret safety | A+ | Values are never interpolated into diagnostics; decoded files use a `077` umask and an unconditional cleanup trap. |
+| Architecture | A+ | Material validation, macOS keychain ownership validation, and live Apple notarization remain distinct fail-closed layers. |
+| Regression proof | A+ | Real OpenSSL fixtures cover canonical and legacy archives, name and fingerprint identities, missing/oversized data, expiry, signing usage, wrong passwords, identity mismatch, malformed/wrong-curve notary keys, cleanup, and workflow ordering. |
+
+Validation: **9 focused preflight tests**, **6,319 full Swift tests** with 5 intentional skips,
+and **122 script tests** passed with zero failures. Both new files score **A+ (100)**.
+
 ## 2026-08-12 Owned Shell Process Groups
 
 Overall grade after this slice: **A+ crash containment, A+ process hygiene, A+ distribution integrity**.
