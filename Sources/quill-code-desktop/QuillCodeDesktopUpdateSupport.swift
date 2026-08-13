@@ -1,4 +1,98 @@
 import Foundation
+import QuillCodePersistence
+
+struct QuillCodeDesktopUpdateInstallResultReader: Sendable {
+    static func take(from url: URL?) -> QuillCodeDesktopUpdateInstallResult? {
+        guard let url else { return nil }
+        defer { try? FileManager.default.removeItem(at: url) }
+        guard let data = try? BoundedFileDataReader.readIfPresent(
+            from: url,
+            maximumBytes: QuillCodeDesktopUpdateInstallResult.maximumEncodedBytes
+        ) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(QuillCodeDesktopUpdateInstallResult.self, from: data)
+    }
+
+    static func wait(
+        at url: URL?,
+        timeout: Duration,
+        pollInterval: Duration = .milliseconds(100)
+    ) async -> QuillCodeDesktopUpdateInstallResult? {
+        guard timeout > .zero else { return take(from: url) }
+        let interval = pollInterval > .zero ? pollInterval : .milliseconds(100)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !Task.isCancelled, clock.now < deadline {
+            let nextPoll = min(clock.now.advanced(by: interval), deadline)
+            do {
+                try await clock.sleep(until: nextPoll)
+            } catch {
+                return nil
+            }
+            if let result = take(from: url) {
+                return result
+            }
+        }
+        return nil
+    }
+}
+
+@MainActor
+struct QuillCodeDesktopRelocationUpdateIntentStore {
+    static let maximumAge: TimeInterval = 15 * 60
+    static let clockSkewTolerance: TimeInterval = 60
+
+    private let defaults: UserDefaults
+    private let now: () -> Date
+
+    init(
+        defaults: UserDefaults = .standard,
+        now: @escaping () -> Date = Date.init
+    ) {
+        self.defaults = defaults
+        self.now = now
+    }
+
+    func record(configuration: QuillCodeDesktopUpdateConfiguration) {
+        defaults.set(now(), forKey: key(for: configuration))
+    }
+
+    func hasPendingIntent(configuration: QuillCodeDesktopUpdateConfiguration) -> Bool {
+        let intentKey = key(for: configuration)
+        guard let recordedAt = defaults.object(forKey: intentKey) as? Date,
+              isFresh(recordedAt)
+        else {
+            defaults.removeObject(forKey: intentKey)
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    func consume(configuration: QuillCodeDesktopUpdateConfiguration) -> Bool {
+        let intentKey = key(for: configuration)
+        defer { defaults.removeObject(forKey: intentKey) }
+        guard let recordedAt = defaults.object(forKey: intentKey) as? Date else {
+            return false
+        }
+        return isFresh(recordedAt)
+    }
+
+    private func isFresh(_ recordedAt: Date) -> Bool {
+        let age = now().timeIntervalSince(recordedAt)
+        return age >= -Self.clockSkewTolerance && age <= Self.maximumAge
+    }
+
+    private func key(for configuration: QuillCodeDesktopUpdateConfiguration) -> String {
+        [
+            "QuillCodeUpdater.continueAfterRelocation",
+            configuration.bundleIdentifier,
+            configuration.channel.rawValue,
+            configuration.currentBuild
+        ].joined(separator: ".")
+    }
+}
 
 struct QuillCodeDesktopUpdateLaunchHandshake: Equatable, Sendable {
     static let argument = "--quillcode-update-handshake"

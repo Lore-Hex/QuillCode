@@ -53,7 +53,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
 
         controller.checkForUpdates()
         try await waitUntil { controller.state == .updateAvailable(release) }
-        XCTAssertTrue(controller.updateRequiresManualInstallation)
+        XCTAssertTrue(controller.updateRequiresRelocation)
         XCTAssertEqual(release.manualInstallationURL, makeManualInstallerAsset().url)
 
         controller.updateAndRelaunch()
@@ -90,6 +90,109 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertEqual(checkCallCount, 0)
         XCTAssertEqual(controller.state, .idle)
         XCTAssertFalse(controller.isPresented)
+    }
+
+    func testRelocationContinuationChecksImmediatelyAndIsConsumed() async throws {
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
+        intentStore.record(configuration: configuration)
+        let resultURL = temporaryInstallResultURL()
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: configuration,
+            checker: checker,
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(initialDelay: 60),
+            installResultURL: resultURL
+        )
+
+        controller.startAutomaticChecks()
+        try await Task.sleep(for: .milliseconds(30))
+        let checkCallCountBeforeHelperCompletion = await checker.callCount
+        XCTAssertEqual(checkCallCountBeforeHelperCompletion, 0)
+        XCTAssertTrue(intentStore.hasPendingIntent(configuration: configuration))
+        try FileManager.default.createDirectory(
+            at: resultURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let result = QuillCodeDesktopUpdateInstallResult.success(
+            version: configuration.currentVersion,
+            build: configuration.currentBuild
+        )
+        try JSONEncoder().encode(result).write(to: resultURL)
+
+        try await waitUntil { controller.state == .updateAvailable(release) }
+        XCTAssertTrue(controller.isPresented)
+        let checkCallCount = await checker.callCount
+        XCTAssertEqual(checkCallCount, 1)
+        XCTAssertFalse(intentStore.hasPendingIntent(configuration: configuration))
+    }
+
+    func testRelocationContinuationFallsBackAfterMissingHelperResult() async throws {
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
+        intentStore.record(configuration: configuration)
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: configuration,
+            checker: checker,
+            installationInspector: UpdateInstallationInspectorStub(.available),
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(initialDelay: 60),
+            relocationContinuationTimeout: .milliseconds(20),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+
+        try await waitUntil { controller.state == .updateAvailable(release) }
+        let checkCallCount = await checker.callCount
+        XCTAssertEqual(checkCallCount, 1)
+        XCTAssertFalse(intentStore.hasPendingIntent(configuration: configuration))
+    }
+
+    func testRelocationContinuationRejectsMismatchedHelperSuccess() async throws {
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
+        intentStore.record(configuration: configuration)
+        let resultURL = temporaryInstallResultURL()
+        try FileManager.default.createDirectory(
+            at: resultURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let staleResult = QuillCodeDesktopUpdateInstallResult.success(
+            version: configuration.currentVersion,
+            build: "stale-build"
+        )
+        try JSONEncoder().encode(staleResult).write(to: resultURL)
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: configuration,
+            checker: checker,
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(initialDelay: 60),
+            installResultURL: resultURL
+        )
+
+        controller.startAutomaticChecks()
+
+        XCTAssertEqual(
+            controller.state,
+            .failed(
+                message: "Quill Cowork could not confirm the completed move. Reopen it and check for updates again.",
+                release: nil
+            )
+        )
+        XCTAssertTrue(controller.isPresented)
+        let checkCallCount = await checker.callCount
+        XCTAssertEqual(checkCallCount, 0)
+        XCTAssertFalse(intentStore.hasPendingIntent(configuration: configuration))
     }
 
     func testAutomaticStartupRunsInterruptedUpdateRecoveryOnlyOnce() async throws {
@@ -524,10 +627,14 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         let checker = UpdateCheckerSpy(
             result: .upToDate(latestVersion: "0.1.0", latestBuild: "42")
         )
+        let defaults = makeDefaults()
+        let configuration = makeConfiguration()
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
+        intentStore.record(configuration: configuration)
         let controller = QuillCodeDesktopUpdateController(
-            configuration: makeConfiguration(),
+            configuration: configuration,
             checker: checker,
-            defaults: makeDefaults(),
+            defaults: defaults,
             automaticSchedule: makeAutomaticSchedule(busyRetryInterval: 0.02),
             installResultURL: resultURL
         )
@@ -542,6 +649,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertTrue(controller.isPresented)
         let checkCallCount = await checker.callCount
         XCTAssertEqual(checkCallCount, 0)
+        XCTAssertFalse(intentStore.hasPendingIntent(configuration: configuration))
     }
 
     func testAutomaticSchedulerDoesNotRetainControllerBetweenChecks() async throws {

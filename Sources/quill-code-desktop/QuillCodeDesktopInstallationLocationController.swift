@@ -21,12 +21,14 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
     private let inspector: any QuillCodeDesktopUpdateInstallationInspecting
     private let relocator: any QuillCodeDesktopApplicationRelocating
     private let defaults: UserDefaults
+    private let relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore
     private let applicationsURL: URL
     private let openApplications: @MainActor (URL) -> Void
     private let hasOtherRunningCopy: @MainActor (String) -> Bool
     private let terminateApplication: @MainActor () -> Void
     private var operationTask: Task<Void, Never>?
     private var generation = UUID()
+    private var continuesUpdateAfterRelaunch = false
 
     init(
         configuration: QuillCodeDesktopUpdateConfiguration? = .bundled(),
@@ -35,6 +37,7 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
         relocator: any QuillCodeDesktopApplicationRelocating =
             QuillCodeDesktopApplicationRelocator(),
         defaults: UserDefaults = .standard,
+        relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore? = nil,
         applicationsURL: URL = URL(fileURLWithPath: "/Applications", isDirectory: true),
         openApplications: @escaping @MainActor (URL) -> Void = {
             _ = NSWorkspace.shared.open($0)
@@ -54,6 +57,8 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
         self.inspector = inspector
         self.relocator = relocator
         self.defaults = defaults
+        self.relocationUpdateIntentStore = relocationUpdateIntentStore
+            ?? QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
         self.applicationsURL = applicationsURL.standardizedFileURL
         self.openApplications = openApplications
         self.hasOtherRunningCopy = hasOtherRunningCopy
@@ -65,23 +70,45 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
     }
 
     func startIfNeeded() {
-        guard !isPresented,
-              let configuration,
+        guard !isPresented, let configuration else { return }
+        let pendingUpdate = relocationUpdateIntentStore.hasPendingIntent(
+            configuration: configuration
+        )
+        guard
               inspector.availability(for: configuration) == .requiresRelocation,
               !Self.isInsideApplications(
                   configuration.applicationURL,
                   applicationsURL: applicationsURL
               ),
-              !defaults.bool(forKey: dismissalKey(for: configuration))
+              pendingUpdate || !defaults.bool(forKey: dismissalKey(for: configuration))
         else {
             return
         }
+        continuesUpdateAfterRelaunch = pendingUpdate
         state = .ready
         isPresented = true
     }
 
+    @discardableResult
+    func presentForUpdate() -> Bool {
+        guard let configuration,
+              inspector.availability(for: configuration) == .requiresRelocation,
+              !Self.isInsideApplications(
+                  configuration.applicationURL,
+                  applicationsURL: applicationsURL
+              )
+        else {
+            return false
+        }
+        continuesUpdateAfterRelaunch = true
+        state = .ready
+        isPresented = true
+        return true
+    }
+
     func dismiss() {
         guard !state.isBusy else { return }
+        continuesUpdateAfterRelaunch = false
         guard let configuration else {
             isPresented = false
             return
@@ -118,6 +145,8 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
         state = .moving
         let relocator = relocator
         let applicationsURL = applicationsURL
+        let continuesUpdateAfterRelaunch = continuesUpdateAfterRelaunch
+        let relocationUpdateIntentStore = relocationUpdateIntentStore
         operationTask = Task { [weak self] in
             do {
                 try await relocator.stageAndLaunch(
@@ -127,6 +156,9 @@ final class QuillCodeDesktopInstallationLocationController: ObservableObject {
                 try Task.checkCancellation()
                 guard let self, self.generation == operationGeneration else { return }
                 self.operationTask = nil
+                if continuesUpdateAfterRelaunch {
+                    relocationUpdateIntentStore.record(configuration: configuration)
+                }
                 self.terminateApplication()
             } catch is CancellationError {
                 guard let self, self.generation == operationGeneration else { return }

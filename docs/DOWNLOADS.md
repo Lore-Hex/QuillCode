@@ -309,10 +309,15 @@ and app-validation phases separately.
 Before downloading, the app verifies that its running bundle exists beside a
 writable destination and has a runnable helper executable. Copies launched from
 the read-only DMG, App Translocation, or another non-replaceable location show a
-direct **Download Installer** action instead. That action uses only an
-architecture-matching DMG whose bounded metadata and GitHub release URL passed
-the same manifest scope checks. Its URL must use the declared `.dmg` filename
-exactly and cannot carry a query or fragment; older manifests fall back to the release page.
+direct **Move to Applications** action instead. It reuses the verified transactional
+first-install helper, relaunches the current build from `/Applications`, waits for
+the helper's launch-stability result, and automatically resumes the update check.
+A short-lived, build-scoped continuation survives rollback so a restored source
+copy can offer the move again even after an earlier reminder was dismissed. If
+that relocation cannot be offered, the fallback uses only an architecture-matching
+DMG whose bounded metadata and GitHub release URL passed the same manifest scope
+checks. Its URL must use the declared `.dmg` filename exactly and cannot carry a
+query or fragment; older manifests fall back to the release page.
 The installer repeats the destination checks immediately before staging, so a
 permission change after preflight still fails without replacing the app.
 

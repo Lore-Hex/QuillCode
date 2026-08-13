@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopUpdateController: ObservableObject {
@@ -18,7 +17,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let now: () -> Date
     private let automaticSchedule: QuillCodeDesktopUpdateSchedule
     private let reminderStore: QuillCodeDesktopUpdateReminderStore
-    private let installResultURL: URL?
+    private let relocationContinuation: QuillCodeDesktopRelocationUpdateContinuation
     private let terminateApplication: @MainActor () -> Void
     private var operationTask: Task<Void, Never>?
     private var automaticTask: Task<Void, Never>?
@@ -45,6 +44,8 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         now: @escaping () -> Date = Date.init,
         automaticSchedule: QuillCodeDesktopUpdateSchedule = .production,
         reminderInterval: TimeInterval = QuillCodeDesktopUpdateReminderStore.productionInterval,
+        relocationUpdateIntentStore: QuillCodeDesktopRelocationUpdateIntentStore? = nil,
+        relocationContinuationTimeout: Duration = .seconds(15),
         installResultURL: URL? = try? QuillCodeDesktopUpdatePaths.installResultURL(),
         terminateApplication: @escaping @MainActor () -> Void =
             QuillCodeDesktopSystemApplication.terminateForUpdate
@@ -62,7 +63,14 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             defaults: defaults,
             reminderInterval: reminderInterval
         )
-        self.installResultURL = installResultURL
+        let intentStore = relocationUpdateIntentStore
+            ?? QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults, now: now)
+        self.relocationContinuation = QuillCodeDesktopRelocationUpdateContinuation(
+            intentStore: intentStore,
+            installationInspector: installationInspector,
+            resultURL: installResultURL,
+            timeout: relocationContinuationTimeout
+        )
         self.terminateApplication = terminateApplication
     }
 
@@ -75,20 +83,32 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     func startAutomaticChecks() {
         guard !didStartAutomaticChecks else { return }
         didStartAutomaticChecks = true
-        consumePreviousInstallResult()
-        guard let configuration else { return }
+        guard let configuration else {
+            relocationContinuation.discardPreviousResult()
+            return
+        }
+        let continuationStartup = relocationContinuation.start(
+            configuration: configuration,
+            onCompletion: { [weak self] action in
+                self?.applyRelocationContinuationAction(action)
+            }
+        )
 
         let recovery = recovery
         recoveryTask = Task {
             await recovery.recoverInterruptedUpdate(configuration: configuration)
         }
 
+        applyRelocationContinuationAction(continuationStartup.action)
+
         let schedule = automaticSchedule
-        let firstDelay = schedule.firstDelay(
-            lastSuccessfulCheck: lastSuccessfulCheck(configuration: configuration),
-            now: now(),
-            channel: configuration.channel
-        )
+        let firstDelay = continuationStartup.delaysAutomaticCheck
+            ? schedule.interval(for: configuration.channel)
+            : schedule.firstDelay(
+                lastSuccessfulCheck: lastSuccessfulCheck(configuration: configuration),
+                now: now(),
+                channel: configuration.channel
+            )
         automaticTask = Task { [weak self] in
             var delay = firstDelay
             while !Task.isCancelled {
@@ -217,7 +237,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         NSWorkspace.shared.open(release.manualInstallationURL)
     }
 
-    var updateRequiresManualInstallation: Bool {
+    var updateRequiresRelocation: Bool {
         guard state.release != nil,
               let configuration
         else {
@@ -385,20 +405,18 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         "QuillCodeUpdater.lastSuccessfulCheck.\(configuration.channel.rawValue)"
     }
 
-    private func consumePreviousInstallResult() {
-        guard let installResultURL else { return }
-        defer { try? FileManager.default.removeItem(at: installResultURL) }
-
-        guard let data = try? BoundedFileDataReader.readIfPresent(
-            from: installResultURL,
-            maximumBytes: QuillCodeDesktopUpdateInstallResult.maximumEncodedBytes
-        ),
-              let result = try? JSONDecoder().decode(QuillCodeDesktopUpdateInstallResult.self, from: data)
-        else {
+    private func applyRelocationContinuationAction(
+        _ action: QuillCodeDesktopRelocationUpdateContinuation.Action
+    ) {
+        switch action {
+        case .none, .awaitingResult:
             return
+        case .checkForUpdates:
+            checkForUpdates()
+        case .failed(let message):
+            _ = beginNewOperation()
+            state = .failed(message: message, release: nil)
+            isPresented = true
         }
-        guard result.status == .failure else { return }
-        state = .failed(message: result.message, release: nil)
-        isPresented = true
     }
 }

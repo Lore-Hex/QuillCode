@@ -55,6 +55,32 @@ final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
         XCTAssertTrue(nextBuildController.isPresented)
     }
 
+    func testPendingUpdateRelocationOverridesEarlierDismissal() {
+        let defaults = makeDefaults()
+        let configuration = makeDiskImageConfiguration()
+        let controller = makeController(
+            configuration: configuration,
+            availability: .requiresRelocation,
+            defaults: defaults
+        )
+        controller.startIfNeeded()
+        controller.dismiss()
+        XCTAssertFalse(controller.isPresented)
+
+        QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults).record(
+            configuration: configuration
+        )
+        let relaunchedController = makeController(
+            configuration: configuration,
+            availability: .requiresRelocation,
+            defaults: defaults
+        )
+
+        relaunchedController.startIfNeeded()
+
+        XCTAssertTrue(relaunchedController.isPresented)
+    }
+
     func testOpenApplicationsDismissesAndOpensConfiguredFolder() {
         let applicationsURL = URL(fileURLWithPath: "/Test Applications", isDirectory: true)
         var openedURL: URL?
@@ -93,6 +119,53 @@ final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
         let call = try XCTUnwrap(calls.first)
         XCTAssertEqual(call.configuration, makeDiskImageConfiguration())
         XCTAssertEqual(call.applicationsURL, applicationsURL.standardizedFileURL)
+    }
+
+    func testUpdateRequestedMoveRecordsOneShotContinuationAfterStaging() async throws {
+        let defaults = makeDefaults()
+        let configuration = makeDiskImageConfiguration()
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(defaults: defaults)
+        let relocator = InstallationRelocatorSpy()
+        var terminationCount = 0
+        let controller = makeController(
+            configuration: configuration,
+            availability: .requiresRelocation,
+            defaults: defaults,
+            relocator: relocator,
+            terminateApplication: { terminationCount += 1 }
+        )
+
+        XCTAssertTrue(controller.presentForUpdate())
+        controller.moveAndRelaunch()
+
+        try await waitUntil { terminationCount == 1 }
+        XCTAssertTrue(intentStore.hasPendingIntent(configuration: configuration))
+        XCTAssertTrue(intentStore.consume(configuration: configuration))
+        XCTAssertFalse(intentStore.consume(configuration: configuration))
+    }
+
+    func testExpiredUpdateRelocationIntentDoesNotOverrideDismissal() {
+        let defaults = makeDefaults()
+        let configuration = makeDiskImageConfiguration()
+        var date = Date(timeIntervalSince1970: 10_000)
+        let intentStore = QuillCodeDesktopRelocationUpdateIntentStore(
+            defaults: defaults,
+            now: { date }
+        )
+        intentStore.record(configuration: configuration)
+        date.addTimeInterval(QuillCodeDesktopRelocationUpdateIntentStore.maximumAge + 1)
+
+        let controller = makeController(
+            configuration: configuration,
+            availability: .requiresRelocation,
+            defaults: defaults
+        )
+        controller.startIfNeeded()
+        controller.dismiss()
+        controller.startIfNeeded()
+
+        XCTAssertFalse(intentStore.hasPendingIntent(configuration: configuration))
+        XCTAssertFalse(controller.isPresented)
     }
 
     func testMoveFailureOffersRetryWithoutTerminating() async throws {
