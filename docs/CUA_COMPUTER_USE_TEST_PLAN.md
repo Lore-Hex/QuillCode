@@ -11,7 +11,7 @@ differs.
 | Piece | File | Role |
 |---|---|---|
 | Transport protocol | `CuaDriverClient.swift` (`CuaDriverToolInvoking`) | one-tool-call abstraction, fake-able |
-| Production transport | `CuaDriverProcessClient.swift` | shells `cua-driver call <tool> <json>` (in-process, inherits caller TCC) |
+| Production transport | `CuaDriverProcessClient.swift` | runs bounded `cua-driver call <tool> <json>` subprocesses that inherit caller TCC |
 | Backend | `CuaDriverComputerUseBackend.swift` | maps the 6 `ComputerUseBackend` methods + foreground app onto cua tools |
 | Locator | `CuaDriverLocator.swift` | binary discovery, telemetry-off, `check_permissions` → status |
 | Selection | `ComputerUseBackendFactory.cuaDriverPreferred` + desktop coordinator | env-gated opt-in swap |
@@ -33,11 +33,14 @@ than mis-scaling.
 
 ## Automated tests
 
-- **Unit** (`swift test --filter QuillComputerUseKitTests`, no subprocess):
+- **Unit** (`swift test --filter QuillComputerUseKitTests`):
   `CuaDriverComputerUseBackendTests` (screenshot parse + downscale coordinate scale + set_config-once
   + type/scroll/move/key/click mapping + frontmost pid resolution + malformed/no-app errors),
   `CuaDriverLocatorTests` (path resolution precedence + tilde + status parse + scripted telemetry &
-  permission probe), `CuaDriverProcessClientTests` (non-zero exit → `toolFailed`).
+  permission probe), and `CuaDriverProcessClientTests`. The process-client suite uses real short-lived
+  shell children to prove concurrent draining beyond pipe capacity, 32 MiB stdout / 256 KiB stderr
+  retention policy, diagnostic-tail preservation, process-exit timeout ownership after early pipe
+  closure, and bounded hard-kill cancellation when a child ignores `SIGTERM`.
 - **Live drive** (`CuaDriverLiveDriveTests`, gated on `QUILLCODE_CUA_LIVE_BINARY`): drives the real
   driver through the **production Swift types** — screenshot is downscaled to ≤1568 and the reported
   dims exactly match the decoded PNG; foreground app + locator status resolve against a real desktop.

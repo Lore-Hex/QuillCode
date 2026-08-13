@@ -129,6 +129,11 @@
 
 ## Latest Quality Pass
 
+- One-shot `cua-driver` calls now retain at most 32 MiB of response bytes and 256 KiB of diagnostic
+  tail while continuously draining both pipes. Timeout follows process exit rather than pipe EOF,
+  cancellation survives races before launch, and both paths use a bounded hard-kill fallback. A
+  noisy, early-pipe-closing, or termination-resistant computer-use driver can no longer exhaust app
+  memory, wedge an unattended task, or remain alive after its owner is cancelled.
 - Signed-out model submissions now preserve their complete draft and image attachments and open the
   existing TrustedRouter sign-in flow instead of producing a failed transcript turn. Pure submission
   routing keeps local slash commands available offline, and desktop OAuth is single-flight so repeat
