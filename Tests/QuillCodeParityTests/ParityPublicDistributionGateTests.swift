@@ -74,9 +74,23 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(authenticationIndex, notificationIndex)
         Self.assertSource(workspaceView, containsAll: [
             "onUseDeveloperKey: presentDeveloperKeySettings",
-            "settingsAuthModeOverride = .developerOverride"
+            "settingsAuthModeOverride = .developerOverride",
+            "WorkspaceComposerSendPlanner.action(",
+            "case .requestTrustedRouterSignIn:",
+            "actions.onStartTrustedRouterSignIn()"
         ])
         Self.assertSource(workspaceSheets, contains: "authModeOverride: settingsAuthModeOverride")
+    }
+
+    func testTrustedRouterSignInIsSingleFlight() throws {
+        let controller = try Self.desktopSourceText(named: "QuillCodeDesktopController+Settings.swift")
+        let taskCoordinator = try Self.desktopSourceText(named: "QuillCodeDesktopTaskCoordinator.swift")
+
+        Self.assertSource(controller, containsAll: [
+            "func startTrustedRouterSignIn()",
+            "tasks.startIfIdle(.trustedRouterSignIn)"
+        ])
+        Self.assertSource(taskCoordinator, contains: "case trustedRouterSignIn")
     }
 
     func testNotificationServicesRequireCanonicalPackagedProcessIdentity() throws {

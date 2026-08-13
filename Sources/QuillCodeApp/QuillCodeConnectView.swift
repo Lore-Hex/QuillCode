@@ -23,7 +23,6 @@ struct QuillCodeConnectView: View {
 
             Text(TranscriptConnectPrompt.title)
                 .font(.title3.weight(.semibold))
-                .tracking(-0.3)
                 .foregroundStyle(QuillCodePalette.text)
 
             Text(TranscriptConnectPrompt.subtitle)

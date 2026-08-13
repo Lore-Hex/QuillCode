@@ -37,3 +37,30 @@ struct WorkspaceComposerSubmissionPlanner {
         return .agent(prompt: prompt)
     }
 }
+
+enum WorkspaceComposerSendAction: Equatable {
+    case ignore
+    case requestTrustedRouterSignIn
+    case presentWorkspaceCommand(String)
+    case submit
+}
+
+struct WorkspaceComposerSendPlanner {
+    static func action(
+        for submission: WorkspaceComposerSubmissionPlanner.Plan,
+        hasStoredAPIKey: Bool,
+        presentedWorkspaceCommandIDs: Set<String>
+    ) -> WorkspaceComposerSendAction {
+        switch submission {
+        case .ignore:
+            return .ignore
+        case .agent, .scheduledCoworker:
+            return hasStoredAPIKey ? .submit : .requestTrustedRouterSignIn
+        case .slash(.workspaceCommand(let commandID), _)
+            where presentedWorkspaceCommandIDs.contains(commandID):
+            return .presentWorkspaceCommand(commandID)
+        case .slash:
+            return .submit
+        }
+    }
+}

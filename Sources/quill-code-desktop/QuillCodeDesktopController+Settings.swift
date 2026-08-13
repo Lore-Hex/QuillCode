@@ -52,7 +52,7 @@ extension QuillCodeDesktopController {
     }
 
     func startTrustedRouterSignIn() {
-        Task { @MainActor [weak self] in
+        tasks.startIfIdle(.trustedRouterSignIn) { [weak self] in
             guard let self else { return }
             await signInCoordinator.completeSignInAndApply(
                 to: model,

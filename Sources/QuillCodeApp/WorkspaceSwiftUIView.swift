@@ -508,18 +508,30 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func handleComposerSend() {
-        guard case .slash(.workspaceCommand(let commandID), _) =
-            WorkspaceComposerSubmissionPlanner.plan(
-                draft: draft,
-                hasAttachments: !surface.composer.attachments.isEmpty
-            ),
-            Self.composerPresentedCommandIDs.contains(commandID)
-        else {
+        let submission = WorkspaceComposerSubmissionPlanner.plan(
+            draft: draft,
+            hasAttachments: !surface.composer.attachments.isEmpty
+        )
+        switch WorkspaceComposerSendPlanner.action(
+            for: submission,
+            hasStoredAPIKey: surface.settings.hasStoredAPIKey,
+            presentedWorkspaceCommandIDs: Self.composerPresentedCommandIDs
+        ) {
+        case .ignore:
+            return
+        case .requestTrustedRouterSignIn:
+            actions.onStartTrustedRouterSignIn()
+            return
+        case .submit:
             actions.onSend()
             return
+        case .presentWorkspaceCommand(let commandID):
+            draft = ""
+            presentComposerCommand(commandID)
         }
+    }
 
-        draft = ""
+    private func presentComposerCommand(_ commandID: String) {
         switch commandID {
         case "search":
             presentSearch()

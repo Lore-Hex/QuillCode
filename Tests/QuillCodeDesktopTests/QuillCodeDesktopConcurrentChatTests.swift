@@ -275,6 +275,18 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
         XCTAssertFalse(tasks.isRunning(slot))
     }
 
+    func testTrustedRouterSignInRejectsACompetingFlow() {
+        let tasks = QuillCodeDesktopTaskCoordinator()
+
+        XCTAssertTrue(tasks.startIfIdle(.trustedRouterSignIn) {
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+        })
+        XCTAssertFalse(tasks.startIfIdle(.trustedRouterSignIn) {})
+
+        tasks.cancel(.trustedRouterSignIn)
+        XCTAssertFalse(tasks.isRunning(.trustedRouterSignIn))
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval,
         condition: @MainActor @escaping () -> Bool,

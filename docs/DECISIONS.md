@@ -4744,3 +4744,18 @@
   new release so GitHub falls back to the previous stable version.
 - **Evidence:** `download-builds.yml`, `ParityDownloadBuildsGateTests`,
   `ParityPackagedUpdaterGateTests`, and the stable publication contract in `docs/DOWNLOADS.md`.
+
+## 2026-08-13: disconnected sends enter one recoverable sign-in flow
+
+- **Decision:** Composer submission planning separates local slash commands from model-backed agent
+  and scheduled work before any transcript mutation. Without a stored TrustedRouter credential,
+  model-backed Send preserves the draft and attachments and starts sign-in; local commands remain
+  available offline.
+- **Concurrency boundary:** Desktop OAuth uses one task-coordinator slot. Repeated Sign in buttons or
+  Return presses cannot create competing loopback callback servers or replace the first flow's live
+  status with an address-in-use failure.
+- **Why:** A public download should never turn its primary Send action into a deep missing-key error,
+  and recovery should not consume the task the user was trying to run.
+- **Evidence:** `WorkspaceComposerSendPlanner`, `WorkspaceComposerSubmissionPlannerTests`,
+  `QuillCodeDesktopTaskCoordinator`, `QuillCodeDesktopConcurrentChatTests`, and
+  `ParityPublicDistributionGateTests`.

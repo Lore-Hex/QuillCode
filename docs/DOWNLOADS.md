@@ -93,6 +93,12 @@ an independent private store; configure it with `quill-code auth set-key KEY`. K
 activates automatically for the desktop when the Apple Developer ID signing secrets are configured
 and the packaged identity passes runtime attestation.
 
+When a signed-out user presses Send on a model-backed task, Quill Cowork preserves the complete draft
+and any image attachments, then starts TrustedRouter sign-in instead of creating a failed transcript
+turn. Local slash commands remain usable while signed out. Sign-in is single-flight, so repeated
+buttons or Return presses reuse the active browser flow rather than starting competing loopback
+listeners.
+
 ## Tester Recovery: Unexpected Exit
 
 Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
