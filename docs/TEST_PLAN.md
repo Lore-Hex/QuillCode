@@ -40,6 +40,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   early pipe closure; cancellation hard-kills a termination-resistant child; descendant-held pipes
   return after bounded drain time; unavailable tools fail before launch; hash verification observes
   existing cancellation; updater timeout errors remain typed and user-readable.
+- Updater activation recovery: a private 16 KiB transaction record must round-trip before helper
+  activation; missing or mismatched records prevent replacement. Recovery fixtures model interruption
+  before and after the atomic swap, exact destination/staging build identity, cancellation cleanup,
+  rollback retirement only after the replacement runs, and fail-closed preservation for a destination
+  that no longer matches the running build or other damaged or ambiguous evidence. Packaged updater
+  parity pins the transaction requirement in the production installer, helper, and startup recovery
+  path.
 - Stable Apple credential preflight: complete secret inventory, bounded base64 material, canonical
   identifiers, `.p12` password and certificate/private-key matching, exact Developer ID Application
   common name, code-signing usage, seven-day validity floor, PKCS#8 P-256 notary key validation,

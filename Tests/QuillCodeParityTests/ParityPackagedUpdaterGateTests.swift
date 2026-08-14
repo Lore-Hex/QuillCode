@@ -13,6 +13,15 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         let helper = try Self.desktopSourceText(
             named: "QuillCodeDesktopUpdateHelper.swift"
         )
+        let installer = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateInstaller.swift"
+        )
+        let transaction = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateTransaction.swift"
+        )
+        let recovery = try Self.desktopSourceText(
+            named: "QuillCodeDesktopUpdateRecovery.swift"
+        )
         let launcher = try Self.desktopSourceText(
             named: "QuillCodeDesktopUpdateApplicationLauncher.swift"
         )
@@ -77,7 +86,30 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(helper, containsAll: [
             "QuillCodeDesktopUpdateApplicationLauncher.launch(",
+            "QuillCodeDesktopUpdateTransaction.validate(",
             "applicationLaunchMode: .launchServices"
+        ])
+        Self.assertSource(installer, containsAll: [
+            "QuillCodeDesktopUpdateTransaction.persist(",
+            "QuillCodeDesktopUpdateTransaction.discardUnactivated(",
+            "QuillCodeDesktopUpdateHelperLauncher.launch(request)"
+        ])
+        Self.assertSource(transaction, containsAll: [
+            "static let fileName = \"UpdateTransaction.json\"",
+            "static let maximumEncodedBytes = 16 * 1_024",
+            "options: [.atomic, .completeFileProtection]",
+            "func hasValidRecoveryLayout(",
+            "QuillCodeDesktopBuildMetadata.isCanonicalCommit(expectedCommit)",
+            "static func discardUnactivated("
+        ])
+        Self.assertSource(recovery, containsAll: [
+            "reconcileInterruptedTransactions(",
+            "guard let protectedStaging",
+            "let replacementIsRunning = destinationIdentity == expectedIdentity",
+            "let destinationMatchesRunningBuild =",
+            "let previousBuildIsRunning = destinationMatchesRunningBuild",
+            "preserving: protectedStaging",
+            "return nil"
         ])
         Self.assertSource(launcher, containsAll: [
             "NSWorkspace.shared.openApplication(",

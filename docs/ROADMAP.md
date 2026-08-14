@@ -129,6 +129,11 @@
 
 ## Latest Quality Pass
 
+- Replacement updates now persist a private, bounded transaction record before the detached helper
+  may activate. The helper fails closed when the record is absent or mismatched, while startup
+  reconciliation compares exact bundle/version/build/commit identities to distinguish an
+  unactivated payload from a retained rollback copy. Ambiguous or damaged evidence preserves both
+  bundles; cancellation before helper launch removes only the validated new payload.
 - Updater hashing, archive extraction, bundle inspection, and downloaded-app validation now honor
   parent cancellation instead of leaving detached work behind. The shared platform process runner
   continuously drains output into a 64 KiB stdout prefix and 64 KiB diagnostic tail, limits normal
