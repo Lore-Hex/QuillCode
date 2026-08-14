@@ -173,10 +173,11 @@ struct QuillCodeDesktopSettingsCoordinator {
         for config: AppConfig,
         persistedKinds: Set<WorkspaceSettingsPersistenceKind>
     ) -> QuillCodeDesktopSettingsResult {
+        let runtime = bootstrap.makeRuntime(config: config)
         return QuillCodeDesktopSettingsResult(
             config: config,
-            runtime: bootstrap.makeRuntime(config: config),
-            trustedRouterAPIKeyConfigured: bootstrap.hasTrustedRouterAPIKey(),
+            runtime: runtime,
+            trustedRouterAPIKeyConfigured: runtime.trustedRouterAPIKeyConfigured,
             persistedKinds: persistedKinds
         )
     }

@@ -19,6 +19,7 @@ public struct QuillCodeRuntime: Sendable {
     public var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
     public var mode: QuillCodeRuntimeMode
     public var statusLabel: String
+    public var trustedRouterAPIKeyConfigured: Bool
     /// The retry decorator records here when it self-heals a transient blip; the model drains it into
     /// a "Self-healing" thread notice. nil for the mock runtime (which never retries).
     public var retryChannel: RetryEventChannel?
@@ -29,12 +30,14 @@ public struct QuillCodeRuntime: Sendable {
             DeterministicWorkspaceContextSummaryGenerator(),
         mode: QuillCodeRuntimeMode,
         statusLabel: String,
+        trustedRouterAPIKeyConfigured: Bool = false,
         retryChannel: RetryEventChannel? = nil
     ) {
         self.runner = runner
         self.contextSummaryGenerator = contextSummaryGenerator
         self.mode = mode
         self.statusLabel = statusLabel
+        self.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
         self.retryChannel = retryChannel
     }
 }
@@ -44,22 +47,28 @@ public struct QuillCodeRuntimeFactory: Sendable {
     public var environment: [String: String]
     public var modelCatalogURLSession: URLSession
     public var accountCreditsURLSession: URLSession
+    private var secretStore: (any QuillSecretStore)?
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelCatalogURLSession: URLSession = .shared,
-        accountCreditsURLSession: URLSession? = nil
+        accountCreditsURLSession: URLSession? = nil,
+        secretStore: (any QuillSecretStore)? = nil
     ) {
         self.paths = paths
         self.environment = environment
         self.modelCatalogURLSession = modelCatalogURLSession
         self.accountCreditsURLSession = accountCreditsURLSession ?? modelCatalogURLSession
+        self.secretStore = secretStore
     }
 
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
         if forcedMock {
-            return mockRuntime(status: QuillCodeRuntimeStatusLabel.mockLLM)
+            return mockRuntime(
+                status: QuillCodeRuntimeStatusLabel.mockLLM,
+                trustedRouterAPIKeyConfigured: hasTrustedRouterAPIKey()
+            )
         }
 
         let sessionStore = sessionStore()
@@ -67,9 +76,15 @@ public struct QuillCodeRuntimeFactory: Sendable {
         guard apiKey != nil || sessionStore.hasAPIKey else {
             switch config.authMode {
             case .oauth:
-                return mockRuntime(status: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter)
+                return mockRuntime(
+                    status: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter,
+                    trustedRouterAPIKeyConfigured: false
+                )
             case .developerOverride:
-                return mockRuntime(status: QuillCodeRuntimeStatusLabel.developerKeyNeeded)
+                return mockRuntime(
+                    status: QuillCodeRuntimeStatusLabel.developerKeyNeeded,
+                    trustedRouterAPIKeyConfigured: false
+                )
             }
         }
 
@@ -175,6 +190,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
             statusLabel: config.authMode == .oauth
                 ? QuillCodeRuntimeStatusLabel.trustedRouterSignedIn
                 : QuillCodeRuntimeStatusLabel.trustedRouterReady,
+            trustedRouterAPIKeyConfigured: true,
             retryChannel: retryChannel
         )
     }
@@ -252,17 +268,21 @@ public struct QuillCodeRuntimeFactory: Sendable {
 
     private func sessionStore() -> SecretTrustedRouterSessionStore {
         SecretTrustedRouterSessionStore(
-            secretStore: QuillSecretStoreFactory.make(for: paths),
+            secretStore: secretStore ?? QuillSecretStoreFactory.make(for: paths),
             key: QuillSecretKeys.trustedRouterAPIKey
         )
     }
 
-    private func mockRuntime(status: String) -> QuillCodeRuntime {
+    private func mockRuntime(
+        status: String,
+        trustedRouterAPIKeyConfigured: Bool
+    ) -> QuillCodeRuntime {
         QuillCodeRuntime(
             runner: AgentRunner(),
             contextSummaryGenerator: DeterministicWorkspaceContextSummaryGenerator(),
             mode: .mock,
-            statusLabel: status
+            statusLabel: status,
+            trustedRouterAPIKeyConfigured: trustedRouterAPIKeyConfigured
         )
     }
 }

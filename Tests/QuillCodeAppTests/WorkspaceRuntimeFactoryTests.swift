@@ -24,7 +24,30 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
         XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.trustedRouterSignedIn)
+        XCTAssertTrue(runtime.trustedRouterAPIKeyConfigured)
         XCTAssertTrue(runtime.contextSummaryGenerator.isModelBacked)
+    }
+
+    @MainActor
+    func testWorkspaceBootstrapResolvesStoredCredentialOnce() throws {
+        let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
+        try paths.ensure()
+        let secretStore = CountingRuntimeFactorySecretStore(value: "sk-test")
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: [
+                "QUILLCODE_API_KEY_FILE": paths.home.appendingPathComponent("missing.key").path
+            ],
+            secretStore: secretStore
+        )
+
+        let model = try QuillCodeWorkspaceBootstrap(
+            paths: paths,
+            runtimeFactory: runtimeFactory
+        ).makeModel(automaticStartupPolicy: .deferUntilRequested)
+
+        XCTAssertTrue(model.root.trustedRouterAPIKeyConfigured)
+        XCTAssertEqual(secretStore.readCount, 1)
     }
 
     func testEnvironmentKeyCountsAsTrustedRouterCatalogCredential() throws {
@@ -85,6 +108,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
 
         XCTAssertEqual(runtime.mode, .mock)
         XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.mockLLM)
+        XCTAssertTrue(runtime.trustedRouterAPIKeyConfigured)
         XCTAssertFalse(runtime.contextSummaryGenerator.isModelBacked)
         XCTAssertTrue(runtimeFactory.hasTrustedRouterAPIKey())
     }
@@ -178,6 +202,31 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         XCTAssertEqual(missingCredential, .unavailable)
         XCTAssertEqual(forcedMock, .unavailable)
     }
+}
+
+private final class CountingRuntimeFactorySecretStore: QuillSecretStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private let value: String?
+    private var reads = 0
+
+    init(value: String?) {
+        self.value = value
+    }
+
+    var readCount: Int {
+        lock.withLock { reads }
+    }
+
+    func read(_ key: String) throws -> String? {
+        lock.withLock {
+            reads += 1
+            return value
+        }
+    }
+
+    func write(_ value: String, for key: String) throws {}
+
+    func delete(_ key: String) throws {}
 }
 
 private final class RuntimeFactoryCatalogURLProtocol: URLProtocol {
