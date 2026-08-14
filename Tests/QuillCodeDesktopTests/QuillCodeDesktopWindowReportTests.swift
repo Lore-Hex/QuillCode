@@ -111,6 +111,41 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             snapshot.repeatedInteractionResources.residentMemoryBytes
                 - snapshot.postInteractionResources.residentMemoryBytes
         )
+        XCTAssertEqual(
+            snapshot.repeatedInteractionRetainedThreadGrowth,
+            snapshot.repeatedInteractionResources.threadCount
+                - max(snapshot.threadCount, snapshot.postInteractionResources.threadCount)
+        )
+    }
+
+    func testDesktopPerformanceSnapshotMeasuresRetainedThreadsAgainstPriorHighWater() {
+        let snapshot = QuillCodeDesktopPerformanceSnapshot(
+            launchReadyMilliseconds: 750,
+            initialResources: QuillCodeDesktopProcessResourceSnapshot(
+                residentMemoryBytes: 40 * 1_024 * 1_024,
+                threadCount: 6
+            ),
+            postInteractionResources: QuillCodeDesktopProcessResourceSnapshot(
+                residentMemoryBytes: 80 * 1_024 * 1_024,
+                threadCount: 5
+            ),
+            repeatedInteractionResources: QuillCodeDesktopProcessResourceSnapshot(
+                residentMemoryBytes: 84 * 1_024 * 1_024,
+                threadCount: 8
+            ),
+            idleResources: QuillCodeDesktopProcessResourceSnapshot(
+                residentMemoryBytes: 84 * 1_024 * 1_024,
+                threadCount: 8
+            ),
+            idleDurationMilliseconds: 2_000
+        )
+
+        XCTAssertEqual(snapshot.repeatedInteractionThreadGrowth, 3)
+        XCTAssertEqual(snapshot.repeatedInteractionRetainedThreadGrowth, 2)
+        XCTAssertEqual(
+            snapshot.dictionary["repeatedInteractionRetainedThreadGrowth"] as? Int,
+            2
+        )
     }
 
     func testDesktopPerformanceSnapshotRejectsInvalidLaunchTiming() {
@@ -737,6 +772,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
         XCTAssertEqual(
             (jsonObject["performance"] as? [String: Any])?["repeatedInteractionThreadGrowth"] as? Int,
+            -1
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["repeatedInteractionRetainedThreadGrowth"] as? Int,
             -1
         )
         XCTAssertEqual(

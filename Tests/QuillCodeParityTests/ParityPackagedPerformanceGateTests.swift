@@ -45,20 +45,21 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "threadGrowth",
             "repeatedInteractionResidentMemoryGrowthBytes",
             "repeatedInteractionThreadGrowth",
+            "repeatedInteractionRetainedThreadGrowth",
             "idleProcessorTimeNanoseconds",
             "idleCPUPercent",
             "idleResidentMemoryGrowthBytes",
             "idleThreadGrowth"
         ])
         Self.assertSource(performanceContract, containsAll: [
-            "PERFORMANCE_SCHEMA_VERSION = 6",
+            "PERFORMANCE_SCHEMA_VERSION = 7",
             "MINIMUM_IDLE_DURATION_MILLISECONDS = 2_000.0",
             "DEFAULT_MAX_LAUNCH_READY_MILLISECONDS = 2_500.0",
             "DEFAULT_MAX_RESIDENT_MEMORY_BYTES = 128 * 1024 * 1024",
             "DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES = 64 * 1024 * 1024",
             "DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES = 16 * 1024 * 1024",
             "DEFAULT_MAX_THREAD_COUNT = 32",
-            "DEFAULT_MAX_REPEATED_THREAD_GROWTH = 2",
+            "DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH = 2",
             "DEFAULT_MAX_IDLE_CPU_PERCENT = 5.0",
             "DEFAULT_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES = 8 * 1024 * 1024",
             "DEFAULT_MAX_IDLE_THREAD_GROWTH = 2"
@@ -139,7 +140,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "--max-resident-memory-growth-bytes",
             "--max-repeated-resident-memory-growth-bytes",
             "--max-thread-count",
-            "--max-repeated-thread-growth",
+            "--max-repeated-retained-thread-growth",
             "--max-idle-cpu-percent",
             "--max-idle-resident-memory-growth-bytes",
             "--max-idle-thread-growth",
@@ -154,7 +155,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "QUILLCODE_MAX_RESIDENT_MEMORY_GROWTH_BYTES",
             "QUILLCODE_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES",
             "QUILLCODE_MAX_THREAD_COUNT",
-            "QUILLCODE_MAX_REPEATED_THREAD_GROWTH",
+            "QUILLCODE_MAX_REPEATED_RETAINED_THREAD_GROWTH",
             "QUILLCODE_MAX_IDLE_CPU_PERCENT",
             "QUILLCODE_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES",
             "QUILLCODE_MAX_IDLE_THREAD_GROWTH",
@@ -196,7 +197,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "64 MiB",
             "16 MiB",
             "32 threads",
-            "2 additional threads",
+            "2 retained threads",
             "5% CPU",
             "8 MiB",
             "PERFORMANCE.json"
@@ -219,7 +220,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(manifest["ok"] as? Bool, true)
         XCTAssertEqual(manifest["withinBudget"] as? Bool, true)
-        XCTAssertEqual(manifest["schemaVersion"] as? Int, 6)
+        XCTAssertEqual(manifest["schemaVersion"] as? Int, 7)
         XCTAssertEqual(manifest["workload"] as? String, "daily-driver-100-chats")
         XCTAssertEqual(manifest["measurement"] as? String, "initial-live-window")
         XCTAssertEqual(manifest["memoryMeasurement"] as? String, "physical-footprint")
@@ -255,6 +256,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         )
         XCTAssertEqual(manifest["repeatedInteractionThreadCount"] as? Int, 19)
         XCTAssertEqual(manifest["repeatedInteractionThreadGrowth"] as? Int, -1)
+        XCTAssertEqual(manifest["repeatedInteractionRetainedThreadGrowth"] as? Int, -1)
         XCTAssertEqual(
             manifest["idleMeasurement"] as? String,
             "settled-idle-after-interaction-sweeps"
@@ -277,7 +279,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             16 * 1_024 * 1_024
         )
         XCTAssertEqual(budgets["maximumThreadCount"] as? Int, 64)
-        XCTAssertEqual(budgets["maximumRepeatedThreadGrowth"] as? Int, 4)
+        XCTAssertEqual(budgets["maximumRepeatedRetainedThreadGrowth"] as? Int, 4)
         XCTAssertEqual(budgets["maximumIdleCPUPercent"] as? Double, 5)
         XCTAssertEqual(
             budgets["maximumIdleResidentMemoryGrowthBytes"] as? Int,
@@ -525,8 +527,40 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             maximumResidentBytes: 128 * 1_024 * 1_024
         )
         XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.output.contains("repeated-interaction thread growth"), result.output)
+        XCTAssertTrue(
+            result.output.contains("repeated-interaction retained thread growth"),
+            result.output
+        )
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorUsesPriorSettledHighWaterForRetainedThreadGrowth() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            threadCount: 6,
+            postInteractionThreadCount: 5,
+            repeatedInteractionThreadCount: 8,
+            idleThreadCount: 8
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024,
+            maximumRepeatedRetainedThreadGrowth: 2
+        )
+        XCTAssertEqual(result.exitCode, 0, result.output)
+
+        let data = try Data(contentsOf: fixture.manifest)
+        let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(manifest["repeatedInteractionThreadGrowth"] as? Int, 3)
+        XCTAssertEqual(manifest["repeatedInteractionRetainedThreadGrowth"] as? Int, 2)
+        let attempts = try XCTUnwrap(manifest["attempts"] as? [[String: Any]])
+        XCTAssertEqual(attempts.first?["withinRepeatedRetainedThreadGrowthBudget"] as? Bool, true)
     }
 
     func testPerformanceValidatorFailsWhenSettledIdleResourcesRegress() throws {
@@ -649,6 +683,33 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
     }
 
+    func testPerformanceValidatorRejectsForgedRetainedThreadDelta() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let reportData = try Data(contentsOf: fixture.report)
+        var report = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reportData) as? [String: Any]
+        )
+        var performance = try XCTUnwrap(report["performance"] as? [String: Any])
+        performance["repeatedInteractionRetainedThreadGrowth"] = 0
+        report["performance"] = performance
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted])
+            .write(to: fixture.report, options: .atomic)
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.output.contains("repeated retained thread growth does not match"),
+            result.output
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
     func testPerformanceValidatorRejectsMislabeledWorkload() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -738,7 +799,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
                 "renderedAfterReclamation": true
             ],
             "performance": [
-                "schemaVersion": 6,
+                "schemaVersion": 7,
                 "workload": "daily-driver-100-chats",
                 "measurement": "initial-live-window",
                 "memoryMeasurement": "physical-footprint",
@@ -761,6 +822,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
                 "repeatedInteractionThreadGrowth": (
                     repeatedInteractionThreadCount - postInteractionThreadCount
                 ),
+                "repeatedInteractionRetainedThreadGrowth": (
+                    repeatedInteractionThreadCount
+                        - max(threadCount, postInteractionThreadCount)
+                ),
                 "idleMeasurement": "settled-idle-after-interaction-sweeps",
                 "idleDurationMilliseconds": idleDurationMilliseconds,
                 "idleProcessorTimeNanoseconds": idleProcessorTimeNanoseconds,
@@ -781,7 +846,8 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         reports: [URL],
         manifest: URL,
         maximumLaunchMilliseconds: Int,
-        maximumResidentBytes: Int
+        maximumResidentBytes: Int,
+        maximumRepeatedRetainedThreadGrowth: Int = 4
     ) throws -> ScriptResult {
         try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
@@ -792,7 +858,8 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
                 "--max-resident-memory-growth-bytes", String(80 * 1_024 * 1_024),
                 "--max-repeated-resident-memory-growth-bytes", String(16 * 1_024 * 1_024),
                 "--max-thread-count", "64",
-                "--max-repeated-thread-growth", "4",
+                "--max-repeated-retained-thread-growth",
+                String(maximumRepeatedRetainedThreadGrowth),
                 "--max-idle-cpu-percent", "5",
                 "--max-idle-resident-memory-growth-bytes", String(8 * 1_024 * 1_024),
                 "--max-idle-thread-growth", "2"

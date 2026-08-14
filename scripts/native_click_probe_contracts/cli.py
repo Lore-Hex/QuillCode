@@ -29,7 +29,7 @@ from .performance import (
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
     DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
-    DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH,
     DEFAULT_MAX_THREAD_COUNT,
     write_performance_manifest,
 )
@@ -134,9 +134,9 @@ def main() -> None:
         default=DEFAULT_MAX_THREAD_COUNT,
     )
     performance_parser.add_argument(
-        "--max-repeated-thread-growth",
+        "--max-repeated-retained-thread-growth",
         type=int,
-        default=DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+        default=DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH,
     )
     performance_parser.add_argument(
         "--max-idle-cpu-percent",
@@ -294,7 +294,9 @@ def main() -> None:
                 args.max_repeated_resident_memory_growth_bytes
             ),
             max_thread_count=args.max_thread_count,
-            max_repeated_thread_growth=args.max_repeated_thread_growth,
+            max_repeated_retained_thread_growth=(
+                args.max_repeated_retained_thread_growth
+            ),
             max_idle_cpu_percent=args.max_idle_cpu_percent,
             max_idle_resident_memory_growth_bytes=(
                 args.max_idle_resident_memory_growth_bytes

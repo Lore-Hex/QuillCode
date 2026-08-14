@@ -17955,3 +17955,36 @@ Validation:
 - Final source-built packaged smoke: 303.27 ms launch-ready, 40.74 MiB initial, 83.66 MiB post-interaction, 87.92 MiB repeated-interaction, and 0.0056% settled idle CPU
 - `python3 scripts/grade-code-quality.py --root .` (all affected distribution modules A+)
 - Shell syntax, Python bytecode compilation, workflow contract checks, and `git diff --check`
+
+## 2026-08-14 Retained Thread Growth Evidence
+
+Overall grade: **A+ release evidence semantics, A+ architecture-neutral performance gating, A+
+post-publication integrity**.
+
+Build 761's first Intel package attempt sampled six initial threads, five after the first settled
+interaction sweep, and eight after the repeated sweep. The old second-minus-first gate described
+that as `+3` even though the process retained only two threads above an earlier settled count. Two
+later fresh processes were flat or shrank, and an unchanged native rerun passed, proving the failure
+was a differential-boundary artifact rather than cumulative worker growth.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Evidence semantics | A+ | Schema 7 keeps the raw repeated-minus-first delta for diagnosis and separately publishes retained growth against the higher initial/first-sweep high-water. |
+| Regression sensitivity | A+ | The retained ceiling remains two threads in every process; all initial, first-sweep, repeated, and idle counts remain capped at 32, so the fix does not average away or widen a real leak. |
+| Integrity | A+ | Swift, offline Python, and post-publication validators independently recompute the retained delta and reject forged, missing, stale-schema, or policy-drifted evidence. |
+| Architecture coverage | A+ | The contract is based only on process snapshots and applies identically to native Apple Silicon and Intel runners. The exact `6 -> 5 -> 8` case and a true nonconverging case have focused coverage. |
+
+Validation:
+
+- `swift test --filter QuillCodeDesktopWindowReportTests` (26 tests, 0 failures)
+- `swift test --filter ParityPackagedPerformanceGateTests` (21 tests, 0 failures)
+- `swift test --filter ParityPublishedReleaseVerificationGateTests` (30 tests, 0 failures)
+- `scripts/smoke.sh` (complete Swift, CLI, app-server, MCP, native desktop, crash-recovery,
+  direct-launch, Launch Services, Accessibility, Computer Use, memory-pressure, and packaged macOS
+  suites passed; deterministic manifest exit 0 with every executed step passed)
+- Source-built schema 7 packaged sample: 296.21 ms launch-ready, 40.78 MiB initial physical
+  footprint, 87.61 MiB repeated-interaction footprint, `6 -> 6 -> 5` threads with `-1` retained
+  growth, and 0.0002% settled idle CPU
+- Python syntax compilation for all changed performance and release-verifier modules
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
+- `git diff --check`

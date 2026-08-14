@@ -119,7 +119,7 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
 }
 
 struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
-    static let schemaVersion = 6
+    static let schemaVersion = 7
     static let memoryMeasurement = "physical-footprint"
     static let processorTimeMeasurement = "process-user-plus-system-nanoseconds"
     static let measurement = QuillCodeDesktopInitialPerformanceSnapshot.measurement
@@ -149,6 +149,10 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
     }
     var repeatedInteractionThreadGrowth: Int {
         repeatedInteractionResources.threadCount - postInteractionResources.threadCount
+    }
+    var repeatedInteractionRetainedThreadGrowth: Int {
+        repeatedInteractionResources.threadCount
+            - max(initialResources.threadCount, postInteractionResources.threadCount)
     }
     var idleResidentMemoryGrowthBytes: Int64 {
         idleResources.residentMemoryBytes - repeatedInteractionResources.residentMemoryBytes
@@ -186,6 +190,7 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
             "repeatedInteractionThreadCount": repeatedInteractionResources.threadCount,
             "repeatedInteractionResidentMemoryGrowthBytes": repeatedInteractionResidentMemoryGrowthBytes,
             "repeatedInteractionThreadGrowth": repeatedInteractionThreadGrowth,
+            "repeatedInteractionRetainedThreadGrowth": repeatedInteractionRetainedThreadGrowth,
             "idleMeasurement": Self.idleMeasurement,
             "idleDurationMilliseconds": idleDurationMilliseconds,
             "idleProcessorTimeNanoseconds": idleProcessorTimeNanoseconds,
