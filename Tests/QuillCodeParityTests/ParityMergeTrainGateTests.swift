@@ -21,13 +21,14 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
     func testMergedPullRequestDispatchesAllConfiguredPostMergeWorkflows() throws {
         let result = try runMergeTrain(
             pullRequestJSON: readyCleanPullRequestJSON,
-            postMergeWorkflows: "ci.yml download-builds.yml"
+            postMergeWorkflows: "ci.yml download-builds.yml website.yml"
         )
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         XCTAssertTrue(result.ghLog.contains("pr merge 42 --repo Lore-Hex/QuillCode --squash --delete-branch"))
         XCTAssertTrue(result.ghLog.contains("workflow run ci.yml --repo Lore-Hex/QuillCode --ref main"))
         XCTAssertTrue(result.ghLog.contains("workflow run download-builds.yml --repo Lore-Hex/QuillCode --ref main"))
+        XCTAssertTrue(result.ghLog.contains("workflow run website.yml --repo Lore-Hex/QuillCode --ref main"))
     }
 
     private struct MergeTrainResult {
