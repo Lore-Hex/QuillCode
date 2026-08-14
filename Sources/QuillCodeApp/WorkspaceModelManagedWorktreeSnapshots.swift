@@ -16,7 +16,7 @@ extension QuillCodeWorkspaceModel {
         guard worktreeSnapshotStore != nil, root.config.managedWorktrees.automaticCleanupEnabled else {
             return 0
         }
-        let runningThreadIDs = Set(root.threads.lazy.filter { self.agentRuns.isRunning($0.id) }.map(\.id))
+        let runningThreadIDs = agentRuns.activeThreadIDs.union(activeCancellableToolRunThreadIDs)
         let plan = ManagedWorktreeRetentionPlanner.plan(
             threads: root.threads,
             selectedThreadID: root.selectedThreadID,
@@ -47,6 +47,7 @@ extension QuillCodeWorkspaceModel {
               let threadIndex = root.threads.firstIndex(where: { $0.id == threadID }),
               !root.threads[threadIndex].isPinned,
               !agentRuns.isRunning(threadID),
+              !isCancellableToolRunActive(for: threadID),
               let binding = root.threads[threadIndex].worktree,
               binding.isDisposableManagedWorktree,
               binding.isResolvable,
@@ -94,7 +95,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func restoreManagedWorktree(threadID: UUID) -> Bool {
-        guard !agentRuns.isRunning(threadID) else {
+        guard !agentRuns.isRunning(threadID), !isCancellableToolRunActive(for: threadID) else {
             setLastError("Stop this task before restoring its worktree.")
             return false
         }

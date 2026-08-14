@@ -334,7 +334,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "automationCoordinator.startTicker")
         Self.assertSource(automationCoordinatorText, containsAll: [
             "await runDueAutomations",
-            "await model.runDueAutomationReportsAsync()"
+            "await model.runDueAutomationReportsAsync(onProgressUpdated: refresh)"
         ])
         Self.assertSource(automationCoordinatorText, contains: "reports.forEach(notifier.deliver)")
         Self.assertSource(controllerText, excludesAll: [

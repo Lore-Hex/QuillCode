@@ -97,6 +97,29 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
         XCTAssertFalse(selectedRow.isRunning)
     }
 
+    func testProjectsLocalActionStatusOntoItsOwningSidebarRow() throws {
+        let runningThread = ChatThread(title: "Running local action")
+        let selectedThread = ChatThread(title: "Selected")
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: [SidebarItem(thread: runningThread), SidebarItem(thread: selectedThread)],
+            selectedThreadID: selectedThread.id,
+            threads: [runningThread, selectedThread],
+            activeSidebarFilter: .all,
+            selectionIsActive: false,
+            selectedThreadIDs: [],
+            activeToolRunThreadIDs: [runningThread.id]
+        ).surface()
+
+        let runningRow = try XCTUnwrap(surface.sidebar.items.first { $0.id == runningThread.id })
+        XCTAssertEqual(runningRow.runStatusLabel, "Running local action")
+        XCTAssertTrue(runningRow.isRunning)
+        XCTAssertFalse(runningRow.actions.contains { $0.kind == .duplicate })
+        XCTAssertFalse(runningRow.actions.contains { $0.kind == .delete })
+    }
+
     func testBulkDeleteDisablesWhenSelectionContainsARunningChat() throws {
         let runningThread = ChatThread(title: "Running")
         let idleThread = ChatThread(title: "Idle")
@@ -113,6 +136,26 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             selectionIsActive: true,
             selectedThreadIDs: [runningThread.id, idleThread.id],
             agentRuns: agentRuns
+        ).surface()
+
+        let delete = try XCTUnwrap(surface.sidebar.bulkActions.first { $0.kind == .delete })
+        XCTAssertFalse(delete.isEnabled)
+    }
+
+    func testBulkDeleteDisablesWhenSelectionContainsALocalAction() throws {
+        let runningThread = ChatThread(title: "Running")
+        let idleThread = ChatThread(title: "Idle")
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: [SidebarItem(thread: runningThread), SidebarItem(thread: idleThread)],
+            selectedThreadID: idleThread.id,
+            threads: [runningThread, idleThread],
+            activeSidebarFilter: .all,
+            selectionIsActive: true,
+            selectedThreadIDs: [runningThread.id, idleThread.id],
+            activeToolRunThreadIDs: [runningThread.id]
         ).surface()
 
         let delete = try XCTUnwrap(surface.sidebar.bulkActions.first { $0.kind == .delete })

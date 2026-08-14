@@ -12,6 +12,7 @@ final class QuillCodeDesktopTaskCoordinator {
         case computerUseStatusRefresh
         case computerUseForegroundRefresh
         case automationTicker
+        case automationRun
         case modelCatalogRefresh
         case modelCatalogRefreshTicker
         case trustedRouterSignIn

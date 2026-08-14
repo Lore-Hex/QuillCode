@@ -110,7 +110,8 @@ extension QuillCodeWorkspaceModel {
     }
 
     var backgroundAgentRunStatusLabel: String? {
-        guard agentRuns.activeCount > 0 else { return nil }
-        return agentRuns.activeCount == 1 ? "1 chat running" : "\(agentRuns.activeCount) chats running"
+        let activeThreadIDs = agentRuns.activeThreadIDs.union(activeCancellableToolRunThreadIDs)
+        guard !activeThreadIDs.isEmpty else { return nil }
+        return activeThreadIDs.count == 1 ? "1 chat running" : "\(activeThreadIDs.count) chats running"
     }
 }

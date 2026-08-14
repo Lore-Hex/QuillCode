@@ -92,7 +92,9 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
         guard workspaceActionCoordinator.runWorkspaceCommand(
             commandID,
             model: model,
-            fallbackWorkspaceRoot: workspaceRoot
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
         ) else {
             return
         }

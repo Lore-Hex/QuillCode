@@ -3,6 +3,50 @@ import QuillCodeCore
 
 extension QuillCodeWorkspaceModel {
     @discardableResult
+    public func runLocalEnvironmentActionCancellable(
+        _ actionID: String,
+        workspaceRoot: URL,
+        threadID: UUID? = nil,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async -> Bool {
+        let targetThread = threadID.flatMap { id in
+            root.threads.first(where: { $0.id == id })
+        }
+        let projectID = WorkspaceToolRunPreparer.effectiveProjectID(
+            thread: targetThread,
+            fallbackProjectID: root.selectedProjectID
+        )
+        guard let action = LocalEnvironmentActionMatcher.action(
+            withID: actionID,
+            in: projectID.flatMap(project(id:))?.localActions ?? []
+        ) else {
+            return false
+        }
+
+        return await runLocalEnvironmentActionCancellable(
+            action,
+            workspaceRoot: workspaceRoot,
+            threadID: threadID,
+            onProgressUpdated: onProgressUpdated
+        )
+    }
+
+    @discardableResult
+    public func runLocalEnvironmentActionCancellable(
+        _ action: LocalEnvironmentAction,
+        workspaceRoot: URL,
+        threadID: UUID? = nil,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async -> Bool {
+        await runCancellableToolCall(
+            WorkspaceShellToolCallPlanner.localEnvironmentAction(action),
+            workspaceRoot: workspaceRoot,
+            threadID: threadID,
+            onProgressUpdated: onProgressUpdated
+        ) != nil
+    }
+
+    @discardableResult
     public func runLocalEnvironmentAction(_ actionID: String, workspaceRoot: URL) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
         guard let action = LocalEnvironmentActionMatcher.action(
@@ -19,8 +63,12 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
-    func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
-        refreshProjectMetadata(root.selectedProjectID)
+    func runEnvironmentSlashCommand(
+        _ query: String?,
+        originalPrompt: String,
+        workspaceRoot: URL,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async {
         let plan = WorkspaceEnvironmentSlashCommandPlanner.plan(
             query: query,
             userText: originalPrompt,
@@ -30,7 +78,12 @@ extension QuillCodeWorkspaceModel {
         case .transcript(let transcript):
             appendLocalCommandTranscript(transcript)
         case .runAction(let actionID):
-            _ = runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
+            _ = await runLocalEnvironmentActionCancellable(
+                actionID,
+                workspaceRoot: workspaceRoot,
+                threadID: root.selectedThreadID,
+                onProgressUpdated: onProgressUpdated
+            )
         }
     }
 

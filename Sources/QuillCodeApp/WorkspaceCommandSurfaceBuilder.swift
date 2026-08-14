@@ -71,7 +71,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         )
         + WorkspaceProjectCommandCatalog.localActionCommands(
             actions: selectedProject?.localActions ?? [],
-            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot && !selectedThreadIsRunning
         )
         + WorkspaceProjectCommandCatalog.mcpLifecycleCommands(
             manifests: selectedProject?.extensionManifests ?? [],

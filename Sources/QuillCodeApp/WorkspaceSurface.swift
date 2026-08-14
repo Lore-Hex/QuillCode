@@ -371,6 +371,7 @@ public extension QuillCodeWorkspaceModel {
             selectionIsActive: sidebarSelection.isActive,
             selectedThreadIDs: sidebarSelectedThreadIDs,
             agentRuns: agentRuns,
+            activeToolRunThreadIDs: activeCancellableToolRunIDs,
             attentionCursorID: attentionCursorID
         ).surface()
         let spendPeriodThreads = root.threads + discardedEphemeralSpendLedger.periodThreads()
@@ -526,6 +527,8 @@ public extension QuillCodeWorkspaceModel {
         let visibleSidebarItemCount = filteredSidebarItems().count
         let workflowRecordingStatus = (computerUseBackend as? any WorkflowRecordingStatusProviding)?
             .workflowRecordingStatusSnapshot
+        let selectedThreadHasActiveWork = isAgentRunActive(for: root.selectedThreadID)
+            || isCancellableToolRunActive(for: root.selectedThreadID)
         return WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
@@ -539,7 +542,7 @@ public extension QuillCodeWorkspaceModel {
             sidebarSavedSearches: sidebarSavedSearches,
             hasActiveWorkspaceRoot: activeWorkspaceRoot != nil,
             canRetryLastUserTurn: canRetryLastUserTurn,
-            composerIsSending: activeAgentRunCount > 0,
+            composerIsSending: activeAgentRunCount > 0 || activeCancellableToolRunCount > 0,
             terminalHasEntries: !terminal.entries.isEmpty,
             terminalIsRunning: terminal.isRunning,
             browserCanGoBack: browser.canGoBack,
@@ -553,8 +556,8 @@ public extension QuillCodeWorkspaceModel {
             computerUseStatus: root.topBar.computerUseStatus,
             workflowRecordingAvailable: computerUseBackend is any WorkflowRecordingBackend,
             workflowRecordingIsActive: workflowRecordingStatus?.isRecording == true,
-            selectedThreadIsRunning: isAgentRunActive(for: root.selectedThreadID),
-            runningThreadIDs: activeAgentRunThreadIDs,
+            selectedThreadIsRunning: selectedThreadHasActiveWork,
+            runningThreadIDs: activeAgentRunThreadIDs.union(activeCancellableToolRunIDs),
             shortcutProfile: WorkspaceShortcutRegistry.profile(
                 preferences: root.config.keyboardShortcuts
             )

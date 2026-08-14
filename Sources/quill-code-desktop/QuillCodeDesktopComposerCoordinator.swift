@@ -95,6 +95,11 @@ struct QuillCodeDesktopComposerCoordinator {
         // chip (drained at the next turn boundary by the run's own drain loop) instead of being
         // silently rejected. When idle, it sends immediately as before.
         let selectedThreadID = model.selectedThread?.id
+        if model.isCancellableToolRunActive(for: selectedThreadID) {
+            model.setLastError("Stop the running local action before sending another message in this chat.")
+            refresh()
+            return
+        }
         if tasks.isSendRunning(threadID: selectedThreadID) || model.isAgentRunActive(for: selectedThreadID) {
             model.enqueueFollowUp(prompt)
             draft = ""

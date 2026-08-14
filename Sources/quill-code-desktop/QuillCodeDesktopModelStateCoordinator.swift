@@ -89,7 +89,9 @@ struct QuillCodeDesktopModelStateCoordinator {
         updatesBrowser: Bool,
         isComposerTaskRunning: Bool
     ) {
-        let isComposerBusy = model.composer.isSending || isComposerTaskRunning
+        let isComposerBusy = model.composer.isSending
+            || isComposerTaskRunning
+            || model.isCancellableToolRunActive(for: model.root.selectedThreadID)
         surface = nextState.surface
 
         if updatesComposer, draft != nextState.draft, !isComposerBusy {

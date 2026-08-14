@@ -1,7 +1,11 @@
 import Foundation
 
 extension QuillCodeWorkspaceModel {
-    func runSlashCommandDispatchAction(_ action: WorkspaceSlashCommandDispatchAction, workspaceRoot: URL) async {
+    func runSlashCommandDispatchAction(
+        _ action: WorkspaceSlashCommandDispatchAction,
+        workspaceRoot: URL,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async {
         switch action {
         case .appendTranscript(let transcript):
             appendLocalCommandTranscript(transcript)
@@ -88,7 +92,12 @@ extension QuillCodeWorkspaceModel {
         case .toolCall(let call):
             _ = runToolCall(call, workspaceRoot: workspaceRoot)
         case .environmentAction(let query, let userText):
-            runEnvironmentSlashCommand(query, originalPrompt: userText, workspaceRoot: workspaceRoot)
+            await runEnvironmentSlashCommand(
+                query,
+                originalPrompt: userText,
+                workspaceRoot: workspaceRoot,
+                onProgressUpdated: onProgressUpdated
+            )
         case .environmentSchedule(let scheduleText, let userText):
             runEnvironmentScheduleSlashCommand(scheduleText, originalPrompt: userText)
         }

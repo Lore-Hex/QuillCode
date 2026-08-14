@@ -23,6 +23,7 @@ extension QuillCodeWorkspaceModel {
                     && $0.payloadResidency.isLoaded
                     && $0.id != selectedID
                     && !self.agentRuns.isRunning($0.id)
+                    && !self.isCancellableToolRunActive(for: $0.id)
             }
             .map(\.id))
         for id in releasableArchiveIDs {
@@ -48,6 +49,7 @@ extension QuillCodeWorkspaceModel {
                     && !$0.runtimeContext.isEphemeral
                     && $0.id != selectedID
                     && !self.agentRuns.isRunning($0.id)
+                    && !self.isCancellableToolRunActive(for: $0.id)
             }
             .sorted { $0.updatedAt < $1.updatedAt }
             .map(\.id)
