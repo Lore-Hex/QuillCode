@@ -1,5 +1,5 @@
 import XCTest
-import QuillComputerUseKit
+@testable import QuillComputerUseKit
 
 final class ComputerUseStatusTests: XCTestCase {
     func testPermissionStatusLabelsReadyState() {
@@ -87,5 +87,51 @@ final class ComputerUseStatusTests: XCTestCase {
 
         XCTAssertEqual(status.available, status.screenRecordingGranted && status.accessibilityGranted)
         XCTAssertFalse(status.message.isEmpty)
+    }
+
+    func testDefaultMacBackendDefersPlatformBackendUntilFirstProbe() async {
+#if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
+        XCTAssertTrue(
+            ComputerUseBackendFactory.platformDefault().backend()
+                is DeferredMacComputerUseBackend
+        )
+        let materializations = LockedCounter()
+        let backend = DeferredMacComputerUseBackend {
+            materializations.increment()
+            return MacComputerUseBackend()
+        }
+
+        XCTAssertEqual(backend.workflowRecordingStatusSnapshot, .idle)
+        let statusBeforeMaterialization = await backend.workflowRecordingStatus()
+        XCTAssertEqual(statusBeforeMaterialization, .idle)
+        await backend.cancelWorkflowRecording()
+        XCTAssertEqual(materializations.value, 0)
+
+        await withTaskGroup(of: ComputerUseStatus.self) { group in
+            for _ in 0..<100 {
+                group.addTask { backend.status }
+            }
+            for await status in group {
+                XCTAssertFalse(status.message.isEmpty)
+            }
+        }
+
+        XCTAssertEqual(materializations.value, 1)
+#endif
+    }
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.withLock { count }
+    }
+
+    func increment() {
+        lock.withLock {
+            count += 1
+        }
     }
 }

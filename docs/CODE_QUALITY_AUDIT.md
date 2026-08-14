@@ -17851,3 +17851,25 @@ Validation:
 - Desktop and mobile browser runtime inspection, including live GitHub release metadata
 - `python3 scripts/grade-code-quality.py --root .` (all production modules A+; affected Python files A+)
 - JavaScript syntax checks, workflow YAML parsing, static-site verification, and `git diff --check`
+
+## 2026-08-13 Deferred Computer Use Platform Startup
+
+Overall grade after this slice: **A+ startup architecture, A+ concurrency safety, A+ packaged performance**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Startup ownership | A+ | The macOS Computer Use backend keeps its complete capability surface while deferring native permission, workspace, and workflow-recording objects until the first real platform probe or action. |
+| Surface fidelity | A+ | The initial workspace still advertises screenshot, input, foreground-app, activation, Accessibility, and workflow-recording support; an unmaterialized recorder reports the only valid state, idle. |
+| Concurrency safety | A+ | One lock-protected backend instance is shared across synchronous probes and async actions. A 100-task first-probe regression test proves exactly one native backend is created. |
+| Lifecycle efficiency | A+ | The desktop coordinator also defers `NSWorkspace`'s application-activation notification center until post-window observation begins and removes an observer only when one was installed. |
+| Packaged compatibility | A+ | The release app passed intentional SIGKILL recovery, direct and Launch Services rendering, native Accessibility interaction, Computer Use contracts, and critical-memory-pressure recovery. |
+| Packaged performance | A+ | Three fresh 100-chat daily-driver processes passed: 313.33 ms median readiness, 40.59 MiB initial physical footprint, 75.19 MiB after interaction, 79.92 MiB after repetition, and 0.0005% settled idle CPU. |
+
+Validation:
+
+- Focused Computer Use and desktop coordinator suite (16 tests, 0 failures)
+- `swift test` (6,353 tests; 5 skipped; 0 failures)
+- `scripts/smoke.sh` (CLI, app-server, MCP, native desktop, crash recovery, direct and Launch Services packaged interaction passed)
+- Exact-commit macOS package, three-process performance, DMG verification, relocation, and relaunch passed
+- `python3 scripts/grade-code-quality.py --root .` (all affected modules A+)
+- `git diff --check`
