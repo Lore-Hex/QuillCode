@@ -513,8 +513,27 @@ permit ad-hoc tester builds, but stable `v*` tags fail before packaging.
 Maintainers can refresh the tester channel without a code change:
 
 ```bash
-gh workflow run download-builds.yml --repo Lore-Hex/QuillCode --ref main
+gh workflow run download-builds.yml \
+  --repo Lore-Hex/QuillCode \
+  --ref main \
+  -f mode=build
 ```
+
+To reverify the current public release without rebuilding or publishing:
+
+```bash
+gh workflow run download-builds.yml \
+  --repo Lore-Hex/QuillCode \
+  --ref main \
+  -f mode=verify-current
+```
+
+The read-only mode still requires successful exact-main CI, validates that the public manifest
+identifies that commit and a successful publication run, redownloads every declared release asset,
+and daily-drives the universal DMG on native Apple silicon and Intel runners.
+It does not allocate a build number or mutate release assets. Requests outside a manual dispatch
+on current `main` fail
+before planning, and every build or publish job remains skipped.
 
 Then watch it:
 

@@ -3,14 +3,34 @@ set -euo pipefail
 
 EVENT_NAME="${GITHUB_EVENT_NAME:?GITHUB_EVENT_NAME is required}"
 REF_TYPE="${GITHUB_REF_TYPE:?GITHUB_REF_TYPE is required}"
+REF_NAME="${GITHUB_REF_NAME:-}"
 COMMIT="${GITHUB_SHA:?GITHUB_SHA is required}"
 REPOSITORY="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 OUTPUT_FILE="${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
+MODE="${DOWNLOAD_BUILD_MODE:-build}"
 
 build_required=true
 reason="${EVENT_NAME} runs always produce a fresh build"
 
-if [[ "$EVENT_NAME" == "schedule" && "$REF_TYPE" == "branch" ]]; then
+case "$MODE" in
+  build) ;;
+  verify-current)
+    if [[ "$EVENT_NAME" != "workflow_dispatch" ||
+          "$REF_TYPE" != "branch" ||
+          "$REF_NAME" != "main" ]]; then
+      echo "Read-only public verification requires a manual workflow dispatch on main." >&2
+      exit 2
+    fi
+    build_required=false
+    reason="manual verify-current mode is read-only"
+    ;;
+  *)
+    echo "Unknown download build mode: $MODE" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$MODE" == "build" && "$EVENT_NAME" == "schedule" && "$REF_TYPE" == "branch" ]]; then
   download_directory="$(mktemp -d)"
   trap 'rm -rf "$download_directory"' EXIT
   manifest_path="$download_directory/latest-tester-build.json"

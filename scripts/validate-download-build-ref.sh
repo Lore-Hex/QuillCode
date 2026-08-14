@@ -5,6 +5,24 @@ REF_TYPE="${GITHUB_REF_TYPE:?GITHUB_REF_TYPE is required}"
 REF_NAME="${GITHUB_REF_NAME:?GITHUB_REF_NAME is required}"
 COMMIT="${GITHUB_SHA:?GITHUB_SHA is required}"
 REPOSITORY="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
+EVENT_NAME="${GITHUB_EVENT_NAME:-}"
+MODE="${DOWNLOAD_BUILD_MODE:-build}"
+
+case "$MODE" in
+  build) ;;
+  verify-current)
+    if [[ "$EVENT_NAME" != "workflow_dispatch" ||
+          "$REF_TYPE" != "branch" ||
+          "$REF_NAME" != "main" ]]; then
+      echo "Read-only public verification requires a manual workflow dispatch on main." >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "Unknown download build mode: $MODE" >&2
+    exit 2
+    ;;
+esac
 
 git fetch --no-tags --prune origin \
   +refs/heads/main:refs/remotes/origin/main
@@ -24,6 +42,10 @@ if [[ "$REF_TYPE" == "branch" ]]; then
   if [[ "$COMMIT" != "$MAIN_COMMIT" ]]; then
     echo "Refusing to publish a stale tester build; origin/main is $MAIN_COMMIT." >&2
     exit 2
+  fi
+  if [[ "$MODE" == "verify-current" ]]; then
+    echo "Validated read-only public verification at current main commit $COMMIT."
+    exit 0
   fi
   echo "Validated tester download build at current main commit $COMMIT."
   exit 0

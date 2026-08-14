@@ -2,6 +2,15 @@ name: Download Builds
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build a fresh tester release or only verify the current public release
+        required: true
+        default: build
+        type: choice
+        options:
+          - build
+          - verify-current
   push:
     branches: [main]
     tags: ["v*"]
@@ -31,6 +40,7 @@ jobs:
       - name: Validate download build ref
         env:
           GH_TOKEN: ${{ github.token }}
+          DOWNLOAD_BUILD_MODE: ${{ inputs.mode || 'build' }}
         run: scripts/validate-download-build-ref.sh
       - name: Validate stable Apple distribution credentials
         if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
@@ -53,6 +63,7 @@ jobs:
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
+          DOWNLOAD_BUILD_MODE: ${{ inputs.mode || 'build' }}
         run: scripts/plan-download-build.sh
 
   verify-current-published:
