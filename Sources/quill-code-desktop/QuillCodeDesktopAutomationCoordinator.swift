@@ -17,9 +17,9 @@ struct QuillCodeDesktopAutomationCoordinator {
     ) {
         tasks.replace(.automationTicker) {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: tickIntervalNanoseconds)
+                await runDueAutomations(model: model, notifier: notifier, refresh: refresh)
                 guard !Task.isCancelled else { return }
-                runDueAutomations(model: model, notifier: notifier, refresh: refresh)
+                try? await Task.sleep(nanoseconds: tickIntervalNanoseconds)
             }
         }
     }
@@ -28,8 +28,9 @@ struct QuillCodeDesktopAutomationCoordinator {
         model: QuillCodeWorkspaceModel,
         notifier: any QuillCodeAutomationNotifying,
         refresh: @escaping @MainActor () -> Void
-    ) {
-        let reports = model.runDueAutomationReports()
+    ) async {
+        let reports = await model.runDueAutomationReportsAsync()
+        guard !Task.isCancelled else { return }
         guard !reports.isEmpty else { return }
 
         if DesktopNotificationPolicy.shouldDeliverAutomationReport(

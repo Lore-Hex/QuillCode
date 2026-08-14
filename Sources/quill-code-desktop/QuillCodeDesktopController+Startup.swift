@@ -108,11 +108,6 @@ extension QuillCodeDesktopController {
         // Bootstrap may finish a very small scan before its callback is installed. Starting one
         // final generation here guarantees the published surface receives the completed index.
         model.refreshFileMentionIndex()
-        automationCoordinator.runDueAutomations(
-            model: model,
-            notifier: automationNotifier,
-            refresh: { [weak self] in self?.refresh() }
-        )
         automationCoordinator.startTicker(
             model: model,
             tasks: tasks,

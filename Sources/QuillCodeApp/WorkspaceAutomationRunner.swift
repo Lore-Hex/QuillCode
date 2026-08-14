@@ -20,23 +20,47 @@ enum WorkspaceAutomationRunner {
         eventSources: [UUID: any AutomationEventSource] = [:],
         limit: Int
     ) -> [WorkspaceAutomationTrigger] {
-        automations
-            .compactMap { automation -> WorkspaceAutomationTrigger? in
-                guard automation.status == .active else { return nil }
-                if automation.nextRunAt.map({ $0 <= now }) == true {
-                    return trigger(for: automation)
-                }
-                guard automation.kind == .monitor,
-                      automation.scheduleKind == .event,
-                      let eventSource = eventSources[automation.id],
-                      let event = eventSource.pendingEvent(since: automation.lastRunAt)
-                else {
-                    return nil
-                }
-                return trigger(for: automation, eventDescription: event)
+        guard limit > 0 else { return [] }
+        var pendingEvents: [UUID: String] = [:]
+        for automation in automations {
+            guard automation.status == .active,
+                  automation.nextRunAt.map({ $0 > now }) ?? true,
+                  automation.kind == .monitor,
+                  automation.scheduleKind == .event,
+                  let eventSource = eventSources[automation.id],
+                  let event = eventSource.pendingEvent(since: automation.lastRunAt)
+            else {
+                continue
             }
-            .prefix(max(0, limit))
-            .map(\.self)
+            pendingEvents[automation.id] = event
+        }
+        return dueAutomationTriggers(
+            in: automations,
+            now: now,
+            pendingEvents: pendingEvents,
+            limit: limit
+        )
+    }
+
+    static func dueAutomationTriggersAsync(
+        in automations: [QuillAutomation],
+        now: Date,
+        eventSources: [UUID: any AutomationEventSource] = [:],
+        limit: Int
+    ) async -> [WorkspaceAutomationTrigger] {
+        guard limit > 0 else { return [] }
+        let pendingEvents = await WorkspaceAutomationEventPoller.pendingEvents(
+            in: automations,
+            now: now,
+            eventSources: eventSources
+        )
+        guard !Task.isCancelled else { return [] }
+        return dueAutomationTriggers(
+            in: automations,
+            now: now,
+            pendingEvents: pendingEvents,
+            limit: limit
+        )
     }
 
     static func updatedAfterRun(
@@ -206,6 +230,27 @@ enum WorkspaceAutomationRunner {
             automationID: automation.id,
             eventDescription: eventDescription
         )
+    }
+
+    private static func dueAutomationTriggers(
+        in automations: [QuillAutomation],
+        now: Date,
+        pendingEvents: [UUID: String],
+        limit: Int
+    ) -> [WorkspaceAutomationTrigger] {
+        guard limit > 0 else { return [] }
+        var triggers: [WorkspaceAutomationTrigger] = []
+        for automation in automations where automation.status == .active {
+            if automation.nextRunAt.map({ $0 <= now }) == true {
+                triggers.append(trigger(for: automation))
+            } else if automation.kind == .monitor,
+                      automation.scheduleKind == .event,
+                      let event = pendingEvents[automation.id] {
+                triggers.append(trigger(for: automation, eventDescription: event))
+            }
+            if triggers.count == limit { break }
+        }
+        return triggers
     }
 
     private static func automationRanEvent(for automation: QuillAutomation) -> ThreadEvent {

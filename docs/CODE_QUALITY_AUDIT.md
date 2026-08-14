@@ -18008,3 +18008,29 @@ Validation:
 - `scripts/native-click-probe-contracts.py performance` (416.16 ms launch-ready, 40.36 MiB initial, 76.38 MiB repeated, and 0.0003% idle CPU)
 - `scripts/smoke.sh` (6,373 tests; 5 skipped; 0 failures, plus CLI, app-server, MCP, crash recovery, direct launch, Launch Services, Accessibility, memory-pressure, and packaged macOS smokes)
 - Final packaged daily-driver smoke (335.38 ms launch-ready, 40.75 MiB initial, 79.91 MiB repeated, and 0.0002% idle CPU)
+
+## 2026-08-14 Responsive Automation Event Polling
+
+Overall grade: **A+ main-thread responsiveness, A+ cancellation behavior, A+ trigger integrity**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| UI responsiveness | A+ | The desktop ticker now suspends the main actor while synchronous file, directory, URL-header, and feed adapters run in utility-priority detached tasks. A slow or unreachable monitor cannot freeze native interaction or launch readiness. |
+| Resource bounds | A+ | Polling uses fixed batches of at most four adapters, a four-element completion stream, existing per-request time and byte caps, and zero work when the requested trigger limit is nonpositive. |
+| Cancellation | A+ | Cancelling the owning ticker terminates its result stream immediately and cancels every detached adapter task without waiting for a blocking synchronous provider to return. Late provider completion has no model side effect. |
+| Determinism | A+ | Concurrent completion produces a keyed event snapshot; the existing runner rebuilds triggers in persisted automation order and applies the requested result limit afterward. |
+| Race safety | A+ | The model snapshots each automation before polling and requires an exact current-state match before execution, so pause, edit, delete, or an intervening run invalidates stale external evidence. |
+| Startup behavior | A+ | The ticker performs one due-work pass before its first sleep, replacing the old synchronous startup call without delaying overdue automations by 30 seconds. |
+| Regression evidence | A+ | Focused tests prove off-main execution, bounded parallelism, order preservation, zero-limit behavior, prompt cancellation, stale-state rejection, notification policy, immediate ticker execution, launch lifecycle, and architecture ownership. |
+
+Validation:
+
+- Focused automation concurrency suite (4 tests, 0 failures)
+- Automation, event-source, persistence, notification, launch-lifecycle, and parity suite (91 tests, 0 failures)
+- Immediate ticker regression suite (5 tests, 0 failures)
+- `scripts/smoke.sh` (6,378 tests; 5 skipped; 0 failures, plus CLI, app-server, MCP,
+  crash-recovery, direct-launch, Launch Services, Accessibility, Computer Use, memory-pressure, and
+  packaged macOS smokes)
+- Three-process optimized daily-driver gate: 326.71 ms median launch-ready, 40.66 MiB initial,
+  83.11 MiB post-interaction, 87.59 MiB repeated-interaction, and 0.0003% settled idle CPU
+- `python3 scripts/grade-code-quality.py --root .` (all affected production modules A+; new poller and desktop coordinator score 100)

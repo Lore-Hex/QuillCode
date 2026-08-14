@@ -170,7 +170,7 @@ enum QuillCodeDesktopSmokeRunner {
         }
         try html.write(to: htmlURL, atomically: true, encoding: .utf8)
 
-        let scheduledCoworkerSmoke = try runScheduledCoworkerSmoke(
+        let scheduledCoworkerSmoke = try await runScheduledCoworkerSmoke(
             controller: controller,
             notifier: automationNotifier
         )
@@ -710,7 +710,7 @@ enum QuillCodeDesktopSmokeRunner {
     private static func runScheduledCoworkerSmoke(
         controller: QuillCodeDesktopController,
         notifier: SmokeAutomationNotifier
-    ) throws -> QuillCodeDesktopScheduledCoworkerSmokeReport {
+    ) async throws -> QuillCodeDesktopScheduledCoworkerSmokeReport {
         guard let project = controller.model.selectedProject else {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed("scheduled coworker smoke missing selected project")
         }
@@ -740,7 +740,7 @@ enum QuillCodeDesktopSmokeRunner {
 
         let startingNotificationCount = notifier.automationReports.count
         controller.model.setAutomations([automation])
-        controller.automationCoordinator.runDueAutomations(
+        await controller.automationCoordinator.runDueAutomations(
             model: controller.model,
             notifier: notifier,
             refresh: { controller.refresh() }

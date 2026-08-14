@@ -67,6 +67,50 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    @discardableResult
+    public func runDueAutomationReportsAsync(
+        now: Date = Date(),
+        limit: Int = 5
+    ) async -> [AutomationRunReport] {
+        await runDueAutomationReportsAsync(
+            now: now,
+            limit: limit,
+            eventSources: automationEventSources()
+        )
+    }
+
+    func runDueAutomationReportsAsync(
+        now: Date,
+        limit: Int,
+        eventSources: [UUID: any AutomationEventSource]
+    ) async -> [AutomationRunReport] {
+        let snapshot = automations.items
+        let triggers = await WorkspaceAutomationRunner.dueAutomationTriggersAsync(
+            in: snapshot,
+            now: now,
+            eventSources: eventSources,
+            limit: limit
+        )
+        guard !Task.isCancelled else { return [] }
+
+        let snapshotByID = Dictionary(
+            snapshot.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return triggers.compactMap { trigger in
+            guard let original = snapshotByID[trigger.automationID],
+                  automations.items.first(where: { $0.id == trigger.automationID }) == original
+            else {
+                return nil
+            }
+            return runAutomationReport(
+                id: trigger.automationID,
+                now: now,
+                eventDescription: trigger.eventDescription
+            )
+        }
+    }
+
     public func deleteAutomation(id: UUID) -> Bool {
         let mutation = WorkspaceAutomationStateReducer.delete(from: automations, id: id)
         guard mutation.value else { return false }
@@ -139,7 +183,8 @@ extension QuillCodeWorkspaceModel {
         }
         guard !initialProject.isRemote else {
             return reportMissingAutomationDependency(
-                "\(automation.title) uses a local environment action, but \(initialProject.name) is an SSH Remote project."
+                "\(automation.title) uses a local environment action, but "
+                    + "\(initialProject.name) is an SSH Remote project."
             )
         }
 
