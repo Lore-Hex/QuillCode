@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import QuillCodeTools
 
@@ -64,5 +65,67 @@ final class ShellProcessSupervisorTests: XCTestCase {
         )
 
         XCTAssertEqual(resolved, supervisor)
+    }
+
+    func testBuiltSupervisorDoesNotMissRapidChildExits() throws {
+        let supervisor = try builtSupervisorURL()
+
+        for iteration in 0..<100 {
+            let process = Process()
+            let stdout = Pipe()
+            let stderr = Pipe()
+            let completion = DispatchSemaphore(value: 0)
+            process.executableURL = supervisor
+            process.arguments = ["/bin/sh", "-lc", "printf 'quill-\(iteration)'"]
+            process.standardOutput = stdout
+            process.standardError = stderr
+            process.terminationHandler = { _ in completion.signal() }
+
+            try process.run()
+            guard completion.wait(timeout: .now() + 1) == .success else {
+                process.terminate()
+                process.waitUntilExit()
+                return XCTFail("Supervisor missed immediate child exit at iteration \(iteration)")
+            }
+
+            let output = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            let error = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            XCTAssertEqual(process.terminationStatus, 0, "Iteration \(iteration): \(error)")
+            XCTAssertEqual(output, "quill-\(iteration)")
+        }
+    }
+
+    private func builtSupervisorURL() throws -> URL {
+        let sourceRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let debugProduct = sourceRoot
+            .appendingPathComponent(".build/debug")
+            .appendingPathComponent(ShellProcessSupervisor.executableName)
+        if FileManager.default.isExecutableFile(atPath: debugProduct.path) {
+            return debugProduct
+        }
+
+        let starts = [
+            Bundle(for: ShellProcessSupervisorTests.self).executableURL,
+            Bundle.main.executableURL,
+            URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
+        ].compactMap { $0 }
+
+        for start in starts {
+            var directory = start.deletingLastPathComponent()
+            for _ in 0..<10 {
+                let candidate = directory.appendingPathComponent(ShellProcessSupervisor.executableName)
+                if FileManager.default.isExecutableFile(atPath: candidate.path) {
+                    return candidate
+                }
+                let parent = directory.deletingLastPathComponent()
+                if parent.path == directory.path { break }
+                directory = parent
+            }
+        }
+
+        return try XCTUnwrap(nil, "Could not locate the built process supervisor")
     }
 }

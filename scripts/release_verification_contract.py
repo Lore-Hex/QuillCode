@@ -62,6 +62,15 @@ def load_json_bytes(data: bytes, label: str) -> dict[str, Any]:
     return value
 
 
+def discover_workflow_run_url(manifest_bytes: bytes, repo: str) -> str:
+    manifest = load_json_bytes(manifest_bytes, "provenance manifest")
+    value = manifest.get("workflowRunURL")
+    pattern = rf"https://github\.com/{re.escape(repo)}/actions/runs/[1-9][0-9]*"
+    if not isinstance(value, str) or re.fullmatch(pattern, value) is None:
+        raise VerificationError("manifest publishing run URL is invalid")
+    return value
+
+
 def required_string(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise VerificationError(f"{label} must be a nonempty string")

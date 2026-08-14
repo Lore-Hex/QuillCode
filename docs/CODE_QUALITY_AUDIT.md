@@ -17873,3 +17873,30 @@ Validation:
 - Exact-commit macOS package, three-process performance, DMG verification, relocation, and relaunch passed
 - `python3 scripts/grade-code-quality.py --root .` (all affected modules A+)
 - `git diff --check`
+
+## 2026-08-13 Nightly Public Download Daily Driving
+
+Overall grade after this slice: **A+ distribution monitoring, A+ runtime evidence, A+ failure isolation**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Public-release monitoring | A+ | A healthy no-build decision now triggers an independent full-release verification instead of ending the nightly workflow after freshness planning. Provenance can be discovered only from an exact bounded manifest URL for the requested repository. |
+| Installer integrity | A+ | Native macOS jobs redownload the public universal DMG and verify manifest identity, size, SHA-256, disk-image integrity, read-only mounting, canonical app layout, sealed metadata, strict code signing, and arm64 plus x86_64 slices. |
+| Daily-driver coverage | A+ | The mounted public app runs three fresh processes against the 100-chat workload, including repeated native Accessibility interactions, launch timing, physical footprint, thread budgets, settled idle CPU, and critical-memory-pressure recovery. |
+| Architecture coverage | A+ | The same moving public tester asset is exercised on native Apple silicon and Intel GitHub runners; runner architecture is checked before launch so emulation cannot silently satisfy the contract. |
+| Failure isolation | A+ | The verifier transport, structural release contract, local asset inspection, and workload harness have focused module ownership. All downloads and parsing are bounded, temporary mounts are detached on every exit, and partial evidence survives workload failures. |
+| Diagnostic evidence | A+ | Each architecture retains the public manifest, aggregate performance result, all available per-process reports, and screenshots for 30 days, including failed nightly attempts. |
+| CI deadline reliability | A+ | The wall-clock combined-deadline test tolerates a runner scheduling pause that consumes the one-second grace before it can be announced, while deterministic cases still require the one-time extension path and reject repeated or unbounded grace. |
+| Process-exit resilience | A+ | A hosted packaged smoke exposed a missed Darwin process-exit notification on a trivial command. The native supervisor now wakes every 250 ms to recheck the child even without a `kqueue` event, and a 100-command fast-exit stress regression covers the packaged execution path. |
+| Public app result | A+ | The actual build 756 universal DMG passed 3/3 local launches at 327.44 ms selected launch-ready, 40.66 MiB initial, 74.88 MiB post-interaction, 79.42 MiB repeated-interaction, 4.55 MiB repeated growth, 0.0002% idle CPU, and zero idle memory growth. |
+
+Validation:
+
+- Focused distribution, verifier, performance, and exact-main CI parity suites (65 tests, 0 failures)
+- Complete process-supervisor suite (7 tests, 0 failures; 100 immediate supervised commands)
+- Live public-manifest provenance discovery and complete public build 756 universal-DMG verification
+- Visual review of the populated 100-chat app screenshot with sidebar, transcript, composer, and model controls unobscured
+- `scripts/smoke.sh` (6,355 tests; 5 skipped; 0 failures, plus CLI, app-server, MCP, native desktop, SIGKILL recovery, Launch Services, and packaged interaction smokes)
+- Final source-built packaged smoke: 303.27 ms launch-ready, 40.74 MiB initial, 83.66 MiB post-interaction, 87.92 MiB repeated-interaction, and 0.0056% settled idle CPU
+- `python3 scripts/grade-code-quality.py --root .` (all affected distribution modules A+)
+- Shell syntax, Python bytecode compilation, workflow contract checks, and `git diff --check`

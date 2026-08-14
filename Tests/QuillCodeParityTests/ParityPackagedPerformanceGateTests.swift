@@ -21,6 +21,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         )
         let packagedSmoke = try Self.scriptText(named: "packaged-macos-smoke.sh")
         let performanceSmoke = try Self.scriptText(named: "packaged-macos-performance-smoke.sh")
+        let publicDailyDriverSmoke = try Self.scriptText(named: "public-macos-daily-driver-smoke.sh")
         let performanceContract = try Self.scriptText(named: "performance_evidence_contract.py")
         let packageDownloads = try Self.scriptText(named: "package-macos-downloads.sh")
         let releaseNotes = try Self.scriptText(named: "build-release-notes.py")
@@ -143,6 +144,9 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "--max-idle-resident-memory-growth-bytes",
             "--max-idle-thread-growth",
             "QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS",
+            "QUILLCODE_PACKAGED_PERFORMANCE_ARTIFACT_DIR",
+            #"$ARTIFACT_DIR/window-report-$artifact_attempt.json"#,
+            #"$ARTIFACT_DIR/window-$artifact_attempt.png"#,
             #"ATTEMPT_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS:-180}""#,
             "terminate_smoke_process",
             "QUILLCODE_MAX_LAUNCH_READY_MILLISECONDS",
@@ -157,6 +161,23 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"QUILLCODE_MAX_LAUNCH_READY_MILLISECONDS:-2500"#,
             #"QUILLCODE_MAX_RESIDENT_MEMORY_BYTES:-134217728"#,
             #"QUILLCODE_MAX_IDLE_CPU_PERCENT:-5"#
+        ])
+        Self.assertSource(publicDailyDriverSmoke, containsAll: [
+            "gh",
+            "release download tester-latest",
+            "latest-tester-build.json",
+            "Quill-Cowork-macOS-universal.dmg",
+            "updater.macOSUniversalInstaller.sizeBytes",
+            "updater.macOSUniversalInstaller.sha256",
+            "hdiutil",
+            "attach \"$DMG_PATH\" -readonly -nobrowse",
+            "codesign",
+            "-verify_arch arm64 x86_64",
+            "QuillCodeBuildCommit",
+            "QuillCodeUpdateChannel",
+            "scripts/packaged-macos-performance-smoke.sh",
+            "QUILLCODE_PACKAGED_PERFORMANCE_ARTIFACT_DIR",
+            "daily-driver-100-chats"
         ])
         Self.assertSource(packageDownloads, containsAll: [
             "Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",

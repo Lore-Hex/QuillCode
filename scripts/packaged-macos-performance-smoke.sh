@@ -14,6 +14,7 @@ MAX_IDLE_CPU_PERCENT="${QUILLCODE_MAX_IDLE_CPU_PERCENT:-5}"
 MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES="${QUILLCODE_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES:-8388608}"
 MAX_IDLE_THREAD_GROWTH="${QUILLCODE_MAX_IDLE_THREAD_GROWTH:-2}"
 ATTEMPT_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS:-180}"
+ARTIFACT_DIR="${QUILLCODE_PACKAGED_PERFORMANCE_ARTIFACT_DIR:-}"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-packaged-performance.XXXXXX")"
 PERFORMANCE_ATTEMPT_COUNT=3
 SMOKE_PID=""
@@ -41,6 +42,17 @@ terminate_smoke_process() {
 
 cleanup() {
   terminate_smoke_process
+  if [[ -n "$ARTIFACT_DIR" && -d "$ARTIFACT_DIR" ]]; then
+    for ((artifact_attempt = 1; artifact_attempt <= PERFORMANCE_ATTEMPT_COUNT; artifact_attempt += 1)); do
+      if [[ -f "$SMOKE_ROOT/window-report-$artifact_attempt.json" ]]; then
+        cp "$SMOKE_ROOT/window-report-$artifact_attempt.json" \
+          "$ARTIFACT_DIR/window-report-$artifact_attempt.json"
+      fi
+      if [[ -f "$SMOKE_ROOT/window-$artifact_attempt.png" ]]; then
+        cp "$SMOKE_ROOT/window-$artifact_attempt.png" "$ARTIFACT_DIR/window-$artifact_attempt.png"
+      fi
+    done
+  fi
   rm -rf "$SMOKE_ROOT"
 }
 trap cleanup EXIT
@@ -73,6 +85,13 @@ fi
 if [[ ! "$ATTEMPT_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
   echo "QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS must be a positive integer." >&2
   exit 2
+fi
+if [[ -n "$ARTIFACT_DIR" ]]; then
+  if [[ -e "$ARTIFACT_DIR" || -L "$ARTIFACT_DIR" ]]; then
+    echo "QUILLCODE_PACKAGED_PERFORMANCE_ARTIFACT_DIR must not already exist." >&2
+    exit 2
+  fi
+  mkdir -p "$ARTIFACT_DIR"
 fi
 
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"

@@ -186,7 +186,16 @@ ahead into the public updater feed.
 The nightly check skips packaging only when the live manifest publishes the
 current `main` commit and its exact **Download Builds** run completed successfully
 on that commit. This avoids no-op build-number updates and unnecessary updater
-prompts without treating a partial publication as healthy.
+prompts without treating a partial publication as healthy. A no-build decision
+does not skip product verification: the workflow redownloads and independently
+verifies the complete public release, then runs the public universal DMG through
+the three-process 100-chat daily-driver workload on native Apple silicon and Intel
+runners. Each architecture rechecks the manifest identity, installer size and
+SHA-256, disk image, code signature, universal executable slices, sealed app
+metadata, launch time, memory, threads, repeated interactions, and settled idle
+CPU. Raw reports and screenshots are retained for 30 days. A stale, damaged,
+unlaunchable, or resource-regressed public build therefore turns the nightly
+distribution check red even when no source change needs packaging.
 When a build is required, the workflow updates the stable `tester-latest` tag
 and replaces release assets in place, so the links above do not change as new
 builds are published. Immediately before changing that moving release, the
