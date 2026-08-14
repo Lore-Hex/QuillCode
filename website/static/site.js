@@ -1,74 +1,155 @@
 (() => {
   "use strict";
 
-  const releaseAPIURL =
-    "https://api.github.com/repos/Lore-Hex/QuillCode/releases/tags/tester-latest";
-  const installerURL =
-    "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg";
+  const repositoryURL = "https://github.com/Lore-Hex/QuillCode";
+  const installerName = "Quill-Cowork-macOS-universal.dmg";
+  const feeds = [
+    {
+      apiURL: "https://api.github.com/repos/Lore-Hex/QuillCode/releases/latest",
+      channel: "stable",
+      manifestName: "latest-stable-build.json",
+    },
+    {
+      apiURL:
+        "https://api.github.com/repos/Lore-Hex/QuillCode/releases/tags/tester-latest",
+      channel: "tester",
+      manifestName: "latest-tester-build.json",
+    },
+  ];
 
-  function readCurrentRelease(release) {
+  function uploadedAsset(release, name, expectedURL) {
+    const matches = Array.isArray(release?.assets)
+      ? release.assets.filter((asset) => asset?.name === name)
+      : [];
+    const asset = matches.length === 1 ? matches[0] : null;
     if (
-      !release ||
-      release.name !== "Quill Cowork Tester Build" ||
-      release.tag_name !== "tester-latest" ||
-      release.draft !== false ||
-      release.prerelease !== true ||
-      !/^[0-9a-f]{40}$/.test(release.target_commitish) ||
-      !Array.isArray(release.assets)
+      asset?.state !== "uploaded" ||
+      asset?.browser_download_url !== expectedURL ||
+      !/^sha256:[0-9a-f]{64}$/.test(asset?.digest) ||
+      !Number.isSafeInteger(asset?.size) ||
+      asset.size <= 0
     ) {
       return null;
     }
+    return asset;
+  }
 
-    const installers = release.assets.filter(
-      (asset) => asset?.name === "Quill-Cowork-macOS-universal.dmg",
+  function readCurrentRelease(release, feed) {
+    const tag = release?.tag_name;
+    const stableTag = /^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag);
+    const expectedTag = feed.channel === "stable" ? stableTag : tag === "tester-latest";
+    const expectedName = feed.channel === "stable"
+      ? `Quill Cowork ${tag}`
+      : "Quill Cowork Tester Build";
+    const expectedPrerelease = feed.channel === "tester";
+    const releaseURL = `${repositoryURL}/releases/tag/${tag}`;
+    const assetBaseURL = `${repositoryURL}/releases/download/${tag}`;
+    const installer = uploadedAsset(
+      release,
+      installerName,
+      `${assetBaseURL}/${installerName}`,
     );
-    const installer = installers.length === 1 ? installers[0] : null;
+    const manifest = uploadedAsset(
+      release,
+      feed.manifestName,
+      `${assetBaseURL}/${feed.manifestName}`,
+    );
+    const expectedSigningCopy = feed.channel === "stable"
+      ? "Developer ID signed, notarized by Apple, and stapled for normal first launch."
+      : "ad-hoc signed and not Apple-notarized.";
+    const updatedAt = new Date(release?.updated_at);
+
     if (
+      !expectedTag ||
+      release?.name !== expectedName ||
+      release?.html_url !== releaseURL ||
+      release?.draft !== false ||
+      release?.prerelease !== expectedPrerelease ||
+      !/^[0-9a-f]{40}$/.test(release?.target_commitish) ||
+      !release?.body?.includes(expectedSigningCopy) ||
       !installer ||
-      installer.state !== "uploaded" ||
-      installer.browser_download_url !== installerURL ||
-      !/^sha256:[0-9a-f]{64}$/.test(installer.digest) ||
-      !Number.isSafeInteger(installer.size) ||
-      installer.size <= 0
+      !manifest ||
+      !Number.isFinite(updatedAt.getTime())
     ) {
       return null;
     }
 
-    const updatedAt = new Date(release.updated_at);
-    if (!Number.isFinite(updatedAt.getTime())) {
-      return null;
-    }
-
+    const isStable = feed.channel === "stable";
     return {
+      caption: isStable
+        ? "The current notarized macOS release. The same workspace handles documents, research, browser tasks, and technical work."
+        : "The current macOS tester build. The same workspace handles documents, research, browser tasks, and technical work.",
+      channel: feed.channel,
+      commit: release.target_commitish,
+      installerURL: installer.browser_download_url,
+      installGuidance: isStable
+        ? "One notarized installer runs natively on Apple silicon and Intel Macs. Move Quill Cowork to Applications, then open it normally."
+        : "One installer runs natively on Apple silicon and Intel Macs. After moving the app to Applications, Control-click it and choose Open on first launch. The tester channel is not Apple-notarized yet.",
       label: `Updated ${updatedAt.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
       })}`,
-      installerURL: installer.browser_download_url,
+      releaseKind: isStable ? "Stable release" : "Free tester build",
+      releaseSection: isStable ? "Stable release" : "Tester release",
+      releaseURL,
     };
   }
 
-  fetch(releaseAPIURL, {
-    cache: "no-store",
-    headers: { Accept: "application/vnd.github+json" },
-  })
-    .then((response) => (response.ok ? response.json() : null))
-    .then(readCurrentRelease)
-    .then((build) => {
-      if (!build) {
-        return;
+  async function fetchRelease(feed) {
+    try {
+      const response = await fetch(feed.apiURL, {
+        cache: "no-store",
+        credentials: "omit",
+        headers: { Accept: "application/vnd.github+json" },
+        referrerPolicy: "no-referrer",
+      });
+      if (!response.ok) {
+        return null;
       }
+      return readCurrentRelease(await response.json(), feed);
+    } catch {
+      return null;
+    }
+  }
 
-      document.querySelectorAll("[data-download-link]").forEach((link) => {
-        link.href = build.installerURL;
-      });
-      document.querySelectorAll("[data-build-label]").forEach((label) => {
-        label.textContent = build.label;
-      });
-      document.documentElement.dataset.release = "current";
-    })
-    .catch(() => {
-      // Static download links remain complete when live release metadata is unavailable.
+  async function preferredRelease() {
+    for (const feed of feeds) {
+      const release = await fetchRelease(feed);
+      if (release) {
+        return release;
+      }
+    }
+    return null;
+  }
+
+  preferredRelease().then((release) => {
+    if (!release) {
+      return;
+    }
+
+    document.querySelectorAll("[data-download-link]").forEach((link) => {
+      link.href = release.installerURL;
     });
+    document.querySelectorAll("[data-release-link]").forEach((link) => {
+      link.href = release.releaseURL;
+    });
+    document.querySelectorAll("[data-build-label]").forEach((label) => {
+      label.textContent = release.label;
+    });
+    document.querySelectorAll("[data-release-kind]").forEach((label) => {
+      label.textContent = release.releaseKind;
+    });
+    document.querySelectorAll("[data-release-section]").forEach((label) => {
+      label.textContent = release.releaseSection;
+    });
+    document.querySelectorAll("[data-install-guidance]").forEach((label) => {
+      label.textContent = release.installGuidance;
+    });
+    document.querySelectorAll("[data-release-caption]").forEach((label) => {
+      label.textContent = release.caption;
+    });
+    document.documentElement.dataset.release = release.channel;
+    document.documentElement.dataset.commit = release.commit;
+  });
 })();

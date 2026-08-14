@@ -9,10 +9,15 @@ Send ordinary Mac testers to the public website:
 - [Quill Cowork](https://cowork.quillos.cloud/)
 
 The website's primary download always uses the universal installer and works without JavaScript.
-When GitHub's public release API is reachable, the page additionally shows the release update date
-only after validating the release name, tester tag and state, exact commit shape, and the sole
-universal installer's upload state, URL, size, and SHA-256 digest. A malformed, rate-limited, or
-unavailable response leaves the known-good moving link and static installation guidance intact.
+Its static fallback is the known-good tester installer. When GitHub's public release API is
+reachable, the page first tries the latest stable release and accepts it only when the product name,
+semantic version tag, immutable commit, non-prerelease state, generated Developer ID and notarization
+notice, release URL, stable manifest asset, and sole universal installer's URL, upload state, size,
+and SHA-256 digest all agree. Until a stable release exists, the same validation runs against the
+tester prerelease and its ad-hoc signing notice. Malformed, rate-limited, or unavailable metadata
+leaves the static tester link and Gatekeeper guidance intact. Download links, release-note links,
+freshness text, channel labels, screenshot copy, and install guidance switch as one update, so a
+stable download is never paired with tester instructions or provenance.
 
 Send technical testers this moving prerelease link for provenance and secondary artifacts:
 

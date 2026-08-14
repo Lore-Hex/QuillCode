@@ -71,7 +71,20 @@ class WebsiteTests(unittest.TestCase):
         )
         result = self.verify()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("freshly fetched and validated", result.stderr)
+        self.assertIn("fail-closed validated", result.stderr)
+
+    def test_stable_feed_removal_fails(self) -> None:
+        script = self.site / "static/site.js"
+        script.write_text(
+            script.read_text(encoding="utf-8").replace(
+                "https://api.github.com/repos/Lore-Hex/QuillCode/releases/latest",
+                "https://example.com/releases/latest",
+            ),
+            encoding="utf-8",
+        )
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("prefer stable", result.stderr)
 
 
 if __name__ == "__main__":

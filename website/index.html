@@ -18,7 +18,7 @@
   <meta name="twitter:description" content="A native AI coworker for research, reports, spreadsheets, and recurring office work.">
   <meta name="twitter:image" content="https://cowork.quillos.cloud/static/media/quill-cowork-desktop.png">
   <link rel="stylesheet" href="/static/cowork.css?v=2">
-  <script src="/static/site.js?v=1" defer></script>
+  <script src="/static/site.js?v=2" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -56,9 +56,9 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"></path></svg>
             Download for Mac
           </a>
-          <a class="text-link" href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Release notes and checksums</a>
+          <a class="text-link" data-release-link href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Release notes and checksums</a>
         </div>
-        <p class="download-note">Free tester build &middot; <span data-build-label>Latest tester release</span> &middot; macOS 14+ &middot; Apple silicon and Intel</p>
+        <p class="download-note"><span data-release-kind>Free tester build</span> &middot; <span data-build-label>Latest tester release</span> &middot; macOS 14+ &middot; Apple silicon and Intel</p>
       </div>
     </section>
 
@@ -133,7 +133,7 @@
         </div>
         <figure class="product-figure">
           <img src="/static/media/quill-cowork-desktop.png" width="1920" height="1350" alt="Quill Cowork native Mac workspace showing tasks, files, tools, and review controls" loading="lazy" decoding="async">
-          <figcaption>The current macOS tester build. The same workspace handles documents, research, browser tasks, and technical work.</figcaption>
+          <figcaption data-release-caption>The current macOS tester build. The same workspace handles documents, research, browser tasks, and technical work.</figcaption>
         </figure>
       </div>
     </section>
@@ -164,7 +164,7 @@
     <section class="download-section section-band" id="download">
       <div class="site-shell download-layout">
         <div>
-          <p class="eyebrow">Tester release</p>
+          <p class="eyebrow" data-release-section>Tester release</p>
           <h2>Give Quill its first task.</h2>
           <p>Download the Mac app, choose a folder, and describe the result you want.</p>
         </div>
@@ -173,8 +173,8 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"></path></svg>
             Download for Mac
           </a>
-          <a class="text-link" href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Release notes, checksums, and CLI downloads</a>
-          <p><span data-build-label>Latest tester release</span>. One installer runs natively on Apple silicon and Intel Macs. After moving the app to Applications, Control-click it and choose Open on first launch. The tester channel is not Apple-notarized yet.</p>
+          <a class="text-link" data-release-link href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Release notes, checksums, and CLI downloads</a>
+          <p><span data-build-label>Latest tester release</span>. <span data-install-guidance>One installer runs natively on Apple silicon and Intel Macs. After moving the app to Applications, Control-click it and choose Open on first launch. The tester channel is not Apple-notarized yet.</span></p>
         </div>
       </div>
     </section>
@@ -197,7 +197,7 @@
       </div>
       <nav aria-label="Footer navigation">
         <a href="https://trustedrouter.com">TrustedRouter</a>
-        <a href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Releases</a>
+        <a data-release-link href="https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest">Releases</a>
         <a href="https://github.com/Lore-Hex/QuillCode">For developers</a>
         <a href="mailto:help@trustedrouter.com">Help</a>
       </nav>
