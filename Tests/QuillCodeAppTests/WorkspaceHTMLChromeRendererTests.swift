@@ -160,6 +160,25 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(remoteHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
     }
 
+    func testProjectRendererPublishesRefreshProgressAndDisablesDuplicateAction() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let item = ProjectItemSurface(
+            project: project,
+            selectedProjectID: project.id,
+            isRefreshing: true
+        )
+
+        let html = WorkspaceHTMLSidebarProjectRenderer.render(ProjectListSurface(
+            items: [item],
+            selectedProjectID: project.id
+        ))
+
+        XCTAssertTrue(html.contains(#"data-testid="project-refresh-status""#))
+        XCTAssertTrue(html.contains("Refreshing..."))
+        XCTAssertTrue(html.contains("Context refresh is already in progress"))
+        XCTAssertTrue(html.contains("disabled"))
+    }
+
     func testHTMLRendererShowsWorktreeTopBarStatusAndDanglingWarning() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/quillcode")
         var thread = ChatThread(title: "Feature", projectID: project.id)

@@ -90,6 +90,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var isRemote: Bool
     public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
+    public var isRefreshing: Bool
 
     public var selectionLabel: String? {
         isSelected ? "Current" : nil
@@ -100,8 +101,9 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
             isSelected ? "Current project" : "Project",
             name,
             connectionKindLabel,
-            path
-        ].joined(separator: ", ")
+            path,
+            isRefreshing ? "Refreshing context" : nil
+        ].compactMap { $0 }.joined(separator: ", ")
     }
 
     public var actionMenuAccessibilityLabel: String {
@@ -115,6 +117,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public init(
         project: ProjectRef,
         selectedProjectID: UUID?,
+        isRefreshing: Bool = false,
         canMoveToTop: Bool = true,
         canMoveUp: Bool = true,
         canMoveDown: Bool = true,
@@ -127,7 +130,12 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.isRemote = project.isRemote
         self.actions = [
             ProjectItemActionSurface(kind: .newChat, projectID: project.id),
-            ProjectItemActionSurface(kind: .refreshContext, projectID: project.id),
+            ProjectItemActionSurface(
+                kind: .refreshContext,
+                projectID: project.id,
+                isEnabled: !isRefreshing,
+                disabledReason: isRefreshing ? "Context refresh is already in progress" : nil
+            ),
             ProjectItemActionSurface(
                 kind: .moveToTop,
                 projectID: project.id,
@@ -156,6 +164,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
         ]
         self.isSelected = project.id == selectedProjectID
+        self.isRefreshing = isRefreshing
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -166,6 +175,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         case isRemote
         case actions
         case isSelected
+        case isRefreshing
     }
 
     public init(from decoder: Decoder) throws {
@@ -186,6 +196,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
             ProjectItemActionSurface(kind: .remove, projectID: id)
         ]
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+        self.isRefreshing = try container.decodeIfPresent(Bool.self, forKey: .isRefreshing) ?? false
     }
 }
 

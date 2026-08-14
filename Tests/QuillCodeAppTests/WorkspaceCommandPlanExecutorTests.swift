@@ -209,7 +209,7 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.composer.draft.contains("Suggested fix: Choose one intent for tests guidance"))
     }
 
-    func testExecutorAppliesInstructionDiagnosticPatchAndRefreshesContext() throws {
+    func testExecutorAppliesInstructionDiagnosticPatchAndRefreshesContext() async throws {
         let root = try makeTempDirectory()
         XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init", cwd: root)).ok)
         let featureDirectory = root.appendingPathComponent("Sources/Feature")
@@ -268,6 +268,7 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
             "activity-instruction-apply:0:\(diagnosticID)",
             workspaceRoot: root
         ))
+        await model.waitForScheduledProjectContextRefresh()
 
         let editedFeatureInstruction = try String(
             contentsOf: featureDirectory.appendingPathComponent("AGENTS.md"),
@@ -282,7 +283,7 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertEqual(try projectStore.load().first?.resolvedInstructionDiagnosticIDs, [diagnosticID])
     }
 
-    func testExecutorClearsExactDuplicateInstructionSourceAndRefreshesContext() throws {
+    func testExecutorClearsExactDuplicateInstructionSourceAndRefreshesContext() async throws {
         let root = try makeTempDirectory()
         XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init", cwd: root)).ok)
         let rulesDirectory = root.appendingPathComponent(".quillcode")
@@ -340,6 +341,7 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
             "activity-instruction-apply:1:\(diagnosticID)",
             workspaceRoot: root
         ))
+        await model.waitForScheduledProjectContextRefresh()
 
         let editedRules = try String(
             contentsOf: rulesDirectory.appendingPathComponent("rules.md"),

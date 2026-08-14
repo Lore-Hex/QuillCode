@@ -140,6 +140,24 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         XCTAssertEqual(item.actions.first { $0.kind == .moveToBottom }?.disabledReason, "Already at the bottom")
     }
 
+    func testProjectItemSurfacePublishesRefreshProgressAndPreventsDuplicateRefreshes() {
+        let project = ProjectRef(name: "QuillCode", path: "/repo")
+
+        let item = ProjectItemSurface(
+            project: project,
+            selectedProjectID: project.id,
+            isRefreshing: true
+        )
+
+        XCTAssertTrue(item.isRefreshing)
+        XCTAssertTrue(item.accessibilityLabel.contains("Refreshing context"))
+        XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
+        XCTAssertEqual(
+            item.actions.first { $0.kind == .refreshContext }?.disabledReason,
+            "Context refresh is already in progress"
+        )
+    }
+
     func testProjectItemSurfaceDecodesOlderPayloadWithoutRemoteMetadataOrActions() throws {
         let projectID = UUID()
         let json = """
@@ -155,6 +173,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
 
         XCTAssertEqual(item.connectionKindLabel, "Local")
         XCTAssertFalse(item.isRemote)
+        XCTAssertFalse(item.isRefreshing)
         XCTAssertNil(item.selectionLabel)
         XCTAssertEqual(item.accessibilityLabel, "Project, QuillCode, Local, /Users/quill/QuillCode")
         XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .moveToTop, .moveUp, .moveDown, .moveToBottom, .rename, .remove])

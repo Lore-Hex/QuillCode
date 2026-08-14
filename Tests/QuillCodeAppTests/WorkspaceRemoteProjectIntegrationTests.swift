@@ -48,7 +48,7 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("PR checkout/reviewers/labels/merge"), true)
     }
 
-    func testRefreshProjectContextLoadsSSHRemoteInstructionsAndMemories() throws {
+    func testRefreshProjectContextLoadsSSHRemoteInstructionsAndMemoriesOffMain() async throws {
         let root = try makeTempDirectory()
         let remoteRoot = root.appendingPathComponent("remote repo")
         try FileManager.default.createDirectory(
@@ -81,7 +81,11 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         )
 
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")
-        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let fakeSSH = try makeExecutingFakeSSH(
+            in: root,
+            argumentsFile: argumentsFile,
+            delaySeconds: 0.25
+        )
         let connection = ProjectConnection.ssh(
             path: remoteRoot.path,
             host: "feather.local",
@@ -97,7 +101,20 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         )
         _ = model.newChat(projectID: project.id)
 
-        XCTAssertTrue(model.refreshProjectContext(project.id), model.lastError ?? "")
+        let startedAt = ContinuousClock.now
+        XCTAssertTrue(model.scheduleProjectContextRefresh(project.id), model.lastError ?? "")
+        XCTAssertLessThan(startedAt.duration(to: .now), .milliseconds(100))
+        XCTAssertEqual(model.surface().projects.items.first?.isRefreshing, true)
+        XCTAssertEqual(
+            model.surface().projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled,
+            false
+        )
+        XCTAssertEqual(
+            model.surface().commands.first { $0.id == "project-refresh-context" }?.isEnabled,
+            false
+        )
+
+        await model.waitForScheduledProjectContextRefresh()
 
         let refreshedProject = try XCTUnwrap(model.root.projects.first)
         XCTAssertEqual(
@@ -119,6 +136,51 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
         XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path.replacingOccurrences(of: "'", with: "'\\''"))' &&"))
         XCTAssertTrue(arguments.contains("QUILLCODE_CONTEXT_"))
+    }
+
+    func testFailedSSHProjectContextRefreshRestoresControlsAndSurfacesFailure() async throws {
+        let root = try makeTempDirectory()
+        let fakeSSH = root.appendingPathComponent("failing-ssh")
+        try """
+        #!/bin/sh
+        /bin/sleep 0.1
+        echo 'remote context unavailable' >&2
+        exit 23
+        """.write(to: fakeSSH, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeSSH.path)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "offline.local",
+            user: "quill"
+        )
+        let project = ProjectRef(name: "Offline", path: connection.path, connection: connection)
+        let thread = ChatThread(projectID: project.id)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 1
+            )
+        )
+
+        XCTAssertTrue(model.scheduleProjectContextRefresh(project.id))
+        XCTAssertEqual(model.surface().projects.items.first?.isRefreshing, true)
+        await model.waitForScheduledProjectContextRefresh()
+
+        XCTAssertEqual(model.surface().projects.items.first?.isRefreshing, false)
+        XCTAssertEqual(
+            model.surface().projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled,
+            true
+        )
+        XCTAssertEqual(model.surface().commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertNotNil(model.lastError)
+        XCTAssertEqual(model.selectedProject?.instructions, [])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Project context refresh failed")
     }
 
     func testSlashSSHRejectsMalformedAddress() async throws {

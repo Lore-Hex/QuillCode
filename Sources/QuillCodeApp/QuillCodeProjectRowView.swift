@@ -34,6 +34,12 @@ struct QuillCodeProjectRowView: View {
                         .foregroundStyle(QuillCodePalette.blue)
                 }
                 Spacer(minLength: 0)
+                if project.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 16, height: 16)
+                        .accessibilityHidden(true)
+                }
             }
             .quillCodeSidebarRowChrome(background: project.isSelected ? QuillCodePalette.selection : Color.clear)
         }

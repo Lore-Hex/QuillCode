@@ -271,6 +271,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   responses, deadlines, direct calls with null turns, agent calls with exact turns, interruption and
   disconnect cancellation, `serverRequest/resolved` ordering, and continued stdin response handling
   while the originating direct tool request remains open.
+- User-triggered local and SSH Remote project-context refresh: the row, command palette, and
+  instruction-diagnostic routes return within 100 ms while a filesystem loader or SSH process is
+  deliberately stalled; loading runs off the main actor; one latest request is coalesced behind
+  in-flight work; exact path/connection and generation checks reject stale results; native and HTML
+  surfaces expose progress and disable duplicate actions; success updates project/thread context;
+  and transport failure preserves known context, restores controls, and records a visible failure.
 
 ## Playwright E2E
 
@@ -282,7 +288,8 @@ Drive the QuillCode test harness with mock LLM:
 - first run
 - login
 - interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 44px hit areas, accessible names, no nested or overlapping interactive targets, unblocked center/inset click points, visible command targets that route to known commands, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines
-- open project, rename it, refresh context, start a project-scoped chat, and remove it from the project list
+- open project, rename it, refresh context with immediate progress and disabled duplicate controls,
+  start a project-scoped chat, and remove it from the project list
 - open the native SSH dialog from the sidebar, command palette, and Settings; filter configured hosts; switch to manual entry; verify invalid destination/path/port combinations disable submission; prove failed probes remain retryable; prove backdrop, Escape, Close, and Cancel invalidate in-flight discovery/probe results; register only after a successful probe; preserve the selected alias rather than its resolved hostname; complete `/ssh user@host:/path` as a compatible fast path; verify sidebar badge/path/top-bar context; refresh remote context from mock AGENTS/rules/memories; run `pwd` in the integrated terminal against the remote mock; run remote git status/diff from the command palette; run stage/restore from the review pane; run commit/push/PR creation/checkout/commenting/reviewing/reviewer-request/merging from chat-driven tools through fake SSH and fake `gh`; run remote worktree list/create/remove through fake SSH; verify remote worktree creation opens the new worktree as an SSH Remote project/thread; verify terminal and tool-card execution-context chips/rails say `SSH Remote`; and verify chat-driven `whoami` uses `host.shell.run` while remote file read/list/write, apply-patch, and review requests use `host.file.read`/`host.file.list`/`host.file.write`/`host.apply_patch`/`host.git.*` over SSH instead of local file tools
 - find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
 - search and select a model, including current/default/recommended badges, provider/category/model metadata rows, metadata-backed search, and duplicate-free search results
