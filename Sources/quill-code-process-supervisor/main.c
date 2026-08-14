@@ -183,7 +183,8 @@ static int monitor_with_kqueue(pid_t parent, pid_t child) {
         }
 
         struct kevent event;
-        int event_count = kevent(queue, NULL, 0, &event, 1, NULL);
+        struct timespec timeout = {.tv_sec = 0, .tv_nsec = 250000000L};
+        int event_count = kevent(queue, NULL, 0, &event, 1, &timeout);
         if (event_count < 0) {
             if (errno == EINTR) {
                 continue;

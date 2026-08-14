@@ -38,6 +38,8 @@ final class ParityProcessSupervisorGateTests: QuillCodeParityTestCase {
             "getppid() != parent",
             "EVFILT_PROC",
             "NOTE_EXIT",
+            "struct timespec timeout",
+            "kevent(queue, NULL, 0, &event, 1, &timeout)",
             "WEXITED | WNOHANG | WNOWAIT",
             "reap_child(child, &status)",
             "PR_SET_PDEATHSIG"
