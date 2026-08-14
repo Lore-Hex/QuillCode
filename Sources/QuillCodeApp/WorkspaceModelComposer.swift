@@ -121,7 +121,12 @@ extension QuillCodeWorkspaceModel {
             composer.draft = ""
             clearComposerDraft(for: draftThreadID)
             setLastError(nil)
-            await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
+            await handleSlashCommand(
+                command,
+                originalPrompt: originalPrompt,
+                workspaceRoot: workspaceRoot,
+                onProgressUpdated: onProgressUpdated
+            )
             return nil
         case .scheduledCoworker(let request):
             composer.draft = ""
@@ -223,7 +228,11 @@ extension QuillCodeWorkspaceModel {
             _ = newChat()
         }
         let resolvedThreadID = threadID ?? root.selectedThreadID
-        guard var thread = root.threads.first(where: { $0.id == resolvedThreadID }) else { return nil }
+        guard !isCancellableToolRunActive(for: resolvedThreadID),
+              var thread = root.threads.first(where: { $0.id == resolvedThreadID })
+        else {
+            return nil
+        }
         syncThreadContext(into: &thread)
         return thread
     }

@@ -67,50 +67,6 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    @discardableResult
-    public func runDueAutomationReportsAsync(
-        now: Date = Date(),
-        limit: Int = 5
-    ) async -> [AutomationRunReport] {
-        await runDueAutomationReportsAsync(
-            now: now,
-            limit: limit,
-            eventSources: automationEventSources()
-        )
-    }
-
-    func runDueAutomationReportsAsync(
-        now: Date,
-        limit: Int,
-        eventSources: [UUID: any AutomationEventSource]
-    ) async -> [AutomationRunReport] {
-        let snapshot = automations.items
-        let triggers = await WorkspaceAutomationRunner.dueAutomationTriggersAsync(
-            in: snapshot,
-            now: now,
-            eventSources: eventSources,
-            limit: limit
-        )
-        guard !Task.isCancelled else { return [] }
-
-        let snapshotByID = Dictionary(
-            snapshot.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        return triggers.compactMap { trigger in
-            guard let original = snapshotByID[trigger.automationID],
-                  automations.items.first(where: { $0.id == trigger.automationID }) == original
-            else {
-                return nil
-            }
-            return runAutomationReport(
-                id: trigger.automationID,
-                now: now,
-                eventDescription: trigger.eventDescription
-            )
-        }
-    }
-
     public func deleteAutomation(id: UUID) -> Bool {
         let mutation = WorkspaceAutomationStateReducer.delete(from: automations, id: id)
         guard mutation.value else { return false }
@@ -118,7 +74,7 @@ extension QuillCodeWorkspaceModel {
         return mutation.value
     }
 
-    private func runThreadFollowUpAutomation(
+    func runThreadFollowUpAutomation(
         _ automation: QuillAutomation,
         now: Date
     ) -> AutomationRunReport? {
@@ -143,7 +99,7 @@ extension QuillCodeWorkspaceModel {
         return applyAutomationRunDraft(draft)
     }
 
-    private func runWorkspaceScheduleAutomation(
+    func runWorkspaceScheduleAutomation(
         _ automation: QuillAutomation,
         now: Date
     ) -> AutomationRunReport? {
@@ -221,7 +177,7 @@ extension QuillCodeWorkspaceModel {
         return report
     }
 
-    private func runMonitorAutomation(
+    func runMonitorAutomation(
         _ automation: QuillAutomation,
         eventDescription: String?,
         now: Date
@@ -259,7 +215,7 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    private func applyAutomationRunDraft(_ draft: WorkspaceAutomationRunDraft) -> AutomationRunReport {
+    func applyAutomationRunDraft(_ draft: WorkspaceAutomationRunDraft) -> AutomationRunReport {
         replaceAutomation(draft.automation)
         _ = insertCreatedThread(draft.thread, selectedProjectID: draft.selectedProjectID, saveThread: true)
         setAutomationsVisible(true)
@@ -268,7 +224,7 @@ extension QuillCodeWorkspaceModel {
         return draft.report
     }
 
-    private func reportMissingAutomationDependency(_ message: String) -> AutomationRunReport? {
+    func reportMissingAutomationDependency(_ message: String) -> AutomationRunReport? {
         setLastError(message)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return nil
@@ -283,7 +239,7 @@ extension QuillCodeWorkspaceModel {
         applyAutomationState(mutation.state)
     }
 
-    private func automationEventSources() -> [UUID: any AutomationEventSource] {
+    func automationEventSources() -> [UUID: any AutomationEventSource] {
         var sources: [UUID: any AutomationEventSource] = [:]
         for automation in automations.items
         where automation.status == .active

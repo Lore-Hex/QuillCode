@@ -97,7 +97,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func deleteThread(_ id: UUID) -> Bool {
-        guard !agentRuns.isRunning(id) else {
+        guard !agentRuns.isRunning(id), !isCancellableToolRunActive(for: id) else {
             setLastError("Stop this chat before deleting it.")
             return false
         }
@@ -139,7 +139,7 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func clearThread(_ id: UUID) -> Bool {
-        guard !agentRuns.isRunning(id) else {
+        guard !agentRuns.isRunning(id), !isCancellableToolRunActive(for: id) else {
             setLastError("Stop this chat before clearing it.")
             return false
         }

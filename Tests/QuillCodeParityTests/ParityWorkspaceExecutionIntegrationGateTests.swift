@@ -35,11 +35,13 @@ final class ParityWorkspaceExecutionIntegrationGateTests: QuillCodeParityTestCas
         Self.assertSource(actionExecutorText, containsAll: [
             "extension QuillCodeWorkspaceModel",
             "func runSlashCommandDispatchAction",
-            "switch action"
+            "switch action",
+            "onProgressUpdated: onProgressUpdated"
         ])
         Self.assertSource(slashText, containsAll: [
             "WorkspaceSlashCommandDispatchPlanner.action(",
-            "await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"
+            "await runSlashCommandDispatchAction(",
+            "onProgressUpdated: onProgressUpdated"
         ])
         Self.assertSource(plannerTests, contains: "testExternalCommandFamiliesMapToTypedActions")
         Self.assertSource(modelText, excludesAll: [

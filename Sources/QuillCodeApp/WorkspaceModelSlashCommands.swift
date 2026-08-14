@@ -3,13 +3,22 @@ import QuillCodeCore
 
 @MainActor
 extension QuillCodeWorkspaceModel {
-    func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) async {
+    func handleSlashCommand(
+        _ command: SlashCommand,
+        originalPrompt: String,
+        workspaceRoot: URL,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async {
         let action = WorkspaceSlashCommandDispatchPlanner.action(
             for: command,
             userText: originalPrompt,
             statusText: statusText()
         )
-        await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
+        await runSlashCommandDispatchAction(
+            action,
+            workspaceRoot: workspaceRoot,
+            onProgressUpdated: onProgressUpdated
+        )
         composer.isSending = false
         refreshTopBar(agentStatus: Task.isCancelled
             ? TopBarAgentStatusLabel.stopped

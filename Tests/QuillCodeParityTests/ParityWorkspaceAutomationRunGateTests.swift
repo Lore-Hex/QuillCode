@@ -4,6 +4,7 @@ final class ParityWorkspaceAutomationRunGateTests: QuillCodeParityTestCase {
     func testWorkspaceAutomationRunsDelegateRunnerAndEventSources() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let runModelText = try Self.appSourceText(named: "WorkspaceModelAutomationRuns.swift")
+        let asyncRunModelText = try Self.appSourceText(named: "WorkspaceModelAsyncAutomationRuns.swift")
         let runnerText = try Self.appSourceText(named: "WorkspaceAutomationRunner.swift")
         let pollerText = try Self.appSourceText(named: "WorkspaceAutomationEventPoller.swift")
 
@@ -17,9 +18,13 @@ final class ParityWorkspaceAutomationRunGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(runModelText, containsAll: [
             "automationEventSources()",
-            "public func runDueAutomationReportsAsync",
             "automations.items.first(where:",
             "eventDescription:"
+        ])
+        Self.assertSource(asyncRunModelText, containsAll: [
+            "public func runDueAutomationReportsAsync",
+            "await runCancellableToolCall(",
+            "onProgressUpdated: onProgressUpdated"
         ])
         Self.assertSource(pollerText, containsAll: [
             "enum WorkspaceAutomationEventPoller",

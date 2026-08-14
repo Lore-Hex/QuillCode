@@ -83,6 +83,11 @@ public final class QuillCodeWorkspaceModel {
     /// Test seam for the verification green-gate: overrides how a verify command is run so a unit test
     /// can supply a fake `ToolResult` instead of spawning a real shell. nil = run the real command.
     var verificationRunner: (@Sendable (LocalEnvironmentAction, URL) async -> ToolResult)?
+    /// Desktop-triggered host tools run outside the main actor and remain pinned to their originating
+    /// chat. The set also closes direct-call races with agent sends and destructive thread actions.
+    var activeCancellableToolRunThreadIDs: Set<UUID> = []
+    /// Test seam for deterministic cancellable tool runs. Production uses `ToolRouter`.
+    var cancellableToolRunner: (@Sendable (ToolCall, URL) async -> ToolResult)?
     let threadPersistence: WorkspaceThreadPersistence
     let threadPersistenceIssueTracker: WorkspaceThreadPersistenceIssueTracker
     let registryPersistence: WorkspaceRegistryPersistence

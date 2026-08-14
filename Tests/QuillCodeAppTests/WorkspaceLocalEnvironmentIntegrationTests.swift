@@ -4,6 +4,194 @@ import QuillCodeCore
 
 @MainActor
 final class WorkspaceLocalEnvironmentIntegrationTests: XCTestCase {
+    func testCancellableActionPublishesLiveStateAndFinishesInOriginatingChat() async throws {
+        let setup = try makeLocalEnvironmentProject(name: "Background Env Project") { actionsDirectory in
+            try "printf background-ok".write(
+                to: actionsDirectory.appendingPathComponent("background.sh"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        let action = try XCTUnwrap(setup.model.selectedProject?.localActions.first)
+        let originatingThreadID = setup.model.newChat()
+        let gate = LocalEnvironmentToolResultGate()
+        setup.model.cancellableToolRunner = { call, workspaceRoot in
+            await gate.run(call: call, workspaceRoot: workspaceRoot)
+        }
+
+        let task = Task {
+            await setup.model.runLocalEnvironmentActionCancellable(
+                action,
+                workspaceRoot: setup.root,
+                threadID: originatingThreadID
+            )
+        }
+
+        try await waitUntil {
+            setup.model.currentToolCards.last?.status == .running
+        }
+        XCTAssertTrue(setup.model.isCancellableToolRunActive(for: originatingThreadID))
+        XCTAssertEqual(setup.model.root.topBar.agentStatus, TopBarAgentStatusLabel.running)
+        XCTAssertEqual(
+            setup.model.surface().commands.first(where: { $0.id == action.id })?.isEnabled,
+            false
+        )
+        let captured = await gate.capture
+        XCTAssertEqual(captured?.call.name, ToolDefinition.shellRun.name)
+        XCTAssertEqual(captured?.workspaceRoot, setup.root.standardizedFileURL)
+
+        let otherThreadID = setup.model.newChat()
+        XCTAssertEqual(setup.model.root.selectedThreadID, otherThreadID)
+        await gate.finish(ToolResult(ok: true, stdout: "background-ok", exitCode: 0))
+        let didRun = await task.value
+        XCTAssertTrue(didRun)
+
+        let originatingThread = try XCTUnwrap(
+            setup.model.root.threads.first(where: { $0.id == originatingThreadID })
+        )
+        let originatingCard = try XCTUnwrap(
+            WorkspaceTranscriptSurfaceBuilder(thread: originatingThread).toolCards().last
+        )
+        XCTAssertEqual(originatingCard.status, .done)
+        XCTAssertEqual(try shellResult(from: originatingCard).stdout, "background-ok")
+        XCTAssertTrue(setup.model.currentToolCards.isEmpty)
+        XCTAssertEqual(setup.model.root.selectedThreadID, otherThreadID)
+        XCTAssertFalse(setup.model.isCancellableToolRunActive(for: originatingThreadID))
+    }
+
+    func testCancellableActionRejectsDuplicateAndRecordsCancellation() async throws {
+        let setup = try makeLocalEnvironmentProject(name: "Cancelled Env Project") { actionsDirectory in
+            try "sleep 30".write(
+                to: actionsDirectory.appendingPathComponent("long-running.sh"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        let action = try XCTUnwrap(setup.model.selectedProject?.localActions.first)
+        let threadID = setup.model.newChat()
+        setup.model.cancellableToolRunner = { _, _ in
+            do {
+                try await Task.sleep(for: .seconds(30))
+                return ToolResult(ok: true)
+            } catch {
+                return ToolResult(ok: false, error: "Command cancelled.")
+            }
+        }
+
+        let task = Task {
+            await setup.model.runLocalEnvironmentActionCancellable(
+                action,
+                workspaceRoot: setup.root,
+                threadID: threadID
+            )
+        }
+        try await waitUntil {
+            setup.model.currentToolCards.last?.status == .running
+        }
+
+        let duplicateStarted = await setup.model.runLocalEnvironmentActionCancellable(
+            action,
+            workspaceRoot: setup.root,
+            threadID: threadID
+        )
+        XCTAssertFalse(duplicateStarted)
+        XCTAssertEqual(setup.model.currentToolCards.count, 1)
+
+        task.cancel()
+        let didRun = await task.value
+        XCTAssertTrue(didRun)
+        let card = try XCTUnwrap(setup.model.currentToolCards.last)
+        XCTAssertEqual(card.status, .failed)
+        XCTAssertEqual(try shellResult(from: card).error, "Command cancelled.")
+        XCTAssertFalse(setup.model.isCancellableToolRunActive(for: threadID))
+        XCTAssertEqual(setup.model.root.topBar.agentStatus, TopBarAgentStatusLabel.stopped)
+    }
+
+    func testDueAutomationExecutesCancellablyAndFinishesInCreatedChat() async throws {
+        let setup = try makeLocalEnvironmentProject(name: "Async Scheduled Env Project") { actionsDirectory in
+            try "printf scheduled-background-ok".write(
+                to: actionsDirectory.appendingPathComponent("verify.sh"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        let now = Date(timeIntervalSince1970: 20_000)
+        let automation = try XCTUnwrap(setup.model.createLocalEnvironmentActionAutomation(
+            matching: "Verify in 10 minutes",
+            now: now
+        ))
+        let gate = LocalEnvironmentToolResultGate()
+        setup.model.cancellableToolRunner = { call, workspaceRoot in
+            await gate.run(call: call, workspaceRoot: workspaceRoot)
+        }
+
+        let task = Task {
+            await setup.model.runDueAutomationReportsAsync(
+                now: now.addingTimeInterval(10 * 60 + 1)
+            )
+        }
+        try await waitUntil {
+            setup.model.currentToolCards.last?.status == .running
+        }
+        let scheduledThreadID = try XCTUnwrap(setup.model.root.selectedThreadID)
+        XCTAssertEqual(setup.model.selectedThread?.title, "Scheduled action: Verify")
+        XCTAssertTrue(setup.model.isCancellableToolRunActive(for: scheduledThreadID))
+
+        let otherThreadID = setup.model.newChat()
+        await gate.finish(ToolResult(ok: true, stdout: "scheduled-background-ok", exitCode: 0))
+        let reports = await task.value
+
+        XCTAssertEqual(reports.map(\.automationID), [automation.id])
+        XCTAssertEqual(reports.first?.followUpThreadID, scheduledThreadID)
+        XCTAssertEqual(setup.model.root.selectedThreadID, otherThreadID)
+        let scheduledThread = try XCTUnwrap(
+            setup.model.root.threads.first(where: { $0.id == scheduledThreadID })
+        )
+        let card = try XCTUnwrap(
+            WorkspaceTranscriptSurfaceBuilder(thread: scheduledThread).toolCards().last
+        )
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(try shellResult(from: card).stdout, "scheduled-background-ok")
+        XCTAssertTrue(scheduledThread.events.contains {
+            $0.summary == "Scheduled local environment action completed: Verify"
+        })
+    }
+
+    func testEnvironmentSlashCommandPublishesProgressWhileScriptRuns() async throws {
+        let setup = try makeLocalEnvironmentProject(name: "Slash Env Project") { actionsDirectory in
+            try "printf slash-ok".write(
+                to: actionsDirectory.appendingPathComponent("check.sh"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        _ = setup.model.newChat()
+        let gate = LocalEnvironmentToolResultGate()
+        setup.model.cancellableToolRunner = { call, workspaceRoot in
+            await gate.run(call: call, workspaceRoot: workspaceRoot)
+        }
+        setup.model.setDraft("/env Check")
+        var progressCount = 0
+
+        let task = Task {
+            await setup.model.submitComposer(
+                workspaceRoot: setup.root,
+                onProgressUpdated: { progressCount += 1 }
+            )
+        }
+        try await waitUntil {
+            setup.model.currentToolCards.last?.status == .running
+        }
+        XCTAssertGreaterThanOrEqual(progressCount, 2)
+        XCTAssertTrue(setup.model.isCancellableToolRunActive(for: setup.model.root.selectedThreadID))
+
+        await gate.finish(ToolResult(ok: true, stdout: "slash-ok", exitCode: 0))
+        await task.value
+        XCTAssertEqual(setup.model.currentToolCards.last?.status, .done)
+        XCTAssertFalse(setup.model.composer.isSending)
+        XCTAssertGreaterThanOrEqual(progressCount, 3)
+    }
+
     func testLocalEnvironmentActionsLoadAndRunFromCommandPaletteIDs() throws {
         let setup = try makeLocalEnvironmentProject(name: "Local Env Project") { actionsDirectory in
             try "printf local-env-ok".write(
@@ -201,5 +389,41 @@ final class WorkspaceLocalEnvironmentIntegrationTests: XCTestCase {
         let card = try XCTUnwrap(card)
         let outputJSON = try XCTUnwrap(card.outputJSON)
         return try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+    }
+
+    private func waitUntil(
+        timeoutSeconds: TimeInterval = 1,
+        condition: @MainActor () -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !condition() {
+            guard Date() < deadline else {
+                XCTFail("Timed out waiting for local environment action state.")
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+}
+
+private actor LocalEnvironmentToolResultGate {
+    struct Capture: Sendable {
+        var call: ToolCall
+        var workspaceRoot: URL
+    }
+
+    private var continuation: CheckedContinuation<ToolResult, Never>?
+    private(set) var capture: Capture?
+
+    func run(call: ToolCall, workspaceRoot: URL) async -> ToolResult {
+        capture = Capture(call: call, workspaceRoot: workspaceRoot)
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func finish(_ result: ToolResult) {
+        continuation?.resume(returning: result)
+        continuation = nil
     }
 }

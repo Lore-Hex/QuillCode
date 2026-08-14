@@ -199,13 +199,64 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
     func runWorkspaceCommand(
         _ commandID: String,
         model: QuillCodeWorkspaceModel,
-        fallbackWorkspaceRoot: URL
+        fallbackWorkspaceRoot: URL,
+        tasks: QuillCodeDesktopTaskCoordinator? = nil,
+        refresh: @escaping @MainActor () -> Void = {}
     ) -> Bool {
         if let sourceCommand = WorkspaceActivitySourceCommand(commandID: commandID),
            let workspaceRoot = sourceWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot),
            let request = sourceOpenRequest(for: sourceCommand, workspaceRoot: workspaceRoot),
            sourceOpener.openSource(request) {
             return true
+        }
+
+        if commandID.hasPrefix("local-env:"), let tasks {
+            if model.selectedThread == nil {
+                _ = model.newChat()
+            }
+            let threadID = model.selectedThread?.id
+            let workspaceRoot = activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+            guard let action = model.selectedProject?.localActions.first(where: { $0.id == commandID }) else {
+                return false
+            }
+            guard !model.isAgentRunActive(for: threadID),
+                  !model.isCancellableToolRunActive(for: threadID),
+                  !tasks.isSendRunning(threadID: threadID)
+            else {
+                return false
+            }
+            return tasks.startIfIdle(.send(threadID)) { [weak model] in
+                guard let model else { return }
+                _ = await model.runLocalEnvironmentActionCancellable(
+                    action,
+                    workspaceRoot: workspaceRoot,
+                    threadID: threadID,
+                    onProgressUpdated: refresh
+                )
+            } onFinish: {
+                refresh()
+            }
+        }
+
+        if commandID.hasPrefix("automation-run:"), let tasks {
+            let rawID = String(commandID.dropFirst("automation-run:".count))
+            guard let automationID = UUID(uuidString: rawID),
+                  model.automations.items.contains(where: {
+                      $0.id == automationID && $0.status == .active
+                  })
+            else {
+                return false
+            }
+            let threadID = model.selectedThread?.id
+            guard !tasks.isSendRunning(threadID: threadID) else { return false }
+            return tasks.startIfIdle(.send(threadID)) { [weak model] in
+                _ = await model?.runAutomationCancellable(
+                    id: automationID,
+                    onProgressUpdated: refresh
+                )
+            } onFinish: {
+                refresh()
+            }
         }
 
         return model.runWorkspaceCommand(

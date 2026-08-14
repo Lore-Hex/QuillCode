@@ -110,7 +110,9 @@ extension QuillCodeWorkspaceModel {
     public func performSidebarBulkAction(_ kind: SidebarBulkActionKind) -> Bool {
         let selectedThreadIDs = selectedSidebarThreadIDs()
         if kind == .delete,
-           selectedThreadIDs.contains(where: { agentRuns.isRunning($0) }) {
+           selectedThreadIDs.contains(where: {
+               agentRuns.isRunning($0) || isCancellableToolRunActive(for: $0)
+           }) {
             setLastError("Stop running chats before deleting them.")
             return false
         }
