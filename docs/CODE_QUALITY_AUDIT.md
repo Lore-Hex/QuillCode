@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-13 On-Demand Read-Only Public Verification
+
+Overall grade after this slice: **A+ release safety, A+ operator control, A+ runtime evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Operator control | A+ | Maintainers can manually reverify the current public tester release without creating a replacement build or waiting for the nightly schedule. |
+| Failure isolation | A+ | Verify-only requests are accepted only for a manual dispatch on current `main`; event, ref, mode, and exact-main CI checks all fail closed. |
+| Permission isolation | A+ | Read-only verification jobs receive only `contents: read`; all capture, build, signing, updater, and publication jobs remain gated on a fresh-build plan. |
+| Release immutability | A+ | Verify-only planning performs no public-release lookup or mutation, allocates no build number, and cannot enter a write-capable publication job. |
+| Runtime evidence | A+ | The public manifest and every declared asset are redownloaded and verified before native Apple silicon and Intel runners daily-drive the universal DMG with 30-day evidence retention. |
+| Regression evidence | A+ | Script tests cover valid manual verification and reject scheduled, pushed, tagged, feature-branch, and unknown-mode requests before external lookups. Workflow contracts lock the dispatch input and every build/publish gate. |
+
+Validation:
+
+- Focused download-build parity: 35 tests, 0 failures.
+- Full Swift package: 6,360 tests, 5 intentional skips, 0 failures.
+- Complete deterministic smoke passed CLI interruption/persistence, doctor, review, app-server,
+  MCP, native desktop, packaged crash recovery, direct/Launch Services rendering, live Accessibility,
+  critical memory pressure, and 100-chat daily-driver gates.
+- The packaged resource sample measured 300.39 ms median launch-ready, 40.74 MiB initial
+  footprint, 82.33 MiB after first interaction, 81.69 MiB after repetition, and 0.0002% settled
+  idle CPU.
+- Workflow YAML, shell syntax, `git diff --check`, and changed-file credential-pattern checks
+  passed. Deterministic module grades: scripts A+ (98), parity tests A+ (100), and every
+  production source module A+.
+
 ## 2026-08-13 Bounded Active-CI Publication Grace
 
 Overall grade after this slice: **A+ automation resilience, A+ failure isolation, A+ observability**.

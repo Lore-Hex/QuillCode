@@ -16,6 +16,43 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testManualVerifyCurrentModeSkipsBuildWithoutReleaseLookup() throws {
+        let result = try runPlanner(
+            eventName: "workflow_dispatch",
+            refType: "branch",
+            mode: "verify-current"
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertEqual(result.buildRequired, "false")
+        XCTAssertTrue(result.output.contains("manual verify-current mode is read-only"))
+        XCTAssertTrue(result.ghLog.isEmpty)
+    }
+
+    func testVerifyCurrentModeRejectsNonManualNonMainAndUnknownRequests() throws {
+        let results = [
+            try runPlanner(eventName: "schedule", mode: "verify-current"),
+            try runPlanner(
+                eventName: "workflow_dispatch",
+                refType: "tag",
+                refName: "v1.2.3",
+                mode: "verify-current"
+            ),
+            try runPlanner(
+                eventName: "workflow_dispatch",
+                refName: "feature",
+                mode: "verify-current"
+            ),
+            try runPlanner(eventName: "workflow_dispatch", mode: "unexpected")
+        ]
+
+        for result in results {
+            XCTAssertEqual(result.exitCode, 2, result.output)
+            XCTAssertNil(result.buildRequired)
+            XCTAssertTrue(result.ghLog.isEmpty)
+        }
+    }
+
     func testScheduledRunSkipsAnAlreadyPublishedCommit() throws {
         let commit = String(repeating: "a", count: 40)
         let result = try runPlanner(commit: commit, publishedCommit: commit)
@@ -74,6 +111,8 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
     private func runPlanner(
         eventName: String = "schedule",
         refType: String = "branch",
+        refName: String = "main",
+        mode: String = "build",
         commit: String = String(repeating: "a", count: 40),
         publishedCommit: String = String(repeating: "a", count: 40),
         manifestAvailable: Bool = true,
@@ -114,9 +153,11 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
         environment["PATH"] = "\(binDirectory.path):\(environment["PATH"] ?? "")"
         environment["GITHUB_EVENT_NAME"] = eventName
         environment["GITHUB_REF_TYPE"] = refType
+        environment["GITHUB_REF_NAME"] = refName
         environment["GITHUB_SHA"] = commit
         environment["GITHUB_REPOSITORY"] = "Lore-Hex/QuillCode"
         environment["GITHUB_OUTPUT"] = githubOutputURL.path
+        environment["DOWNLOAD_BUILD_MODE"] = mode
         environment["DOWNLOAD_PLAN_MANIFEST_AVAILABLE"] = manifestAvailable ? "true" : "false"
         environment["DOWNLOAD_PLAN_MANIFEST_MALFORMED"] = manifestMalformed ? "true" : "false"
         environment["DOWNLOAD_PLAN_PUBLISHED_COMMIT"] = publishedCommit

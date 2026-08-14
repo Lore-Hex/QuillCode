@@ -9,6 +9,48 @@ final class ParityDownloadReleasePolicyGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(result.ghLog.isEmpty)
     }
 
+    func testManualCurrentMainPublicVerificationPassesReadOnlyPolicy() throws {
+        let result = try runPolicy(
+            refType: "branch",
+            refName: "main",
+            eventName: "workflow_dispatch",
+            mode: "verify-current"
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertTrue(result.output.contains("Validated read-only public verification"))
+        XCTAssertTrue(result.ghLog.isEmpty)
+    }
+
+    func testPublicVerificationRejectsNonManualNonMainAndUnknownModes() throws {
+        let results = [
+            try runPolicy(
+                refType: "branch",
+                refName: "main",
+                eventName: "push",
+                mode: "verify-current"
+            ),
+            try runPolicy(
+                refType: "branch",
+                refName: "feature",
+                eventName: "workflow_dispatch",
+                mode: "verify-current"
+            ),
+            try runPolicy(
+                refType: "tag",
+                refName: "v1.2.3",
+                eventName: "workflow_dispatch",
+                mode: "verify-current"
+            ),
+            try runPolicy(refType: "branch", refName: "main", mode: "unexpected")
+        ]
+
+        for result in results {
+            XCTAssertEqual(result.exitCode, 2, result.output)
+            XCTAssertTrue(result.ghLog.isEmpty)
+        }
+    }
+
     func testTesterBuildRejectsFeatureAndStaleMainRefs() throws {
         let feature = try runPolicy(refType: "branch", refName: "feature")
         let stale = try runPolicy(
@@ -61,6 +103,8 @@ final class ParityDownloadReleasePolicyGateTests: QuillCodeParityTestCase {
     private func runPolicy(
         refType: String,
         refName: String,
+        eventName: String = "push",
+        mode: String = "build",
         commit: String = String(repeating: "a", count: 40),
         mainCommit: String? = nil,
         tagCommit: String? = nil,
@@ -99,8 +143,10 @@ final class ParityDownloadReleasePolicyGateTests: QuillCodeParityTestCase {
         environment["PATH"] = "\(binDirectory.path):\(environment["PATH"] ?? "")"
         environment["GITHUB_REF_TYPE"] = refType
         environment["GITHUB_REF_NAME"] = refName
+        environment["GITHUB_EVENT_NAME"] = eventName
         environment["GITHUB_SHA"] = commit
         environment["GITHUB_REPOSITORY"] = "Lore-Hex/QuillCode"
+        environment["DOWNLOAD_BUILD_MODE"] = mode
         environment["RELEASE_POLICY_MAIN_COMMIT"] = mainCommit ?? commit
         environment["RELEASE_POLICY_TAG_COMMIT"] = tagCommit ?? commit
         environment["RELEASE_POLICY_IS_MAIN_ANCESTOR"] = isMainAncestor ? "true" : "false"
