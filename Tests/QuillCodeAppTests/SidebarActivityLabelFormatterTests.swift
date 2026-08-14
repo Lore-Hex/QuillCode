@@ -39,15 +39,38 @@ final class SidebarActivityLabelFormatterTests: XCTestCase {
         )
     }
 
-    func testOlderActivityFallsBackToALocalizedCalendarLabel() {
+    func testOlderActivityUsesACompactLocalizedCalendarLabel() {
         let oldDate = now.addingTimeInterval(-90 * 24 * 60 * 60)
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.timeZone = .current
-        formatter.setLocalizedDateFormatFromTemplate("MMMdy")
+        var style = Date.FormatStyle.dateTime
+            .locale(.autoupdatingCurrent)
+            .year(.twoDigits)
+            .month(.defaultDigits)
+            .day(.defaultDigits)
+        style.timeZone = .autoupdatingCurrent
 
         let label = SidebarActivityLabelFormatter.label(for: oldDate, relativeTo: now)
 
-        XCTAssertEqual(label, formatter.string(from: oldDate))
+        XCTAssertEqual(label, oldDate.formatted(style))
+    }
+
+    func testOlderSameYearActivityKeepsTheReadableMonthNameWithoutAYear() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let sameYearNow = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 8, day: 14, hour: 12))
+        )
+        let oldDate = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2026, month: 1, day: 4, hour: 12))
+        )
+        var style = Date.FormatStyle.dateTime
+            .locale(.autoupdatingCurrent)
+            .month(.abbreviated)
+            .day()
+        style.timeZone = .autoupdatingCurrent
+
+        XCTAssertEqual(
+            SidebarActivityLabelFormatter.label(for: oldDate, relativeTo: sameYearNow),
+            oldDate.formatted(style)
+        )
     }
 }

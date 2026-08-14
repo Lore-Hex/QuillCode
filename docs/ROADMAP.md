@@ -129,6 +129,12 @@
 
 ## Latest Quality Pass
 
+- Sidebar activity labels now keep older chat dates fully visible in the fixed-width native rail.
+  Same-year dates retain a readable abbreviated month, cross-year dates use a compact localized
+  numeric form with a two-digit year, and each row computes the label once from cached value-style
+  formatters instead of constructing a `DateFormatter`. The optimized 100-chat daily-driver
+  screenshot shows complete `1/4/25` labels without compressing titles, while the packaged sweep
+  remained at 40.75 MiB initial and 79.91 MiB repeated physical footprint with 0.0002% idle CPU.
 - Public performance evidence schema 7 now distinguishes raw thread churn from retained repeated
   growth. Every attempt still publishes and validates each absolute thread count, while the strict
   two-thread convergence gate compares the repeated snapshot with the higher prior settled count.

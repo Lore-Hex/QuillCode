@@ -289,6 +289,7 @@ Drive the QuillCode test harness with mock LLM:
 - chronological user/tool/answer transcript rendering
 - hidden agent tool-feedback messages never render as transcript bubbles, sidebar search hits, fork seed messages, or compaction summary content
 - bulk-select multiple chats from the sidebar, archive selected chats, select all across recent/archived sections, and delete selected chats through the shared command path
+- sidebar activity older than the relative-time window uses a localized abbreviated month and day in the current year, a compact localized numeric date with a two-digit year across years, and remains fully visible beside long titles in the populated 100-chat native daily-driver screenshot
 - copy user/assistant messages and tool outputs with visible `Copied` feedback
 - reuse a user message as the focused composer draft without mutating transcript history
 - verify assistant messages do not expose Helpful/Not helpful controls because QuillCode does not collect rating feedback
