@@ -15,7 +15,10 @@ UNIVERSAL_INSTALLER_URL = (
     "tester-latest/Quill-Cowork-macOS-universal.dmg"
 )
 RELEASE_URL = "https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest"
-RELEASE_API_URL = "https://api.github.com/repos/Lore-Hex/QuillCode/releases/tags/tester-latest"
+STABLE_RELEASE_API_URL = "https://api.github.com/repos/Lore-Hex/QuillCode/releases/latest"
+TESTER_RELEASE_API_URL = (
+    "https://api.github.com/repos/Lore-Hex/QuillCode/releases/tags/tester-latest"
+)
 THIN_INSTALLER_PATTERN = re.compile(r"Quill-Cowork-macOS-(?:arm64|x86_64)\.dmg")
 CSS_URL_PATTERN = re.compile(r"url\(\s*(['\"]?)([^)'\"]+)\1\s*\)")
 EXPECTED_FILES = {
@@ -153,14 +156,36 @@ def verify_site(site: Path) -> None:
         fail("every primary installer link must be live-manifest addressable")
     if index.count('data-build-label') != 2:
         fail("current build provenance must appear at both download decisions")
+    if index.count('data-release-link') != 3:
+        fail("release details must switch channels with every download decision")
+    for attribute in (
+        'data-release-kind',
+        'data-release-section',
+        'data-install-guidance',
+        'data-release-caption',
+    ):
+        if index.count(attribute) != 1:
+            fail(f"index must expose exactly one {attribute} target")
     if index.count(RELEASE_URL) < 3:
         fail("release notes must be available near downloads and in the footer")
     if THIN_INSTALLER_PATTERN.search(index):
         fail("human-facing pages must not require architecture selection")
-    if RELEASE_API_URL not in script or UNIVERSAL_INSTALLER_URL not in script:
-        fail("live release metadata must use the public tester contract")
-    if 'cache: "no-store"' not in script or "readCurrentRelease" not in script:
-        fail("live release metadata must be freshly fetched and validated")
+    if STABLE_RELEASE_API_URL not in script or TESTER_RELEASE_API_URL not in script:
+        fail("live release metadata must prefer stable and retain tester fallback releases")
+    if UNIVERSAL_INSTALLER_URL.rsplit("/", 1)[-1] not in script:
+        fail("live release metadata must require the universal installer")
+    required_script_contracts = (
+        'cache: "no-store"',
+        'credentials: "omit"',
+        "readCurrentRelease",
+        'manifestName: "latest-stable-build.json"',
+        'manifestName: "latest-tester-build.json"',
+        "Developer ID signed, notarized by Apple, and stapled",
+        "ad-hoc signed and not Apple-notarized.",
+        "uploadedAsset(",
+    )
+    if any(contract not in script for contract in required_script_contracts):
+        fail("live release metadata must be freshly fetched and fail-closed validated")
 
     for _, reference in CSS_URL_PATTERN.findall(css):
         local_path = local_asset_path(site, site / "static/cowork.css", reference)

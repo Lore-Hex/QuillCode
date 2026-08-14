@@ -88,7 +88,9 @@ and signing details are in [Downloadable Builds](docs/DOWNLOADS.md).
 
 The public [Quill Cowork website](https://cowork.quillos.cloud/) is also sourced from `main` and
 deployed through the verified GitHub Pages workflow. Its primary buttons always use the universal
-installer, while optional release-freshness text is populated from validated public release metadata.
+installer. The page automatically prefers a validated notarized stable release when one exists,
+falls back to the validated tester release, and keeps the known-good tester link when live metadata
+is unavailable.
 
 ## Release Status
 
