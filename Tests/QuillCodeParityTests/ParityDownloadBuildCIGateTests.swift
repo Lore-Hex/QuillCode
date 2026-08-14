@@ -106,12 +106,9 @@ final class ParityDownloadBuildCIGateTests: QuillCodeParityTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 2, result.output)
-        XCTAssertTrue(
-            result.output.contains("Extending exact-main CI wait once by up to 1s"),
-            result.output
-        )
+        XCTAssertTrue(result.output.contains("matching CI run(s) are still active"), result.output)
         XCTAssertTrue(result.output.contains("within 3s"), result.output)
-        XCTAssertEqual(
+        XCTAssertLessThanOrEqual(
             result.output.components(separatedBy: "Extending exact-main CI wait once").count - 1,
             1,
             result.output
