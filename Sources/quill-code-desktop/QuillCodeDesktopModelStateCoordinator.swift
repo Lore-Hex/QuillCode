@@ -12,7 +12,7 @@ struct QuillCodeDesktopModelState {
 struct QuillCodeDesktopModelStateCoordinator {
     func ensureDefaultProject(on model: QuillCodeWorkspaceModel, workspaceRoot: URL) {
         if model.root.projects.isEmpty {
-            _ = model.addProject(path: workspaceRoot)
+            _ = model.registerProject(path: workspaceRoot)
         }
     }
 

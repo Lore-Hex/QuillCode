@@ -55,6 +55,99 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].memories.map(\.title), ["Two"])
     }
 
+    func testRegisterLocalProjectCreatesAnEmptyLocalProject() {
+        let path = URL(fileURLWithPath: "/tmp/QuillCode/../QuillCode")
+        let now = Date(timeIntervalSince1970: 20)
+        var projects: [ProjectRef] = []
+
+        let result = WorkspaceProjectEngine.registerLocalProject(
+            path: path,
+            name: nil,
+            projects: &projects,
+            now: now
+        )
+
+        XCTAssertTrue(result.isNewProject)
+        XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(projects[0].id, result.projectID)
+        XCTAssertEqual(projects[0].name, "QuillCode")
+        XCTAssertEqual(projects[0].path, path.standardizedFileURL.path)
+        XCTAssertEqual(projects[0].lastOpenedAt, now)
+        XCTAssertTrue(projects[0].instructions.isEmpty)
+        XCTAssertTrue(projects[0].localActions.isEmpty)
+        XCTAssertTrue(projects[0].runHooks.isEmpty)
+        XCTAssertTrue(projects[0].pluginHooks.isEmpty)
+        XCTAssertTrue(projects[0].extensionManifests.isEmpty)
+        XCTAssertTrue(projects[0].memories.isEmpty)
+    }
+
+    func testRegisterLocalProjectPreservesExistingContextUntilRefreshCompletes() {
+        let path = URL(fileURLWithPath: "/tmp/QuillCode")
+        let existingMetadata = metadata(instructionTitle: "Existing", memoryTitle: "Memory")
+        let original = ProjectRef(
+            name: "Original",
+            path: path.path,
+            lastOpenedAt: Date(timeIntervalSince1970: 10),
+            instructions: existingMetadata.instructions,
+            instructionDiagnosticResolutions: [
+                ProjectInstructionDiagnosticResolution(
+                    diagnosticID: "instruction-conflict",
+                    updatedAt: Date(timeIntervalSince1970: 5)
+                )
+            ],
+            localActions: existingMetadata.localActions,
+            runHooks: [
+                ProjectRunHook(
+                    id: "verify",
+                    timing: .afterAgentRun,
+                    title: "Verify",
+                    relativePath: ".quillcode/config.toml",
+                    command: "swift test"
+                )
+            ],
+            pluginHooks: [
+                ProjectPluginHook(
+                    id: "plugin:verify",
+                    pluginID: "plugin",
+                    pluginName: "Plugin",
+                    event: "Stop",
+                    handlerType: "command",
+                    command: "swift test",
+                    relativePath: ".agents/plugins/plugin/hooks.json",
+                    definitionHash: "hash",
+                    supportStatus: .supported
+                )
+            ],
+            extensionManifests: existingMetadata.extensionManifests,
+            memories: existingMetadata.memories
+        )
+        let reopenedAt = Date(timeIntervalSince1970: 20)
+        var projects = [original]
+
+        let result = WorkspaceProjectEngine.registerLocalProject(
+            path: path,
+            name: "Renamed",
+            projects: &projects,
+            now: reopenedAt
+        )
+
+        XCTAssertFalse(result.isNewProject)
+        XCTAssertEqual(result.projectID, original.id)
+        XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(projects[0].name, "Renamed")
+        XCTAssertEqual(projects[0].lastOpenedAt, reopenedAt)
+        XCTAssertEqual(projects[0].instructions, original.instructions)
+        XCTAssertEqual(
+            projects[0].instructionDiagnosticResolutions,
+            original.instructionDiagnosticResolutions
+        )
+        XCTAssertEqual(projects[0].localActions, original.localActions)
+        XCTAssertEqual(projects[0].runHooks, original.runHooks)
+        XCTAssertEqual(projects[0].pluginHooks, original.pluginHooks)
+        XCTAssertEqual(projects[0].extensionManifests, original.extensionManifests)
+        XCTAssertEqual(projects[0].memories, original.memories)
+    }
+
     func testUpsertLocalProjectPreservesInstructionDiagnosticResolutions() {
         let path = URL(fileURLWithPath: "/tmp/QuillCode")
         var projects = [

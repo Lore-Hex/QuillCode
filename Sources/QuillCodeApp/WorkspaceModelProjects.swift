@@ -10,6 +10,26 @@ struct WorkspaceProjectContextRefreshRequest: Sendable, Equatable {
 
 @MainActor
 extension QuillCodeWorkspaceModel {
+    /// Registers and selects a local project immediately, then loads filesystem-backed context
+    /// through the coalesced utility-priority refresh path.
+    @discardableResult
+    public func registerProject(path: URL, name: String? = nil) -> UUID {
+        let previousLocation = currentNavigationLocation
+        let result = WorkspaceProjectEngine.registerLocalProject(
+            path: path,
+            name: name,
+            projects: &root.projects
+        )
+        root.selectedProjectID = result.projectID
+        syncTerminalSessionToSelectedProject()
+        refreshFileMentionIndex()
+        saveProjects()
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
+        requestProjectContextRefresh(result.projectID)
+        return result.projectID
+    }
+
     @discardableResult
     public func addProject(path: URL, name: String? = nil) -> UUID {
         let previousLocation = currentNavigationLocation
