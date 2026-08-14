@@ -55,6 +55,67 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/plan-download-build.sh
 
+  verify-current-published:
+    needs: release-policy
+    if: needs.release-policy.outputs.build-required == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Reverify current public tester release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/verify-published-release.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag tester-latest \
+            --channel tester \
+            --commit "$GITHUB_SHA" \
+            --discover-workflow-run-url
+
+  verify-current-daily-driver:
+    needs: [release-policy, verify-current-published]
+    if: >-
+      ${{
+        needs.release-policy.outputs.build-required == 'false' &&
+        needs.verify-current-published.result == 'success'
+      }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Exercise current public tester app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/public-macos-daily-driver-smoke.sh \
+            --repo "$GITHUB_REPOSITORY" \
+            --commit "$GITHUB_SHA" \
+            --expected-architecture '${{ matrix.arch }}' \
+            --evidence-dir "$RUNNER_TEMP/public-daily-driver-evidence"
+      - name: Upload public daily-driver evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quillcode-public-daily-driver-${{ matrix.arch }}
+          path: ${{ runner.temp }}/public-daily-driver-evidence
+          if-no-files-found: error
+          retention-days: 30
+
   capture-updater-source:
     needs: release-policy
     if: needs.release-policy.outputs.build-required == 'true'

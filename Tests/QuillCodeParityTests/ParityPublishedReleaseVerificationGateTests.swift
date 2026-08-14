@@ -18,6 +18,29 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertTrue(result.output.contains("Verified public Quill Cowork tester release tester-latest"))
     }
 
+    func testVerifierCanDiscoverPublishingRunFromExactManifest() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture, discoverWorkflowRunURL: true)
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertTrue(result.output.contains("Verified public Quill Cowork tester release tester-latest"))
+    }
+
+    func testVerifierRejectsUnsafeDiscoveredPublishingRunURL() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try mutateManifest(fixture) { manifest in
+            manifest["workflowRunURL"] = "https://example.com/actions/runs/12345"
+        }
+
+        let result = try runVerifier(fixture, discoverWorkflowRunURL: true)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(result.output.contains("manifest publishing run URL is invalid"), result.output)
+    }
+
     func testVerifierAcceptsAnExplicitStableCandidateBeforePromotion() throws {
         let fixture = try makeFixture(channel: "stable", prerelease: true)
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -984,7 +1007,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
     private func runVerifier(
         _ fixture: Fixture,
         tagCommit: String? = nil,
-        stableCandidate: Bool = false
+        stableCandidate: Bool = false,
+        discoverWorkflowRunURL: Bool = false
     ) throws -> ScriptResult {
         let script = Self.packageRoot()
             .appendingPathComponent("scripts")
@@ -994,12 +1018,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "--tag", fixture.tag,
             "--channel", fixture.channel,
             "--commit", commit,
-            "--workflow-run-url", workflowRunURL,
             "--release-json", fixture.releaseJSON.path,
             "--tag-commit", tagCommit ?? commit,
             "--manifest", fixture.manifest.path,
             "--assets-dir", fixture.assets.path
         ]
+        if discoverWorkflowRunURL {
+            arguments.append("--discover-workflow-run-url")
+        } else {
+            arguments.append(contentsOf: ["--workflow-run-url", workflowRunURL])
+        }
         if stableCandidate {
             arguments.append("--stable-candidate")
         } else if fixture.channel == "stable" {
