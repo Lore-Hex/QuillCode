@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-08-13 Durable Updater Activation Recovery
+
+Overall grade after this slice: **A+ crash resilience, A+ rollback safety, A+ cleanup discipline**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Activation precondition | A+ | Replacement staging writes and rereads a private, bounded, atomic transaction record; the detached helper refuses to swap apps when that exact record is missing or mismatched. |
+| Interrupted-state recovery | A+ | Startup reconciliation distinguishes an unactivated new payload from the previous build held after an atomic swap by validating destination and staging bundle ID, semantic version, build, and source commit. |
+| Rollback retention | A+ | The previous build is retired only after the exact replacement is the running configured app; a destination that no longer matches the running build, or any missing, damaged, mismatched, or ambiguous evidence, stops deletion and preserves both the app copy and workspace. |
+| Cancellation cleanup | A+ | Cancellation or helper-launch failure before activation removes only the exact transaction-bound replacement and its workspace, leaving the running destination untouched. |
+| Bounds and privacy | A+ | The recovery record is at most 16 KiB, mode `0600`, stored under the private updater cache, contains only update mechanics and public build identity, and is removed with its completed workspace. |
+| Regression evidence | A+ | Behavioral tests cover pre-swap interruption, post-swap retirement, missing and damaged records, ambiguous state, cancellation cleanup, successful activation, launch failure, early exit, and rollback process cleanup. A source parity gate pins the packaged updater requirement. |
+
+Validation:
+
+- Focused updater families: 89 tests, 0 failures; one-click relocation: 7 tests, 0 failures.
+- Updater model and transaction coverage: 38 tests, 0 failures.
+- Full Swift package: 6,368 tests, 5 intentional skips, 0 failures.
+- Complete deterministic smoke passed CLI interruption/persistence, doctor, review, app-server,
+  MCP, native desktop, packaged crash recovery, direct/Launch Services rendering, live Accessibility,
+  critical memory pressure, and daily-driver gates.
+- The packaged resource sample measured 307.36 ms median launch-ready, 40.80 MiB initial
+  footprint, 84.02 MiB after first interaction, 88.08 MiB after repetition, and 0.0002% settled
+  idle CPU.
+- `git diff --check` and changed-file credential-pattern checks passed. Deterministic module grades:
+  desktop production A+ (99), desktop tests A+ (99), parity tests A+ (100), and every production
+  source module A+.
+
 ## 2026-08-13 On-Demand Read-Only Public Verification
 
 Overall grade after this slice: **A+ release safety, A+ operator control, A+ runtime evidence**.

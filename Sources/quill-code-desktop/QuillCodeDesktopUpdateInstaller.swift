@@ -74,8 +74,17 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
                 runningExecutableURL: runningExecutableURL
             )
         }.value
-        try Task.checkCancellation()
-        try QuillCodeDesktopUpdateHelperLauncher.launch(request)
+        let cacheRoot = preparedUpdate.workspaceURL.deletingLastPathComponent()
+        do {
+            try Task.checkCancellation()
+            try QuillCodeDesktopUpdateHelperLauncher.launch(request)
+        } catch {
+            QuillCodeDesktopUpdateTransaction.discardUnactivated(
+                request,
+                cacheRoot: cacheRoot
+            )
+            throw error
+        }
     }
 
     private static func stage(
@@ -139,7 +148,7 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             throw QuillCodeDesktopUpdateError.installationFailed("the verified app could not be staged")
         }
 
-        return QuillCodeDesktopUpdateHelperRequest(
+        let request = QuillCodeDesktopUpdateHelperRequest(
             parentProcessID: ProcessInfo.processInfo.processIdentifier,
             helperURL: helperURL,
             incomingApplicationURL: incomingURL,
@@ -154,6 +163,19 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             activationMode: .replaceExisting,
             rollbackApplicationURL: nil
         )
+        do {
+            try QuillCodeDesktopUpdateTransaction.persist(
+                for: request,
+                cacheRoot: preparedUpdate.workspaceURL.deletingLastPathComponent()
+            )
+        } catch {
+            try? fileManager.removeItem(at: incomingURL)
+            try? fileManager.removeItem(at: helperURL)
+            throw QuillCodeDesktopUpdateError.installationFailed(
+                "the update recovery record could not be created"
+            )
+        }
+        return request
     }
 }
 
@@ -175,7 +197,7 @@ enum QuillCodeDesktopUpdateHelperLauncher {
     }
 }
 
-enum QuillCodeDesktopApplicationActivationMode: String, Equatable, Sendable {
+enum QuillCodeDesktopApplicationActivationMode: String, Codable, Equatable, Sendable {
     case replaceExisting = "replace-existing"
     case installNew = "install-new"
 }

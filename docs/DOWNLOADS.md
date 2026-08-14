@@ -320,9 +320,14 @@ the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
 
-Startup recovery waits two minutes before removing abandoned updater staging apps. Starting a fresh
-foreground update cancels and fully joins that recovery first, so cleanup can never remove the new
-installer's live staging bundle.
+Before replacement activation, the installer writes and rereads a private, bounded transaction
+record with the operation paths and exact bundle/version/build/commit identity. The detached helper
+refuses to swap apps without the matching record. Startup recovery waits two minutes, then uses that
+record to distinguish a new payload abandoned before activation from the previous build retained by
+an interrupted post-swap helper. It retires a rollback copy only after the exact replacement is the
+running configured app. Damaged or ambiguous evidence preserves both copies. Starting a fresh
+foreground update cancels and fully joins recovery first, so cleanup cannot remove a live staging
+bundle.
 
 Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
 updates must contain an actual ad-hoc signature with no team. A Developer ID
@@ -371,11 +376,11 @@ discarded. Background check failures stay quiet; user-initiated failures remain
 visible and retain direct retry and browser-download actions. Repeated menu checks
 cannot cancel an active download or the non-cancellable activation phase, and a
 background result never replaces update UI that is already visible. Failed or
-cancelled preparation removes its cache workspace immediately. After a two-minute
-active-helper grace period on launch, the app also removes only its exact hidden
-`.Quill Cowork.update-<lowercase UUID>.app` sibling directories left by an
-interrupted install; symlinks, lookalikes, and unexpected app identities are never
-treated as updater-owned staging.
+cancelled preparation removes its cache workspace immediately. Cancellation or helper-launch failure
+after staging removes only the exact transaction-bound replacement. After a two-minute active-helper
+grace period on launch, the app reconciles valid transaction records before removing legacy hidden
+`.Quill Cowork.update-<lowercase UUID>.app` sibling directories; transaction-bound rollback copies,
+symlinks, lookalikes, and ambiguous identities are preserved rather than guessed away.
 
 The update sheet's **Remind Me Tomorrow** action persists a bounded record for only the exact
 channel, commit, version, and build being dismissed. Automatic checks keep their normal cadence so

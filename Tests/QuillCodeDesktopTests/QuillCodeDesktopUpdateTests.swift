@@ -648,7 +648,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             """
         )
         let resultURL = root.appendingPathComponent("UpdateResult.json")
-        let request = makeHelperRequest(
+        let request = try makeHelperRequest(
             cacheRoot: cacheRoot,
             destination: destination,
             incoming: incoming,
@@ -716,7 +716,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             """
         )
         let resultURL = root.appendingPathComponent("UpdateResult.json")
-        let request = makeHelperRequest(
+        let request = try makeHelperRequest(
             cacheRoot: cacheRoot,
             destination: destination,
             incoming: incoming,
@@ -780,7 +780,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             executableScript: "#!/bin/sh\nprintf '%s' \"$$\" > '\(childPIDURL.path)'\nsleep 30\n"
         )
         let resultURL = root.appendingPathComponent("UpdateResult.json")
-        let request = makeHelperRequest(
+        let request = try makeHelperRequest(
             cacheRoot: cacheRoot,
             destination: destination,
             incoming: incoming,
@@ -845,7 +845,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             executableScript: "#!/definitely/missing/interpreter\n"
         )
         let resultURL = root.appendingPathComponent("UpdateResult.json")
-        let request = makeHelperRequest(
+        let request = try makeHelperRequest(
             cacheRoot: cacheRoot,
             destination: destination,
             incoming: incoming,
@@ -908,9 +908,9 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         expectedBuild: String,
         suffix: String,
         workspace: URL? = nil
-    ) -> QuillCodeDesktopUpdateHelperRequest {
+    ) throws -> QuillCodeDesktopUpdateHelperRequest {
         let workspace = workspace ?? cacheRoot
-        return QuillCodeDesktopUpdateHelperRequest(
+        let request = QuillCodeDesktopUpdateHelperRequest(
             parentProcessID: Int32.max,
             helperURL: workspace.appendingPathComponent("helper"),
             incomingApplicationURL: incoming,
@@ -925,6 +925,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             activationMode: .replaceExisting,
             rollbackApplicationURL: nil
         )
+        try QuillCodeDesktopUpdateTransaction.persist(for: request, cacheRoot: cacheRoot)
+        return request
     }
 
     private func makeTemporaryDirectory() throws -> URL {

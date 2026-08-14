@@ -87,6 +87,12 @@ enum QuillCodeDesktopUpdateHelper {
         else {
             throw QuillCodeDesktopUpdateError.installationFailed("the staged update request is invalid")
         }
+        if request.activationMode == .replaceExisting {
+            try QuillCodeDesktopUpdateTransaction.validate(
+                request,
+                cacheRoot: environment.cacheRootURL
+            )
+        }
     }
 
     private static func validateActivation(_ request: QuillCodeDesktopUpdateHelperRequest) throws {

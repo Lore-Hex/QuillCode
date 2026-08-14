@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-08-13: updater activation requires durable recovery identity
+
+- **Decision:** Before a replacement helper can start, the installer writes and rereads one private,
+  bounded transaction record containing its operation identifier, exact paths, activation mode, and
+  expected bundle/version/build/commit identity. The helper validates that record against its own
+  request and private cache root before waiting for the app to exit or swapping bundles.
+- **Recovery behavior:** After the existing active-helper grace period, startup reconciliation uses
+  exact bundle identity to distinguish a downloaded replacement that never activated from an old
+  build retained by an interrupted post-swap helper. It discards the former when the previous build
+  is still running and retires the latter only when the exact replacement is now the running app.
+- **Failure boundary:** A missing record prevents activation. A malformed, oversized, symlinked,
+  path-mismatched, or identity-ambiguous record stops cleanup and preserves both copies. Cancellation
+  or helper-launch failure before activation may remove only the exact transaction-bound payload.
+- **Why:** A staging filename proves ownership but not which side of an atomic swap it currently
+  contains. Treating every hidden sibling as disposable could erase the sole known-good rollback
+  bundle after an interrupted helper.
+- **Evidence:** `QuillCodeDesktopUpdateTransaction`, `QuillCodeDesktopUpdateRecovery`, updater model
+  tests, packaged updater parity, and the native post-publication updater gate.
+
 ## 2026-08-13: active exact-main CI receives one bounded publication grace period
 
 - **Decision:** Download Builds keeps its original 30-minute exact-main CI discovery/completion
