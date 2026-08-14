@@ -64,6 +64,17 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(try command("stop-all", in: activeCommands).isEnabled)
     }
 
+    func testProjectContextRefreshCommandDisablesWhileRefreshIsActive() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+
+        let commands = makeBuilder(
+            selectedProject: project,
+            projectContextRefreshIsActive: true
+        ).commands
+
+        XCTAssertFalse(try command("project-refresh-context", in: commands).isEnabled)
+    }
+
     func testWorkspaceNavigationAvailabilityUsesHistoryFlags() throws {
         let commands = makeBuilder(canNavigateBack: true, canNavigateForward: true).commands
 
@@ -690,6 +701,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
     private func makeBuilder(
         selectedThread: ChatThread? = nil,
         selectedProject: ProjectRef? = nil,
+        projectContextRefreshIsActive: Bool = false,
         selectedSidebarThreads: [ChatThread] = [],
         sidebarSelectionIsActive: Bool = false,
         sidebarItemCount: Int = 0,
@@ -719,6 +731,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
+            projectContextRefreshIsActive: projectContextRefreshIsActive,
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             sidebarItemCount: sidebarItemCount,

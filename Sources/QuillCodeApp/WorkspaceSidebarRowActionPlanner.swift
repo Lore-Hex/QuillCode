@@ -135,7 +135,7 @@ public struct WorkspaceSidebarRowMutationExecutor {
             _ = model.newChat(projectID: projectID)
             return true
         case .refreshContext(let projectID):
-            return model.refreshProjectContext(projectID)
+            return model.scheduleProjectContextRefresh(projectID)
         case .moveToTop(let projectID):
             return model.moveProjectToTop(projectID)
         case .moveUp(let projectID):

@@ -5,6 +5,7 @@ import QuillComputerUseKit
 struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var selectedThread: ChatThread?
     var selectedProject: ProjectRef?
+    var projectContextRefreshIsActive: Bool = false
     var hooks: [ProjectPluginHook] = []
     var selectedSidebarThreads: [ChatThread]
     var sidebarSelectionIsActive: Bool
@@ -109,6 +110,9 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             var command = command
             if let shortcut = shortcutProfile.label(for: command.id) {
                 command.shortcut = shortcut
+            }
+            if command.id == "project-refresh-context", projectContextRefreshIsActive {
+                command.isEnabled = false
             }
             return command
         }

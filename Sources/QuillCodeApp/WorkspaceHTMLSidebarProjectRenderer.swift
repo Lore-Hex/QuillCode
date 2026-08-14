@@ -42,7 +42,7 @@ enum WorkspaceHTMLSidebarProjectRenderer {
                   ("aria-current", project.isSelected ? "true" : "false")
               ]
           ))>
-            <span class="project-title-line"><span class="project-icon" aria-hidden="true">\(project.isRemote ? "⌘" : "▱")</span><span>\(escape(project.name))</span>\(connectionBadge(for: project))</span>
+            <span class="project-title-line"><span class="project-icon" aria-hidden="true">\(project.isRemote ? "⌘" : "▱")</span><span>\(escape(project.name))</span>\(connectionBadge(for: project))\(refreshStatus(for: project))</span>
           </button>
           <details class="sidebar-thread-menu" data-testid="project-item-actions">
             \(WorkspaceHTMLPrimitives.summary(
@@ -62,6 +62,12 @@ enum WorkspaceHTMLSidebarProjectRenderer {
     private static func connectionBadge(for project: ProjectItemSurface) -> String {
         project.isRemote
             ? #" <small class="project-connection-kind" data-testid="project-connection-kind">SSH</small>"#
+            : ""
+    }
+
+    private static func refreshStatus(for project: ProjectItemSurface) -> String {
+        project.isRefreshing
+            ? #" <small class="project-refresh-status" data-testid="project-refresh-status">Refreshing...</small>"#
             : ""
     }
 

@@ -173,7 +173,7 @@ extension QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot
         )
         if result.ok, let projectID = selectedThread?.projectID ?? root.selectedProjectID {
-            _ = refreshProjectContext(projectID)
+            _ = scheduleProjectContextRefresh(projectID)
         }
         return true
     }

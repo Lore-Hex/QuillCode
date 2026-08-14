@@ -67,9 +67,9 @@ public final class QuillCodeWorkspaceModel {
     /// scan completes. Keeping indexing off the main actor prevents slow or unavailable filesystem
     /// mounts from delaying the first window or freezing project switches.
     public var onFileMentionIndexChanged: (@MainActor @Sendable () -> Void)?
-    /// Desktop installs this to publish freshly loaded project instructions, hooks, extensions,
-    /// and memories after the first window is available. Automatic freshness scans never belong
-    /// on the main actor because workspace roots may be large, remote, or temporarily unavailable.
+    /// Desktop installs this to publish project-context progress and freshly loaded instructions,
+    /// hooks, extensions, and memories after the first window is available. Freshness scans never
+    /// belong on the main actor because workspace roots may be large, remote, or unavailable.
     public var onProjectContextChanged: (@MainActor @Sendable () -> Void)?
     /// Optional platform hook for browser tools that need a live native browser surface. Desktop installs
     /// this for visible WebKit sessions; nil keeps the pure app-core snapshot executor behavior.

@@ -18060,3 +18060,31 @@ Validation:
   control, project-row, or composer overlap
 - `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
 - `git diff --check`
+
+## 2026-08-14 Responsive Local and SSH Context Refresh
+
+Overall grade: **A+ main-thread responsiveness, A+ failure resilience, A+ interaction clarity**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| UI responsiveness | A+ | Sidebar, command-palette, and instruction-diagnostic refresh routes schedule local discovery and SSH loading in one utility-priority detached path. Semaphore-held local and delayed SSH loaders prove user actions return within 100 ms and never load on the main thread. |
+| Race safety | A+ | Each request snapshots the exact standardized local root or SSH connection and a monotonic generation. In-flight requests coalesce one latest follow-up, cancelled or stale work cannot publish, and synchronous internal refreshes supersede older background results. |
+| Failure resilience | A+ | Failed SSH refreshes preserve the last known instructions and memories, restore every disabled control, publish the readable error, and append a task-visible failure notice. Successful explicit refreshes clear stale errors and append completion evidence. |
+| Interaction clarity | A+ | Native and HTML project rows expose a fixed-size progress indicator, accessibility labels announce refresh state, and duplicate row and command-palette actions disable with an explicit reason until completion. |
+| State integrity | A+ | Background metadata publication no longer rebuilds the file-mention index, preventing a new-chat freshness scan from racing a later `git status` and erasing valid Changed badges. The complete suite exposed and now covers this ordering. |
+| Maintainability | A+ | Scheduling, generation checks, remote loading, publication, and progress state live in a focused 268-line source file; deterministic grading scores it 100/A+ and the remaining project API extension 97/A+. |
+
+Validation:
+
+- Focused local, SSH, command, navigation, native/HTML surface, changed-file mention, and parity suites
+  passed with zero failures
+- `swift test` (6,387 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (intentional SIGKILL draft/run recovery, direct and Launch
+  Services rendering, live native Accessibility interaction, critical memory pressure, and the
+  packaged 100-chat daily-driver workload passed)
+- Packaged daily-driver gate: 296.95 ms median launch-ready, 40.74 MiB initial physical footprint,
+  74.84 MiB post-interaction, 78.86 MiB repeated-interaction, and 0.0004% settled idle CPU
+- Visual review of empty-workspace, completed-result, and populated 100-chat native screenshots with
+  project rows, transcript, sidebar activity, model controls, and composer unobscured
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+; new scheduler 100/A+)
+- `git diff --check`

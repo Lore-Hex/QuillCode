@@ -104,7 +104,7 @@ extension QuillCodeWorkspaceModel {
             _ = newChat(projectID: projectID)
             return true
         case .refreshProjectContext(let projectID):
-            return refreshProjectContext(projectID)
+            return scheduleProjectContextRefresh(projectID)
         case .initProject(let projectID):
             return runInitProject(projectID)
         case .moveProjectToTop(let projectID):

@@ -37,10 +37,16 @@ func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
     return script
 }
 
-func makeExecutingFakeSSH(in root: URL, argumentsFile: URL, pathPrefix: URL? = nil) throws -> URL {
+func makeExecutingFakeSSH(
+    in root: URL,
+    argumentsFile: URL,
+    pathPrefix: URL? = nil,
+    delaySeconds: TimeInterval = 0
+) throws -> URL {
     let script = root.appendingPathComponent("fake-executing-ssh")
     let argumentsPath = shellSingleQuoted(argumentsFile.path)
     let pathExport = pathPrefix.map { "export PATH='\(shellSingleQuoted($0.path))':$PATH" } ?? ":"
+    let delay = delaySeconds > 0 ? "/bin/sleep \(delaySeconds)" : ":"
     try """
     #!/bin/sh
     : > '\(argumentsPath)'
@@ -50,6 +56,7 @@ func makeExecutingFakeSSH(in root: URL, argumentsFile: URL, pathPrefix: URL? = n
       last="$arg"
     done
     \(pathExport)
+    \(delay)
     /bin/sh -c "$last"
     """.write(to: script, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)

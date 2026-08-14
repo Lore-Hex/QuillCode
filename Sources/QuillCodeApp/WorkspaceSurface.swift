@@ -361,6 +361,7 @@ public extension QuillCodeWorkspaceModel {
         let navigation = WorkspaceNavigationSurfaceBuilder(
             projects: root.projects,
             selectedProjectID: root.selectedProjectID,
+            refreshingProjectIDs: refreshingProjectContextIDs,
             sidebarItems: root.allSidebarItems,
             selectedThreadID: root.selectedThreadID,
             threads: root.threads,
@@ -528,6 +529,9 @@ public extension QuillCodeWorkspaceModel {
         return WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
+            projectContextRefreshIsActive: selectedProject.map {
+                refreshingProjectContextIDs.contains($0.id)
+            } ?? false,
             hooks: effectiveHookDefinitions(for: selectedProject),
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelection.isActive,

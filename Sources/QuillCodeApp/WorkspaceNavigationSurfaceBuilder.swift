@@ -9,6 +9,7 @@ struct WorkspaceNavigationSurface: Sendable, Hashable {
 struct WorkspaceNavigationSurfaceBuilder {
     var projects: [ProjectRef]
     var selectedProjectID: UUID?
+    var refreshingProjectIDs: Set<UUID> = []
     var sidebarItems: [SidebarItem]
     var selectedThreadID: UUID?
     var threads: [ChatThread]
@@ -75,6 +76,7 @@ struct WorkspaceNavigationSurfaceBuilder {
             ProjectItemSurface(
                 project: project,
                 selectedProjectID: selectedProjectID,
+                isRefreshing: refreshingProjectIDs.contains(project.id),
                 canMoveToTop: index > 0,
                 canMoveUp: index > 0,
                 canMoveDown: index < sortedProjects.index(before: sortedProjects.endIndex),

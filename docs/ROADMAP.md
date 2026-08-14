@@ -129,6 +129,11 @@
 
 ## Latest Quality Pass
 
+- User-triggered **Refresh context** no longer performs local filesystem discovery or SSH process
+  waits on the main actor. Local and remote refreshes share one utility-priority, generation-bound,
+  coalesced scheduler; visible rows publish fixed-size progress, duplicate row and command-palette
+  actions disable until completion, failures restore controls with a durable task notice, and stale
+  results must still match the exact local root or SSH connection before replacing known context.
 - First-project setup and user folder import now register and select the project before reading its
   filesystem-backed instructions, actions, hooks, plugins, extensions, memories, or worktree
   environments. The established utility-priority refresh path loads that context off the main actor,

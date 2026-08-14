@@ -233,6 +233,74 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(didPublish)
     }
 
+    func testUserProjectContextRefreshStaysResponsiveAndPublishesProgress() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let projectID = UUID()
+        let threadID = UUID()
+        let instruction = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "Project AGENTS.md",
+            content: "Loaded after the visible refresh.",
+            byteCount: 33
+        )
+        let probe = BlockingProjectMetadataLoader(metadata: WorkspaceProjectMetadata(
+            instructions: [instruction],
+            localActions: [],
+            runHooks: [],
+            extensionManifests: [],
+            memories: []
+        ))
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [ProjectRef(id: projectID, name: "Slow Project", path: root.path)],
+            selectedProjectID: projectID,
+            threads: [ChatThread(id: threadID, projectID: projectID)],
+            selectedThreadID: threadID
+        ))
+        model.projectMetadataLoader = { _, _ in probe.load() }
+        defer { probe.release.signal() }
+        var publishCount = 0
+        model.onProjectContextChanged = { publishCount += 1 }
+        let startedAt = ContinuousClock.now
+
+        XCTAssertTrue(WorkspaceSidebarRowMutationExecutor.execute(
+            .refreshContext(projectID),
+            model: model
+        ))
+
+        XCTAssertLessThan(startedAt.duration(to: .now), .milliseconds(100))
+        XCTAssertEqual(publishCount, 1)
+        var surface = model.surface()
+        XCTAssertEqual(surface.projects.items.first?.isRefreshing, true)
+        XCTAssertTrue(surface.projects.items.first?.accessibilityLabel.contains("Refreshing context") == true)
+        XCTAssertEqual(
+            surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled,
+            false
+        )
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
+
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while ContinuousClock.now < deadline, probe.callCount == 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(probe.callCount, 1)
+        XCTAssertFalse(probe.loadedOnMainThread)
+
+        probe.release.signal()
+        await model.waitForScheduledProjectContextRefresh()
+
+        surface = model.surface()
+        XCTAssertEqual(surface.projects.items.first?.isRefreshing, false)
+        XCTAssertEqual(
+            surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled,
+            true
+        )
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertEqual(model.selectedProject?.instructions, [instruction])
+        XCTAssertEqual(model.selectedThread?.instructions, [instruction])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Refreshed project context")
+        XCTAssertGreaterThanOrEqual(publishCount, 2)
+    }
+
     func testRegisterProjectReturnsBeforeContextLoadAndPublishesTheResult() async throws {
         let root = try makeQuillCodeTestDirectory()
         let instruction = ProjectInstruction(
