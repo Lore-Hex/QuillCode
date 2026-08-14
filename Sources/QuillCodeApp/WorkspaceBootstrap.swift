@@ -155,7 +155,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                     } ?? config.mode,
                     agentStatus: runtime.statusLabel
                 ),
-                trustedRouterAPIKeyConfigured: runtimeFactory.hasTrustedRouterAPIKey()
+                trustedRouterAPIKeyConfigured: runtime.trustedRouterAPIKeyConfigured
             ),
             automations: AutomationsState(items: automations),
             sidebarSavedSearches: sidebarSavedSearches,

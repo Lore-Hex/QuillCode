@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-14: runtime construction owns its credential-state result
+
+- **Decision:** A runtime carries the credential-presence state resolved while that runtime was
+  constructed. Initial workspace bootstrap and desktop settings refresh project that result instead
+  of querying the TrustedRouter credential source again.
+- **Launch boundary:** A signed returning-user launch now performs one Keychain credential read before
+  the first window instead of two. Environment, key-file, legacy file-store, forced-mock, and missing-
+  credential paths retain their existing runtime and onboarding behavior.
+- **Freshness boundary:** Explicit model-catalog and account-credit refreshes still resolve current
+  credential state when they run after startup. The optimization removes only same-operation duplicate
+  reads; it does not cache credentials across user actions or place secret material in application state.
+- **Evidence:** An injected counting secret store proves workspace bootstrap performs exactly one
+  credential read and publishes the matching root state. Runtime-factory and desktop-settings tests
+  cover configured, missing, key-file, stored, and forced-mock paths.
+
 ## 2026-08-14: repeated thread growth uses a prior settled high-water
 
 - **Decision:** Performance evidence keeps the raw repeated-minus-first-sweep thread delta for

@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-14 Single-Resolution Desktop Credential Startup
+
+Overall grade: **A+ launch discipline, A+ credential safety, A+ state consistency**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Pre-window work | A+ | Returning-user bootstrap resolves the TrustedRouter credential once and reuses that non-secret presence result for initial account UI instead of issuing a second Keychain query. |
+| Settings responsiveness | A+ | A settings apply constructs one runtime and projects its matching credential state without immediately rereading the credential source. |
+| Secret handling | A+ | Only a boolean presence result enters runtime and workspace state; key material remains inside the existing environment, file, or platform secret-store path. |
+| Freshness | A+ | Catalog and account-credit operations continue to resolve the current credential independently after startup, so user-driven credential changes are not hidden behind a process-lifetime cache. |
+| Compatibility | A+ | Environment, key-file, file-store, Keychain migration, missing-key, OAuth, developer override, and forced-mock behavior retain their prior status and onboarding semantics. |
+| Regression evidence | A+ | An injected counting store proves a stored credential is read exactly once during workspace bootstrap; runtime and desktop settings suites cover construction and refresh behavior. |
+
+Validation:
+
+- `swift test` (6,398 tests; 5 intentional skips; 0 failures)
+- Focused runtime factory and desktop settings suites (13 tests; 0 failures)
+- Release-configured packaged macOS smoke, including draft and agent-run SIGKILL recovery, direct
+  and Launch Services rendering, native Accessibility interaction, and critical memory pressure
+- 100-chat daily-driver sample: 290.99 ms launch-ready, 40.84 MiB initial physical footprint,
+  74.89 MiB after the first interaction sweep, 79.24 MiB after repetition, six settled threads,
+  and 0.0002% settled idle CPU
+- Full-resolution visual review found no sidebar, transcript, top-bar, or composer overlap
+- Deterministic quality grades: changed production files 97-100/A+, changed test file 98/A+;
+  all affected source and test modules 99/A+
+
 ## 2026-08-13 Durable Updater Activation Recovery
 
 Overall grade after this slice: **A+ crash resilience, A+ rollback safety, A+ cleanup discipline**.
