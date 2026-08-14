@@ -14,7 +14,7 @@ extension MacSystemSettingsOpener: QuillCodeDesktopComputerUseSettingsOpening {}
 final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     private var backend: any ComputerUseBackend
     private let systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening
-    private let applicationActivationNotificationCenter: NotificationCenter
+    private var applicationActivationNotificationCenter: NotificationCenter?
     private let applicationActivationNotification: Notification.Name
     private var applicationActivationHandler: (@MainActor () -> Void)?
     /// Invalidates a permission preflight when a newer refresh or backend replacement wins.
@@ -26,7 +26,7 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     init(
         backend: any ComputerUseBackend = ComputerUseBackendFactory.platformDefault().backend(),
         systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening = MacSystemSettingsOpener(),
-        applicationActivationNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        applicationActivationNotificationCenter: NotificationCenter? = nil,
         applicationActivationNotification: Notification.Name = NSWorkspace.didActivateApplicationNotification
     ) {
         self.backend = backend
@@ -37,7 +37,7 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     }
 
     deinit {
-        applicationActivationNotificationCenter.removeObserver(self)
+        applicationActivationNotificationCenter?.removeObserver(self)
     }
 
     func install(on model: QuillCodeWorkspaceModel) {
@@ -49,7 +49,10 @@ final class QuillCodeDesktopComputerUseCoordinator: NSObject {
     ) {
         guard applicationActivationHandler == nil else { return }
         applicationActivationHandler = onActivation
-        applicationActivationNotificationCenter.addObserver(
+        let notificationCenter = applicationActivationNotificationCenter
+            ?? NSWorkspace.shared.notificationCenter
+        applicationActivationNotificationCenter = notificationCenter
+        notificationCenter.addObserver(
             self,
             selector: #selector(applicationDidActivate),
             name: applicationActivationNotification,

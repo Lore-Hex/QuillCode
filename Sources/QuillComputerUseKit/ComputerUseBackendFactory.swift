@@ -25,7 +25,7 @@ public struct ComputerUseBackendFactory: Sendable {
     public static func platformDefault() -> ComputerUseBackendFactory {
         #if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
         return ComputerUseBackendFactory {
-            MacComputerUseBackend()
+            DeferredMacComputerUseBackend()
         }
         #elseif os(Linux)
         return ComputerUseBackendFactory {
