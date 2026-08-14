@@ -17988,3 +17988,23 @@ Validation:
 - Python syntax compilation for all changed performance and release-verifier modules
 - `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
 - `git diff --check`
+
+## 2026-08-14 Compact Sidebar Activity Labels
+
+Overall grade: **A+ native usability, A+ allocation discipline, A+ packaged evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Older-date readability | A+ | Same-year rows retain a localized abbreviated month and day, while cross-year rows use a compact localized numeric date with a two-digit year. The native 100-chat screenshot shows complete `1/4/25` labels instead of `Jan 4, 20...`. |
+| Layout stability | A+ | The activity label reserves its intrinsic horizontal width, leaving the flexible title column to absorb compression without clipping the date or moving row actions. |
+| Formatting cost | A+ | Static value-style `Date.FormatStyle` instances replace per-call `DateFormatter` construction, and each SwiftUI row computes its activity label exactly once per body evaluation. |
+| Regression coverage | A+ | Focused tests cover recent relative units, future timestamps, same-year calendar labels, cross-year compact labels, navigation surfaces, and native hit targets. |
+| Packaged performance | A+ | The complete packaged 100-chat interaction sweep passed at 335.38 ms launch-ready, 40.75 MiB initial physical footprint, 75.88 MiB after interaction, 79.91 MiB after repetition, and 0.0002% settled idle CPU. |
+
+Validation:
+
+- Focused sidebar formatter, navigation-surface, and native hit-target suite (13 tests, 0 failures)
+- Visual review of the optimized 100-chat native screenshot with full older-date labels and no title, date, or action overlap
+- `scripts/native-click-probe-contracts.py performance` (416.16 ms launch-ready, 40.36 MiB initial, 76.38 MiB repeated, and 0.0003% idle CPU)
+- `scripts/smoke.sh` (6,373 tests; 5 skipped; 0 failures, plus CLI, app-server, MCP, crash recovery, direct launch, Launch Services, Accessibility, memory-pressure, and packaged macOS smokes)
+- Final packaged daily-driver smoke (335.38 ms launch-ready, 40.75 MiB initial, 79.91 MiB repeated, and 0.0002% idle CPU)

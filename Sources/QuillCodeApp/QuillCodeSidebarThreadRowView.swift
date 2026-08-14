@@ -9,9 +9,10 @@ struct QuillCodeSidebarThreadRowView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
+        let activityLabel = SidebarActivityLabelFormatter.label(for: item.updatedAt)
         HStack(spacing: QuillCodeMetrics.sidebarControlSpacing) {
             selectionToggle
-            threadButton
+            threadButton(activityLabel: activityLabel)
             actionsMenu
         }
         .padding(.vertical, 0)
@@ -33,7 +34,7 @@ struct QuillCodeSidebarThreadRowView: View {
         }
     }
 
-    private var threadButton: some View {
+    private func threadButton(activityLabel: String) -> some View {
         Button {
             if isSelectionMode {
                 toggleSelection()
@@ -60,6 +61,7 @@ struct QuillCodeSidebarThreadRowView: View {
                         .foregroundStyle(QuillCodePalette.muted)
                         .monospacedDigit()
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 if item.worktree != nil || item.pullRequest != nil {
                     HStack(spacing: 6) {
@@ -81,10 +83,6 @@ struct QuillCodeSidebarThreadRowView: View {
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
         .accessibilityLabel("\(item.title), \(item.subtitle), updated \(activityLabel)")
         .accessibilityValue(item.runStatusLabel ?? "Idle")
-    }
-
-    private var activityLabel: String {
-        SidebarActivityLabelFormatter.label(for: item.updatedAt)
     }
 
     @ViewBuilder
