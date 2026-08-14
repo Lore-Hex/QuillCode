@@ -24,7 +24,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         ))
     }
 
-    func testAutomationCoordinatorRunsDueWorkWhenNotificationsAreDisabled() {
+    func testAutomationCoordinatorRunsDueWorkWhenNotificationsAreDisabled() async {
         let source = ChatThread(title: "Due follow-up", messages: [
             .init(role: .user, content: "check later"),
             .init(role: .assistant, content: "I will.")
@@ -50,7 +50,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         var didRefresh = false
         model.setAutomations([automation])
 
-        QuillCodeDesktopAutomationCoordinator().runDueAutomations(
+        await QuillCodeDesktopAutomationCoordinator().runDueAutomations(
             model: model,
             notifier: notifier,
             refresh: { didRefresh = true }
@@ -61,7 +61,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         XCTAssertNotNil(model.root.threads.first { $0.title == "Follow-up: Due follow-up" })
     }
 
-    func testAutomationCoordinatorDeliversReportsWhenNotificationsAreEnabled() {
+    func testAutomationCoordinatorDeliversReportsWhenNotificationsAreEnabled() async {
         let source = ChatThread(title: "Due follow-up", messages: [
             .init(role: .user, content: "check later"),
             .init(role: .assistant, content: "I will.")
@@ -82,7 +82,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         let notifier = RecordingDesktopAutomationNotifier()
         model.setAutomations([automation])
 
-        QuillCodeDesktopAutomationCoordinator().runDueAutomations(
+        await QuillCodeDesktopAutomationCoordinator().runDueAutomations(
             model: model,
             notifier: notifier,
             refresh: {}
@@ -92,7 +92,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         XCTAssertEqual(notifier.automationReports.first?.automationID, automation.id)
     }
 
-    func testAutomationCoordinatorDeliversScheduledCoworkerReport() {
+    func testAutomationCoordinatorDeliversScheduledCoworkerReport() async {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let automation = QuillAutomation(
             title: "Scheduled task: Check competitors",
@@ -110,7 +110,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         let notifier = RecordingDesktopAutomationNotifier()
         model.setAutomations([automation])
 
-        QuillCodeDesktopAutomationCoordinator().runDueAutomations(
+        await QuillCodeDesktopAutomationCoordinator().runDueAutomations(
             model: model,
             notifier: notifier,
             refresh: {}
@@ -124,6 +124,43 @@ final class DesktopNotificationPolicyTests: XCTestCase {
             report?.body,
             "Scheduled check: QuillCode was created for QuillCode: check competitor pricing pages and notify me with a diff."
         )
+    }
+
+    func testAutomationTickerRunsDueWorkBeforeFirstInterval() async {
+        let source = ChatThread(title: "Due follow-up", messages: [
+            .init(role: .user, content: "check later"),
+            .init(role: .assistant, content: "I will.")
+        ])
+        let automation = QuillAutomation(
+            title: "Due follow-up",
+            detail: "Resume later.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 1)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let notifier = RecordingDesktopAutomationNotifier()
+        model.setAutomations([automation])
+
+        QuillCodeDesktopAutomationCoordinator(tickIntervalNanoseconds: 60_000_000_000).startTicker(
+            model: model,
+            tasks: tasks,
+            notifier: notifier,
+            refresh: {}
+        )
+        for _ in 0..<100 where notifier.automationReports.isEmpty {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        tasks.cancel(.automationTicker)
+
+        XCTAssertEqual(notifier.automationReports.map(\.automationID), [automation.id])
+        XCTAssertNotNil(model.root.threads.first { $0.title == "Follow-up: Due follow-up" })
     }
 }
 

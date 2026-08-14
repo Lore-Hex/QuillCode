@@ -129,6 +129,12 @@
 
 ## Latest Quality Pass
 
+- Desktop event automations no longer perform file, directory, URL-header, or feed polling on the
+  main actor. A focused background poller checks at most four sources concurrently, preserves the
+  persisted automation order, exits promptly when the ticker is cancelled, and discards a resolved
+  trigger when its automation changed during the poll. The ticker still runs overdue work
+  immediately when automatic workspace services start, then waits for its normal interval, so the
+  responsiveness fix does not introduce a 30-second launch delay.
 - Sidebar activity labels now keep older chat dates fully visible in the fixed-width native rail.
   Same-year dates retain a readable abbreviated month, cross-year dates use a compact localized
   numeric form with a two-digit year, and each row computes the label once from cached value-style

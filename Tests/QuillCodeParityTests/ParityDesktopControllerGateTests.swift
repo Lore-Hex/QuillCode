@@ -331,11 +331,16 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(text, contains: "UNUserNotificationCenter")
         Self.assertSource(text, contains: "MacAutomationNotifier")
         Self.assertSource(text, contains: "QuillCodeDesktopAutomationCoordinator")
-        Self.assertSource(controllerText, contains: "automationCoordinator.runDueAutomations")
         Self.assertSource(controllerText, contains: "automationCoordinator.startTicker")
-        Self.assertSource(automationCoordinatorText, contains: "runDueAutomationReports")
+        Self.assertSource(automationCoordinatorText, containsAll: [
+            "await runDueAutomations",
+            "await model.runDueAutomationReportsAsync()"
+        ])
         Self.assertSource(automationCoordinatorText, contains: "reports.forEach(notifier.deliver)")
-        Self.assertSource(controllerText, excludes: "let reports = model.runDueAutomationReports()")
-        Self.assertSource(controllerText, excludes: "reports.forEach(automationNotifier.deliver)")
+        Self.assertSource(controllerText, excludesAll: [
+            "automationCoordinator.runDueAutomations",
+            "let reports = model.runDueAutomationReports()",
+            "reports.forEach(automationNotifier.deliver)"
+        ])
     }
 }
