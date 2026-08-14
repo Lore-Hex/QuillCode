@@ -18034,3 +18034,29 @@ Validation:
 - Three-process optimized daily-driver gate: 326.71 ms median launch-ready, 40.66 MiB initial,
   83.11 MiB post-interaction, 87.59 MiB repeated-interaction, and 0.0003% settled idle CPU
 - `python3 scripts/grade-code-quality.py --root .` (all affected production modules A+; new poller and desktop coordinator score 100)
+
+## 2026-08-14 Deferred Desktop Project Registration
+
+Overall grade: **A+ main-thread responsiveness, A+ state continuity, A+ race safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| UI responsiveness | A+ | First-project setup and folder import mutate only bounded in-memory registry state on the main actor; metadata discovery runs through the existing utility-priority detached loader. |
+| State continuity | A+ | Reopening an existing local path updates its display name and recency while preserving all known context and diagnostic decisions until a successful refresh replaces them. |
+| Race safety | A+ | Registration reuses the coalesced generation-bound refresh path, which validates project identity and standardized root before applying a result. |
+| Persistence | A+ | The selected project and registry record are saved immediately, independently of slow or unavailable filesystem metadata. |
+| Regression evidence | A+ | A semaphore-held loader proves registration returns in under 100 ms, never loads on the main thread, and publishes eventual instructions; pure engine tests cover new and reopened records. |
+
+Validation:
+
+- Focused project engine, model integration, and desktop architecture suite (45 tests, 0 failures)
+- `swift test` (6,381 tests; 5 skipped; 0 failures)
+- `scripts/packaged-macos-smoke.sh` (SIGKILL draft/run recovery, direct and Launch Services
+  rendering, live native Accessibility interaction, critical memory pressure, and packaged
+  daily-driver workload passed)
+- Three-process optimized daily-driver gate: 301.97 ms median launch-ready, 40.69 MiB initial,
+  82.92 MiB post-interaction, 87.53 MiB repeated-interaction, and 0.0003% settled idle CPU
+- Visual review of the final 100-chat native screenshot with complete sidebar dates and no transcript,
+  control, project-row, or composer overlap
+- `python3 scripts/grade-code-quality.py --root .` (all production modules A+)
+- `git diff --check`

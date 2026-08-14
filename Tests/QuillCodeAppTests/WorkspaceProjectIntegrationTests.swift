@@ -233,6 +233,49 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(didPublish)
     }
 
+    func testRegisterProjectReturnsBeforeContextLoadAndPublishesTheResult() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let instruction = ProjectInstruction(
+            path: "AGENTS.md",
+            title: "Project AGENTS.md",
+            content: "Loaded after project registration.",
+            byteCount: 34
+        )
+        let probe = BlockingProjectMetadataLoader(metadata: WorkspaceProjectMetadata(
+            instructions: [instruction],
+            localActions: [],
+            runHooks: [],
+            extensionManifests: [],
+            memories: []
+        ))
+        let model = QuillCodeWorkspaceModel()
+        model.projectMetadataLoader = { _, _ in probe.load() }
+        defer { probe.release.signal() }
+        var didPublish = false
+        model.onProjectContextChanged = { didPublish = true }
+        let startedAt = ContinuousClock.now
+
+        let projectID = model.registerProject(path: root, name: "Responsive Project")
+
+        XCTAssertLessThan(startedAt.duration(to: .now), .milliseconds(100))
+        XCTAssertEqual(model.root.selectedProjectID, projectID)
+        XCTAssertEqual(model.selectedProject?.name, "Responsive Project")
+        XCTAssertTrue(model.selectedProject?.instructions.isEmpty == true)
+
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while ContinuousClock.now < deadline, probe.callCount == 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(probe.callCount, 1)
+        XCTAssertFalse(probe.loadedOnMainThread)
+
+        probe.release.signal()
+        await model.waitForScheduledProjectContextRefresh()
+
+        XCTAssertEqual(model.selectedProject?.instructions, [instruction])
+        XCTAssertTrue(didPublish)
+    }
+
     func testRestoredProjectWorktreeEnvironmentsLoadOffMainAndRemainCached() async throws {
         let root = try makeQuillCodeTestDirectory()
         let configurationDirectory = root.appendingPathComponent(".quillcode")
@@ -402,21 +445,28 @@ private struct ImmediateProjectTestLLMClient: LLMClient {
 private final class BlockingProjectMetadataLoader: @unchecked Sendable {
     let release = DispatchSemaphore(value: 0)
     private let lock = NSLock()
+    private let metadata: WorkspaceProjectMetadata
     private var calls = 0
+    private var wasLoadedOnMainThread = false
+
+    init(metadata: WorkspaceProjectMetadata = .empty) {
+        self.metadata = metadata
+    }
 
     var callCount: Int {
         lock.withLock { calls }
     }
 
+    var loadedOnMainThread: Bool {
+        lock.withLock { wasLoadedOnMainThread }
+    }
+
     func load() -> WorkspaceProjectMetadata {
-        lock.withLock { calls += 1 }
+        lock.withLock {
+            calls += 1
+            wasLoadedOnMainThread = Thread.isMainThread
+        }
         release.wait()
-        return WorkspaceProjectMetadata(
-            instructions: [],
-            localActions: [],
-            runHooks: [],
-            extensionManifests: [],
-            memories: []
-        )
+        return metadata
     }
 }

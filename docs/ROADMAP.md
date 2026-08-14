@@ -129,6 +129,12 @@
 
 ## Latest Quality Pass
 
+- First-project setup and user folder import now register and select the project before reading its
+  filesystem-backed instructions, actions, hooks, plugins, extensions, memories, or worktree
+  environments. The established utility-priority refresh path loads that context off the main actor,
+  coalesces duplicate scans, and rejects stale results. Reopening an existing project preserves its
+  last known context until fresh metadata arrives, so an unavailable volume cannot freeze the native
+  window or blank useful project state.
 - Desktop event automations no longer perform file, directory, URL-header, or feed polling on the
   main actor. A focused background poller checks at most four sources concurrently, preserves the
   persisted automation order, exits promptly when the ticker is cancelled, and discards a resolved

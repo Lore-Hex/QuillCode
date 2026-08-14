@@ -214,13 +214,13 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "modelStateCoordinator.refreshState")
         Self.assertSource(controllerText, contains: "modelStateCoordinator.syncComposerDraft")
         Self.assertSource(stateCoordinatorText, contains: "model.root.projects.isEmpty")
-        Self.assertSource(stateCoordinatorText, contains: "model.addProject(path: workspaceRoot)")
+        Self.assertSource(stateCoordinatorText, contains: "model.registerProject(path: workspaceRoot)")
         Self.assertSource(stateCoordinatorText, contains: "model.surface()")
         Self.assertSource(stateCoordinatorText, contains: "model.composer.draft")
         Self.assertSource(stateCoordinatorText, contains: "model.terminal.draft")
         Self.assertSource(stateCoordinatorText, contains: "model.browser.addressDraft")
         Self.assertSource(controllerText, excludes: "model.root.projects.isEmpty")
-        Self.assertSource(controllerText, excludes: "model.addProject(path: workspaceRoot)")
+        Self.assertSource(controllerText, excludes: "model.registerProject(path: workspaceRoot)")
         Self.assertSource(controllerText, excludes: "model.surface()")
         Self.assertSource(controllerText, excludes: "model.composer.draft")
         Self.assertSource(controllerText, excludes: "model.terminal.draft")
@@ -250,7 +250,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(navigationText, contains: "model.renameThread(id, to: title)")
         Self.assertSource(navigationText, contains: "model.selectProject(id)")
         Self.assertSource(navigationText, contains: "model.renameProject(id, to: name)")
-        Self.assertSource(navigationText, contains: "model.addProject(path: url)")
+        Self.assertSource(navigationText, contains: "model.registerProject(path: url)")
         Self.assertSource(controllerText, excludes: "_ = model.newChat()")
         Self.assertSource(controllerText, excludes: "model.selectThread(id)")
         Self.assertSource(
@@ -260,7 +260,7 @@ final class ParityDesktopControllerGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, excludes: "model.renameThread(id, to: title)")
         Self.assertSource(controllerText, excludes: "model.selectProject(id)")
         Self.assertSource(controllerText, excludes: "model.renameProject(id, to: name)")
-        Self.assertSource(controllerText, excludes: "model.addProject(path: url)")
+        Self.assertSource(controllerText, excludes: "model.registerProject(path: url)")
     }
 
     func testDesktopControllerDelegatesWorktreeActions() throws {

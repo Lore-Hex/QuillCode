@@ -7,6 +7,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- Deferred desktop project registration: a blocked metadata loader must not delay main-actor
+  registration beyond 100 ms, must execute off the main thread, and must eventually publish loaded
+  instructions through the shared project-context callback. Pure engine coverage requires new
+  projects to begin with empty context and reopened projects to preserve instructions, diagnostic
+  decisions, local actions, run hooks, plugin hooks, extensions, and memories until refresh completes.
 - Native memory pressure: warning/critical cache reclamation, durable inactive-transcript deferral,
   selected/running/persistence-failed chat retention, critical file-index release, active-run
   language-service protection, idempotent dispatch observation, and off-main teardown. Packaged

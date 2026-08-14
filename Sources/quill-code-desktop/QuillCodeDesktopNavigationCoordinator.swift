@@ -65,6 +65,6 @@ struct QuillCodeDesktopNavigationCoordinator {
     }
 
     func addProject(_ url: URL, model: QuillCodeWorkspaceModel) {
-        _ = model.addProject(path: url)
+        _ = model.registerProject(path: url)
     }
 }

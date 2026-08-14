@@ -79,6 +79,31 @@ enum WorkspaceProjectEngine {
     }
 
     @discardableResult
+    static func registerLocalProject(
+        path: URL,
+        name: String?,
+        projects: inout [ProjectRef],
+        now: Date = Date()
+    ) -> WorkspaceProjectUpsertResult {
+        let standardized = path.standardizedFileURL
+        let projectName = name ?? defaultProjectName(for: standardized)
+
+        if let index = projects.firstIndex(where: { $0.path == standardized.path && !$0.isRemote }) {
+            projects[index].name = projectName
+            projects[index].lastOpenedAt = now
+            return WorkspaceProjectUpsertResult(projectID: projects[index].id, isNewProject: false)
+        }
+
+        let project = ProjectRef(
+            name: projectName,
+            path: standardized.path,
+            lastOpenedAt: now
+        )
+        projects.insert(project, at: 0)
+        return WorkspaceProjectUpsertResult(projectID: project.id, isNewProject: true)
+    }
+
+    @discardableResult
     static func upsertLocalProject(
         path: URL,
         name: String?,
