@@ -12,7 +12,7 @@ from performance_evidence_contract import (
     DEFAULT_MAX_IDLE_THREAD_GROWTH,
     DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
-    DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH,
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
     DEFAULT_MAX_THREAD_COUNT,
@@ -45,6 +45,7 @@ ATTEMPT_KEYS = frozenset(
         "repeatedInteractionResidentMemoryMiB",
         "repeatedInteractionThreadCount",
         "repeatedInteractionThreadGrowth",
+        "repeatedInteractionRetainedThreadGrowth",
         "residentMemoryBytes",
         "residentMemoryGrowthBytes",
         "residentMemoryGrowthMiB",
@@ -56,7 +57,7 @@ ATTEMPT_KEYS = frozenset(
         "withinIdleResidentMemoryGrowthBudget",
         "withinIdleThreadGrowthBudget",
         "withinRepeatedResidentMemoryGrowthBudget",
-        "withinRepeatedThreadGrowthBudget",
+        "withinRepeatedRetainedThreadGrowthBudget",
         "withinResidentMemoryBudget",
         "withinResidentMemoryGrowthBudget",
         "withinThreadCountBudget",
@@ -194,6 +195,10 @@ def validate_attempt(
         raw_attempt["repeatedInteractionThreadGrowth"],
         f"{label} repeatedInteractionThreadGrowth",
     )
+    repeated_retained_thread_growth = integer(
+        raw_attempt["repeatedInteractionRetainedThreadGrowth"],
+        f"{label} repeatedInteractionRetainedThreadGrowth",
+    )
     idle_duration = finite_number(
         raw_attempt["idleDurationMilliseconds"],
         f"{label} idleDurationMilliseconds",
@@ -226,6 +231,8 @@ def validate_attempt(
         raise VerificationError(f"{label} repeated resident-memory delta is forged")
     if repeated_thread_growth != repeated_threads - post_threads:
         raise VerificationError(f"{label} repeated thread delta is forged")
+    if repeated_retained_thread_growth != repeated_threads - max(threads, post_threads):
+        raise VerificationError(f"{label} repeated retained thread delta is forged")
     if idle_resident_growth != idle_resident - repeated_resident:
         raise VerificationError(f"{label} idle resident-memory delta is forged")
     if idle_thread_growth != idle_threads - repeated_threads:
@@ -271,8 +278,9 @@ def validate_attempt(
     within_threads = max(threads, post_threads, repeated_threads, idle_threads) <= (
         DEFAULT_MAX_THREAD_COUNT
     )
-    within_repeated_thread_growth = (
-        repeated_thread_growth <= DEFAULT_MAX_REPEATED_THREAD_GROWTH
+    within_repeated_retained_thread_growth = (
+        repeated_retained_thread_growth
+        <= DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH
     )
     within_idle_cpu = idle_cpu_percent <= DEFAULT_MAX_IDLE_CPU_PERCENT
     within_idle_resident_growth = (
@@ -285,7 +293,7 @@ def validate_attempt(
         (within_growth, "resident-memory growth"),
         (within_repeated_growth, "repeated resident-memory growth"),
         (within_threads, "thread-count"),
-        (within_repeated_thread_growth, "repeated thread-growth"),
+        (within_repeated_retained_thread_growth, "repeated retained thread-growth"),
         (within_idle_cpu, "idle CPU"),
         (within_idle_resident_growth, "idle resident-memory growth"),
         (within_idle_thread_growth, "idle thread-growth"),
@@ -300,7 +308,9 @@ def validate_attempt(
         "withinResidentMemoryGrowthBudget": within_growth,
         "withinRepeatedResidentMemoryGrowthBudget": within_repeated_growth,
         "withinThreadCountBudget": within_threads,
-        "withinRepeatedThreadGrowthBudget": within_repeated_thread_growth,
+        "withinRepeatedRetainedThreadGrowthBudget": (
+            within_repeated_retained_thread_growth
+        ),
         "withinIdleCPUPercentBudget": within_idle_cpu,
         "withinIdleResidentMemoryGrowthBudget": within_idle_resident_growth,
         "withinIdleThreadGrowthBudget": within_idle_thread_growth,

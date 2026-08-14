@@ -180,6 +180,23 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         )
     }
 
+    func testVerifierRejectsForgedRetainedThreadDeltaAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            attempts[2]["repeatedInteractionRetainedThreadGrowth"] = 1
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance attempt 3 repeated retained thread delta is forged"),
+            result.output
+        )
+    }
+
     func testVerifierRecomputesPublishedPerformanceBudgetsAfterIntegrityChecksPass() throws {
         let fixture = try makeFixture { evidence in
             var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
@@ -790,7 +807,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         ]
         let selectedAttempt = attempts[1]
         var evidence: [String: Any] = [
-            "schemaVersion": 6,
+            "schemaVersion": 7,
             "ok": true,
             "product": "Quill Cowork",
             "workload": "daily-driver-100-chats",
@@ -813,7 +830,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 "maximumResidentMemoryGrowthBytes": 64 * 1_024 * 1_024,
                 "maximumRepeatedResidentMemoryGrowthBytes": 16 * 1_024 * 1_024,
                 "maximumThreadCount": 32,
-                "maximumRepeatedThreadGrowth": 2,
+                "maximumRepeatedRetainedThreadGrowth": 2,
                 "maximumIdleCPUPercent": 5.0,
                 "maximumIdleResidentMemoryGrowthBytes": 8 * 1_024 * 1_024,
                 "maximumIdleThreadGrowth": 2
@@ -837,6 +854,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "repeatedInteractionResidentMemoryGrowthBytes",
             "repeatedInteractionResidentMemoryGrowthMiB",
             "repeatedInteractionThreadGrowth",
+            "repeatedInteractionRetainedThreadGrowth",
             "idleDurationMilliseconds",
             "idleProcessorTimeNanoseconds",
             "idleProcessorTimeMilliseconds",
@@ -892,6 +910,10 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "repeatedInteractionThreadGrowth": (
                 repeatedInteractionThreadCount - postInteractionThreadCount
             ),
+            "repeatedInteractionRetainedThreadGrowth": (
+                repeatedInteractionThreadCount
+                    - max(threadCount, postInteractionThreadCount)
+            ),
             "idleDurationMilliseconds": 2_000.0,
             "idleProcessorTimeNanoseconds": 100_000_000,
             "idleProcessorTimeMilliseconds": 100.0,
@@ -907,7 +929,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "withinResidentMemoryGrowthBudget": true,
             "withinRepeatedResidentMemoryGrowthBudget": true,
             "withinThreadCountBudget": true,
-            "withinRepeatedThreadGrowthBudget": true,
+            "withinRepeatedRetainedThreadGrowthBudget": true,
             "withinIdleCPUPercentBudget": true,
             "withinIdleResidentMemoryGrowthBudget": true,
             "withinIdleThreadGrowthBudget": true

@@ -14,7 +14,7 @@ from performance_evidence_contract import (
     DEFAULT_MAX_IDLE_THREAD_GROWTH,
     DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
-    DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH,
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
     DEFAULT_MAX_THREAD_COUNT,
@@ -67,6 +67,11 @@ class PerformanceAttempt:
     @property
     def repeated_interaction_thread_growth(self) -> int:
         return self.repeated_interaction_thread_count - self.post_interaction_thread_count
+
+    @property
+    def repeated_interaction_retained_thread_growth(self) -> int:
+        prior_high_water = max(self.thread_count, self.post_interaction_thread_count)
+        return self.repeated_interaction_thread_count - prior_high_water
 
     @property
     def idle_resident_memory_growth_bytes(self) -> int:
@@ -226,6 +231,10 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
         performance.get("repeatedInteractionThreadGrowth"),
         "performance.repeatedInteractionThreadGrowth",
     )
+    reported_repeated_retained_thread_growth = _integer(
+        performance.get("repeatedInteractionRetainedThreadGrowth"),
+        "performance.repeatedInteractionRetainedThreadGrowth",
+    )
     require(
         performance.get("idleMeasurement") == IDLE_MEASUREMENT,
         "unexpected idle performance measurement boundary",
@@ -277,6 +286,11 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
         "performance repeated thread growth does not match its snapshots",
     )
     require(
+        reported_repeated_retained_thread_growth
+        == repeated_interaction_thread_count - max(thread_count, post_interaction_thread_count),
+        "performance repeated retained thread growth does not match its snapshots",
+    )
+    require(
         reported_idle_memory_growth == idle_resident - repeated_interaction_resident,
         "performance idle resident-memory growth does not match its snapshots",
     )
@@ -324,7 +338,9 @@ def write_performance_manifest(
         DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES
     ),
     max_thread_count: int = DEFAULT_MAX_THREAD_COUNT,
-    max_repeated_thread_growth: int = DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    max_repeated_retained_thread_growth: int = (
+        DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH
+    ),
     max_idle_cpu_percent: float = DEFAULT_MAX_IDLE_CPU_PERCENT,
     max_idle_resident_memory_growth_bytes: int = (
         DEFAULT_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES
@@ -348,9 +364,9 @@ def write_performance_manifest(
         "maximum repeated resident-memory growth bytes",
     )
     maximum_threads = _positive_integer(max_thread_count, "maximum thread count")
-    maximum_repeated_thread_growth = _integer(
-        max_repeated_thread_growth,
-        "maximum repeated thread growth",
+    maximum_repeated_retained_thread_growth = _integer(
+        max_repeated_retained_thread_growth,
+        "maximum repeated retained thread growth",
     )
     maximum_idle_cpu = _finite_number(
         max_idle_cpu_percent,
@@ -366,8 +382,8 @@ def write_performance_manifest(
     )
     require(max_launch > 0, "maximum launch-ready milliseconds must be positive")
     require(
-        maximum_repeated_thread_growth >= 0,
-        "maximum repeated thread growth cannot be negative",
+        maximum_repeated_retained_thread_growth >= 0,
+        "maximum repeated retained thread growth cannot be negative",
     )
     require(maximum_idle_cpu > 0, "maximum idle CPU percent must be positive")
     require(
@@ -464,10 +480,11 @@ def write_performance_manifest(
             f"{maximum_threads} thread budget",
         )
         require(
-            attempt.repeated_interaction_thread_growth <= maximum_repeated_thread_growth,
-            "packaged repeated-interaction thread growth "
-            f"{attempt.repeated_interaction_thread_growth} exceeds "
-            f"{maximum_repeated_thread_growth} thread budget",
+            attempt.repeated_interaction_retained_thread_growth
+            <= maximum_repeated_retained_thread_growth,
+            "packaged repeated-interaction retained thread growth "
+            f"{attempt.repeated_interaction_retained_thread_growth} exceeds "
+            f"{maximum_repeated_retained_thread_growth} thread budget",
         )
         require(
             attempt.idle_thread_growth <= maximum_idle_thread_growth,
@@ -496,6 +513,9 @@ def write_performance_manifest(
     thread_growth = selected_attempt.thread_growth
     repeated_resident_growth = selected_attempt.repeated_interaction_resident_memory_growth_bytes
     repeated_thread_growth = selected_attempt.repeated_interaction_thread_growth
+    repeated_retained_thread_growth = (
+        selected_attempt.repeated_interaction_retained_thread_growth
+    )
     idle_duration = selected_attempt.idle_duration_milliseconds
     idle_processor_time = selected_attempt.idle_processor_time_nanoseconds
     idle_cpu_percent = selected_attempt.idle_cpu_percent
@@ -540,6 +560,7 @@ def write_performance_manifest(
             2,
         ),
         "repeatedInteractionThreadGrowth": repeated_thread_growth,
+        "repeatedInteractionRetainedThreadGrowth": repeated_retained_thread_growth,
         "idleMeasurement": IDLE_MEASUREMENT,
         "idleDurationMilliseconds": idle_duration,
         "idleProcessorTimeNanoseconds": idle_processor_time,
@@ -594,6 +615,9 @@ def write_performance_manifest(
                     2,
                 ),
                 "repeatedInteractionThreadGrowth": attempt.repeated_interaction_thread_growth,
+                "repeatedInteractionRetainedThreadGrowth": (
+                    attempt.repeated_interaction_retained_thread_growth
+                ),
                 "idleDurationMilliseconds": attempt.idle_duration_milliseconds,
                 "idleProcessorTimeNanoseconds": attempt.idle_processor_time_nanoseconds,
                 "idleProcessorTimeMilliseconds": round(
@@ -631,10 +655,11 @@ def write_performance_manifest(
                     attempt.thread_count <= maximum_threads
                     and attempt.post_interaction_thread_count <= maximum_threads
                     and attempt.repeated_interaction_thread_count <= maximum_threads
+                    and attempt.idle_thread_count <= maximum_threads
                 ),
-                "withinRepeatedThreadGrowthBudget": (
-                    attempt.repeated_interaction_thread_growth
-                    <= maximum_repeated_thread_growth
+                "withinRepeatedRetainedThreadGrowthBudget": (
+                    attempt.repeated_interaction_retained_thread_growth
+                    <= maximum_repeated_retained_thread_growth
                 ),
                 "withinIdleCPUPercentBudget": (
                     attempt.idle_cpu_percent <= maximum_idle_cpu
@@ -655,7 +680,9 @@ def write_performance_manifest(
             "maximumResidentMemoryGrowthBytes": max_resident_growth,
             "maximumRepeatedResidentMemoryGrowthBytes": max_repeated_resident_growth,
             "maximumThreadCount": maximum_threads,
-            "maximumRepeatedThreadGrowth": maximum_repeated_thread_growth,
+            "maximumRepeatedRetainedThreadGrowth": (
+                maximum_repeated_retained_thread_growth
+            ),
             "maximumIdleCPUPercent": maximum_idle_cpu,
             "maximumIdleResidentMemoryGrowthBytes": maximum_idle_resident_growth,
             "maximumIdleThreadGrowth": maximum_idle_thread_growth,

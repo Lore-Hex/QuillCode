@@ -265,7 +265,10 @@ reversible navigation, sheet, search, model-picker, and text-entry checks. The g
 samples the same process after a one-second settling interval following each pass.
 Both interaction snapshots must remain below 128 MiB, the first may retain no more
 than 64 MiB above the initial-window sample, and the repeated pass may add no more
-than another 16 MiB or 2 additional threads. All samples must stay at or below 32 threads.
+than another 16 MiB or 2 retained threads above the higher of the initial-window and
+first-settled counts. The raw second-minus-first thread delta remains in the evidence for
+diagnostics, while the high-water comparison prevents a temporary first-sample thread exit
+from masquerading as retained growth. All samples must stay at or below 32 threads.
 After the repeated pass settles, each process also measures a two-second idle
 window from macOS process user-plus-system CPU counters. Idle work must remain below
 5% CPU, may retain no more than another 8 MiB, and may add no more than 2 threads.

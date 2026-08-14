@@ -129,6 +129,11 @@
 
 ## Latest Quality Pass
 
+- Public performance evidence schema 7 now distinguishes raw thread churn from retained repeated
+  growth. Every attempt still publishes and validates each absolute thread count, while the strict
+  two-thread convergence gate compares the repeated snapshot with the higher prior settled count.
+  A temporary Darwin worker exit can no longer manufacture growth from a low first-sweep sample,
+  and a repeated count above the process's earlier settled high-water still fails closed.
 - Replacement updates now persist a private, bounded transaction record before the detached helper
   may activate. The helper fails closed when the record is absent or mismatched, while startup
   reconciliation compares exact bundle/version/build/commit identities to distinguish an

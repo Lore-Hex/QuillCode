@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-14: repeated thread growth uses a prior settled high-water
+
+- **Decision:** Performance evidence keeps the raw repeated-minus-first-sweep thread delta for
+  diagnostics, but release eligibility measures retained repeated growth against the higher of the
+  initial-window and first-settled thread counts. The production ceiling remains two threads and
+  every raw sample remains subject to the 32-thread absolute ceiling.
+- **Evidence contract:** Version-7 evidence publishes both signed deltas, the retained-growth budget,
+  and its per-attempt result. The app, offline validator, and post-publication verifier independently
+  recompute the retained value and reject missing, mislabeled, or forged fields.
+- **Why:** Darwin thread pools may retire a worker between settled snapshots. Build 761's first Intel
+  package attempt sampled `6 -> 5 -> 8`: a raw `+3`, but only `+2` above the previously observed
+  settled process high-water. Two later fresh processes were flat or shrank, and an unchanged native
+  rerun passed. Treating the temporary dip as the convergence baseline created a false release failure
+  without detecting additional retained work.
+- **Failure boundary:** A real repeated increase beyond every earlier settled count still fails in
+  every attempt. Absolute counts, memory growth, idle CPU, idle memory, idle threads, and the
+  two-of-three launch policy are unchanged.
+
 ## 2026-08-13: updater activation requires durable recovery identity
 
 - **Decision:** Before a replacement helper can start, the installer writes and rereads one private,
