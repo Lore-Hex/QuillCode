@@ -2092,9 +2092,9 @@
   dumps, and unsafe paths so Codex-like "show me the system state" questions run immediately without making vague
   diagnostic wording an arbitrary shell approval.
 - Merge-train merges use GitHub Actions' `GITHUB_TOKEN`, so GitHub does not enqueue normal push-triggered
-  workflows afterward. The train therefore dispatches both `ci.yml` and `download-builds.yml` explicitly after a
-  successful merge. This keeps `main` validated and refreshes `tester-latest` without requiring a maintainer to
-  remember a manual tester-build run after agent PRs land.
+  workflows afterward. The train therefore dispatches `ci.yml`, `download-builds.yml`, and `website.yml` explicitly
+  after a successful merge. This keeps `main` validated, refreshes `tester-latest`, and publishes website changes
+  without requiring a maintainer to remember manual post-merge runs after agent PRs land.
 - Download-build runs serialize instead of canceling an in-progress run. A delayed scheduled run can otherwise arrive
   after both platform packages finish and cancel the publisher while it is fetching the repository, leaving valid
   artifacts without an updated `tester-latest` release. Serial execution favors a complete release over a newer run

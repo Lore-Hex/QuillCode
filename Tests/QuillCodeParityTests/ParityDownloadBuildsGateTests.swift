@@ -589,14 +589,17 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
         let docs = try Self.docsText(named: "MERGE_TRAIN.md")
 
-        Self.assertSource(workflow, contains: "MERGE_TRAIN_POST_MERGE_WORKFLOWS: ci.yml download-builds.yml")
+        Self.assertSource(
+            workflow,
+            contains: "MERGE_TRAIN_POST_MERGE_WORKFLOWS: ci.yml download-builds.yml website.yml"
+        )
         Self.assertSource(script, containsAll: [
             "MERGE_TRAIN_POST_MERGE_WORKFLOWS",
             "MERGE_TRAIN_POST_MERGE_WORKFLOW",
             "gh workflow run \"$post_merge_workflow\" --repo \"$repo\" --ref \"$base_branch\""
         ])
         Self.assertSource(docs, containsAll: [
-            "`CI` and `Download Builds` workflows",
+            "`CI`, `Download Builds`, and `Website` workflows",
             "refreshes the `tester-latest` download release"
         ])
     }
