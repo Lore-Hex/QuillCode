@@ -13,6 +13,7 @@ from tester_publication.contracts import (
     REPOSITORY_PATTERN,
     RUN_ID_PATTERN,
     load_local_assets,
+    load_tester_release_identity,
 )
 from tester_publication.publisher import TesterReleasePublisher
 
@@ -48,11 +49,19 @@ def main() -> int:
     except UnicodeDecodeError as error:
         raise PublicationError("Release notes must be UTF-8.") from error
 
+    assets = load_local_assets(arguments.assets_dir)
+    identity = load_tester_release_identity(
+        assets,
+        repository=arguments.repo,
+        commit=arguments.commit,
+        run_id=arguments.run_id,
+    )
     TesterReleasePublisher(
         repository=arguments.repo,
         commit=arguments.commit,
         run_id=arguments.run_id,
-        assets=load_local_assets(arguments.assets_dir),
+        assets=assets,
+        title=identity.title,
         notes=notes,
         notes_path=arguments.notes_file,
         retry_delay_seconds=arguments.retry_delay_seconds,

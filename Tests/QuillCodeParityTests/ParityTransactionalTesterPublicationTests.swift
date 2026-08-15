@@ -12,7 +12,7 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
         XCTAssertEqual(result.state["tag"] as? String, newCommit)
         let release = try release(from: result.state)
         XCTAssertEqual(release["target_commitish"] as? String, newCommit)
-        XCTAssertEqual(release["name"] as? String, "Quill Cowork Tester Build")
+        XCTAssertEqual(release["name"] as? String, "Quill Cowork Tester 0.1.0 (772)")
         XCTAssertEqual(release["body"] as? String, "New release notes\n")
         XCTAssertEqual(release["draft"] as? Bool, false)
         XCTAssertEqual(release["prerelease"] as? Bool, true)
@@ -191,6 +191,27 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
         XCTAssertEqual(result.state["tag"] as? String, oldCommit)
     }
 
+    func testInvalidManifestIdentityFailsBeforeGitHubMutation() throws {
+        let result = try runPublisher(manifestBuild: "latest")
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.output.contains("Tester manifest build must be a positive canonical integer"),
+            result.output
+        )
+        XCTAssertEqual(result.state["operations"] as? [String], [])
+        XCTAssertEqual(result.state["tag"] as? String, oldCommit)
+    }
+
+    func testNonUTF8ManifestFailsBeforeGitHubMutation() throws {
+        let result = try runPublisher(manifestEncoding: .utf16)
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("Tester manifest must be valid UTF-8 JSON"), result.output)
+        XCTAssertEqual(result.state["operations"] as? [String], [])
+        XCTAssertEqual(result.state["tag"] as? String, oldCommit)
+    }
+
     private struct PublisherResult {
         var exitCode: Int32
         var output: String
@@ -200,7 +221,9 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
     private func runPublisher(
         failure: String? = nil,
         failureCount: Int = 1,
-        commit: String? = nil
+        commit: String? = nil,
+        manifestBuild: String = "772",
+        manifestEncoding: String.Encoding = .utf8
     ) throws -> PublisherResult {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-transactional-publication-tests")
@@ -216,7 +239,24 @@ final class ParityTransactionalTesterPublicationTests: QuillCodeParityTestCase {
         try Data("new app".utf8).write(
             to: assetsDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip")
         )
-        try Data(#"{"build":"new"}"#.utf8).write(
+        let manifest: [String: Any] = [
+            "schemaVersion": 1,
+            "product": "Quill Cowork",
+            "channel": "tester",
+            "tag": "tester-latest",
+            "releaseURL": "https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest",
+            "commit": newCommit,
+            "version": "0.1.0",
+            "build": manifestBuild,
+            "workflowRunURL": "https://github.com/Lore-Hex/QuillCode/actions/runs/1234"
+        ]
+        let manifestData = try JSONSerialization.data(
+            withJSONObject: manifest,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        let manifestString = String(decoding: manifestData, as: UTF8.self) + "\n"
+        let encodedManifest = try XCTUnwrap(manifestString.data(using: manifestEncoding))
+        try encodedManifest.write(
             to: assetsDirectory.appendingPathComponent("latest-tester-build.json")
         )
         try Data(#"{"withinBudget":true}"#.utf8).write(

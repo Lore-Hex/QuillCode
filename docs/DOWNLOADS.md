@@ -14,14 +14,15 @@ reachable, the page first tries the latest stable release and accepts it only wh
 semantic version tag, immutable commit, non-prerelease state, generated Developer ID and notarization
 notice, release URL, stable manifest asset, and sole universal installer's URL, upload state, size,
 and SHA-256 digest all agree. Until a stable release exists, the same validation runs against the
-tester prerelease and its ad-hoc signing notice. Malformed, rate-limited, or unavailable metadata
-leaves the static tester link and Gatekeeper guidance intact. Download links, release-note links,
-freshness text, channel labels, screenshot copy, and install guidance switch as one update, so a
-stable download is never paired with tester instructions or provenance.
+tester prerelease, its exact semantic version and build number, and its ad-hoc signing notice.
+Malformed, rate-limited, or unavailable metadata leaves the static tester link and Gatekeeper
+guidance intact. Download links, release-note links, version/build freshness text, channel labels,
+screenshot copy, and install guidance switch as one update, so a stable download is never paired
+with tester instructions or provenance.
 
 Send technical testers this moving prerelease link for provenance and secondary artifacts:
 
-- [Quill Cowork Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
+- [Quill Cowork Tester Release](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
 Direct asset links for the current tester channel:
 
@@ -48,7 +49,9 @@ update behavior, signing status, and exact source/build provenance. Secondary
 CLI, updater, checksum, manifest, and performance assets remain available in a
 collapsed section. Publication fails before a release is edited when the page's
 channel, commit, version, build, platform, architecture, or signing claims do not
-match the packaged app.
+match the packaged app. The moving tester release title is derived from that same
+commit-pinned manifest as `Quill Cowork Tester <version> (<build>)`; publication and
+post-publication verification both require the title and manifest identity to agree.
 
 The build manifest is the app updater, website, and support script contract. It
 records the build channel, tag, commit, workflow run URL, version, build number,

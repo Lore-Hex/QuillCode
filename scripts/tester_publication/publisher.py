@@ -13,7 +13,6 @@ from tester_publication.contracts import (
     ReleaseSnapshot,
     RemoteAsset,
     TAG,
-    TITLE,
     TRANSACTION_ALIAS_PATTERN,
     ordered_asset_names,
     validate_exact_assets,
@@ -30,6 +29,7 @@ class TesterReleasePublisher:
         commit: str,
         run_id: str,
         assets: dict[str, LocalAsset],
+        title: str,
         notes: str,
         notes_path: Path,
         retry_delay_seconds: float,
@@ -37,6 +37,7 @@ class TesterReleasePublisher:
         self.commit = commit
         self.run_id = run_id
         self.assets = assets
+        self.title = title
         self.notes = notes
         self.notes_path = notes_path
         self.remote = PublicationRemote(repository, retry_delay_seconds)
@@ -174,7 +175,7 @@ class TesterReleasePublisher:
         return {
             "tag_name": TAG,
             "target_commitish": self.commit,
-            "name": TITLE,
+            "name": self.title,
             "body": self.notes,
             "draft": False,
             "prerelease": True,
@@ -293,7 +294,7 @@ class TesterReleasePublisher:
 
             published = self.remote.get_release()
             assert published is not None
-            validate_release_metadata(published, self.commit, self.notes)
+            validate_release_metadata(published, self.commit, self.title, self.notes)
             if self.remote.remote_tag_commit() != self.commit:
                 raise PublicationError("Published tester tag does not match the requested commit.")
             self.committed = True
@@ -301,7 +302,7 @@ class TesterReleasePublisher:
 
             final_release = self.remote.get_release()
             assert final_release is not None
-            validate_release_metadata(final_release, self.commit, self.notes)
+            validate_release_metadata(final_release, self.commit, self.title, self.notes)
             validate_exact_assets(final_release, self.assets)
         except Exception as error:
             if not self.committed:
@@ -319,6 +320,7 @@ class TesterReleasePublisher:
                 self.remote,
                 self.commit,
                 self.assets,
+                self.title,
                 self.notes,
                 self.notes_path,
             )

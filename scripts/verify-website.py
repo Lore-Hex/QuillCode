@@ -183,9 +183,14 @@ def verify_site(site: Path) -> None:
         "Developer ID signed, notarized by Apple, and stapled",
         "ad-hoc signed and not Apple-notarized.",
         "uploadedAsset(",
+        "testerTitleMatch",
+        "document.documentElement.dataset.version",
+        "document.documentElement.dataset.build",
     )
     if any(contract not in script for contract in required_script_contracts):
         fail("live release metadata must be freshly fetched and fail-closed validated")
+    if index.count('/static/site.js?v=3') != 1:
+        fail("index must load the current release-identity script revision")
 
     for _, reference in CSS_URL_PATTERN.findall(css):
         local_path = local_asset_path(site, site / "static/cowork.css", reference)

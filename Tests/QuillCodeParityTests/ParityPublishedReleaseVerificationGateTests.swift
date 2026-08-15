@@ -372,6 +372,22 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertTrue(tagResult.output.contains("release tag resolves to"), tagResult.output)
     }
 
+    func testVerifierRejectsReleaseNameThatDisagreesWithManifestIdentity() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        var release = try jsonObject(at: fixture.releaseJSON)
+        release["name"] = "Quill Cowork Tester 0.2.0 (124)"
+        try writeJSON(release, to: fixture.releaseJSON)
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("release name does not match the manifest identity"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsAppArchiveCommitDriftAfterIntegrityChecksPass() throws {
         let fixture = try makeFixture(appCommit: String(repeating: "b", count: 40))
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -744,6 +760,9 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let release: [String: Any] = [
             "id": 12_345,
             "tag_name": releaseTag,
+            "name": channel == "stable"
+                ? "Quill Cowork \(releaseTag)"
+                : "Quill Cowork Tester 0.2.0 (123)",
             "draft": false,
             "prerelease": prerelease ?? (channel == "tester"),
             "assets": releaseAssets

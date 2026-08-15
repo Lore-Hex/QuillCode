@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-14: public release identity follows the verified manifest
+
+- **Decision:** The moving tester release title is derived from the bounded, commit-pinned release
+  manifest as `Quill Cowork Tester <version> (<build>)`. The publisher validates the manifest identity
+  before its first GitHub mutation, and rollback preserves the previous release title with the rest
+  of the prior snapshot.
+- **Public verification:** Post-publication verification independently requires the GitHub release
+  name to match the manifest version and build. Stable releases retain the exact
+  `Quill Cowork v<version>` title contract.
+- **Website behavior:** The download page exposes the accepted version and tester build beside its
+  freshness date only after the release API, title, tag, immutable commit, manifest, installer, and
+  digest agree. Missing or malformed live metadata leaves the usable static tester download and its
+  non-notarized installation guidance unchanged.
+- **Why:** A moving release URL is convenient for ordinary testers, but support reports and daily-
+  driver evidence need an exact build identity that cannot drift away from the downloadable bytes.
+
 ## 2026-08-14: runtime construction owns its credential-state result
 
 - **Decision:** A runtime carries the credential-presence state resolved while that runtime was

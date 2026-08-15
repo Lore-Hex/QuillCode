@@ -6,7 +6,6 @@ from tester_publication.contracts import (
     LocalAsset,
     PublicationError,
     TAG,
-    TITLE,
     ordered_asset_names,
     validate_exact_assets,
     validate_release_metadata,
@@ -18,6 +17,7 @@ def publish_initial_release(
     remote: PublicationRemote,
     commit: str,
     assets: dict[str, LocalAsset],
+    title: str,
     notes: str,
     notes_path: Path,
 ) -> None:
@@ -36,7 +36,7 @@ def publish_initial_release(
                 remote.repository,
                 "--draft",
                 "--title",
-                TITLE,
+                title,
                 "--notes-file",
                 str(notes_path),
                 "--target",
@@ -64,7 +64,7 @@ def publish_initial_release(
                 "--prerelease",
                 "--latest=false",
                 "--title",
-                TITLE,
+                title,
                 "--notes-file",
                 str(notes_path),
                 "--target",
@@ -73,7 +73,7 @@ def publish_initial_release(
         )
         release = remote.get_release()
         assert release is not None
-        validate_release_metadata(release, commit, notes)
+        validate_release_metadata(release, commit, title, notes)
         validate_exact_assets(release, assets)
     except Exception as error:
         if created_release:

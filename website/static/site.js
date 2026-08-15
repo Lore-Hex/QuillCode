@@ -37,10 +37,13 @@
   function readCurrentRelease(release, feed) {
     const tag = release?.tag_name;
     const stableTag = /^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag);
+    const testerTitleMatch = /^Quill Cowork Tester ((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)) \(([1-9][0-9]*)\)$/.exec(
+      release?.name ?? "",
+    );
     const expectedTag = feed.channel === "stable" ? stableTag : tag === "tester-latest";
-    const expectedName = feed.channel === "stable"
-      ? `Quill Cowork ${tag}`
-      : "Quill Cowork Tester Build";
+    const hasExpectedName = feed.channel === "stable"
+      ? release?.name === `Quill Cowork ${tag}`
+      : testerTitleMatch !== null;
     const expectedPrerelease = feed.channel === "tester";
     const releaseURL = `${repositoryURL}/releases/tag/${tag}`;
     const assetBaseURL = `${repositoryURL}/releases/download/${tag}`;
@@ -61,7 +64,7 @@
 
     if (
       !expectedTag ||
-      release?.name !== expectedName ||
+      !hasExpectedName ||
       release?.html_url !== releaseURL ||
       release?.draft !== false ||
       release?.prerelease !== expectedPrerelease ||
@@ -75,7 +78,11 @@
     }
 
     const isStable = feed.channel === "stable";
+    const version = isStable ? tag.slice(1) : testerTitleMatch[1];
+    const build = isStable ? null : testerTitleMatch[2];
+    const releaseIdentity = isStable ? `Version ${version}` : `${version} (${build})`;
     return {
+      build,
       caption: isStable
         ? "The current notarized macOS release. The same workspace handles documents, research, browser tasks, and technical work."
         : "The current macOS tester build. The same workspace handles documents, research, browser tasks, and technical work.",
@@ -85,7 +92,7 @@
       installGuidance: isStable
         ? "One notarized installer runs natively on Apple silicon and Intel Macs. Move Quill Cowork to Applications, then open it normally."
         : "One installer runs natively on Apple silicon and Intel Macs. After moving the app to Applications, Control-click it and choose Open on first launch. The tester channel is not Apple-notarized yet.",
-      label: `Updated ${updatedAt.toLocaleDateString("en-US", {
+      label: `${releaseIdentity} · Updated ${updatedAt.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -93,6 +100,7 @@
       releaseKind: isStable ? "Stable release" : "Free tester build",
       releaseSection: isStable ? "Stable release" : "Tester release",
       releaseURL,
+      version,
     };
   }
 
@@ -151,5 +159,9 @@
     });
     document.documentElement.dataset.release = release.channel;
     document.documentElement.dataset.commit = release.commit;
+    document.documentElement.dataset.version = release.version;
+    if (release.build) {
+      document.documentElement.dataset.build = release.build;
+    }
   });
 })();

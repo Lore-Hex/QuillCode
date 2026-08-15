@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-08-14 Manifest-Derived Public Release Identity
+
+Overall grade: **A+ publication safety, A+ supportability, A+ fallback behavior**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Identity source | A+ | The tester publisher derives the exact release title from a bounded UTF-8 JSON manifest whose product, channel, tag, commit, repository URL, workflow run URL, semantic version, and positive build number are validated before mutation. |
+| Publication integrity | A+ | Initial and transactional publication require the dynamic title; post-publication verification independently recomputes the expected stable or tester title from the downloaded manifest. |
+| Rollback safety | A+ | A failed replacement restores the complete prior release snapshot, including its previous title, assets, metadata, and tag target. |
+| Public UX | A+ | The site shows exact version/build identity with the freshness date and exposes it as document metadata only after the full live release contract passes. |
+| Outage behavior | A+ | API errors, legacy titles, malformed identity, and other metadata drift leave the static universal tester download and correct Gatekeeper guidance intact. |
+| Regression evidence | A+ | Publisher and public-verifier parity cover valid identity, zero-mutation rejection, mismatch refusal, and rollback; browserless website tests cover stable, tester, legacy-title, asset, and network fallbacks. |
+
+Validation:
+
+- `swift test` (6,401 tests; 5 intentional skips; 0 failures)
+- Transactional publication and public release verification: 44 tests, 0 failures.
+- Download Builds workflow contract: 6 tests, 0 failures.
+- Website JavaScript and staged-site verifier: 6 tests, 0 failures.
+- Python script contracts: 123 tests, 0 failures.
+- Python compile validation passed for the publisher, publication modules, public verifier, and
+  website verifier.
+
 ## 2026-08-14 Single-Resolution Desktop Credential Startup
 
 Overall grade: **A+ launch discipline, A+ credential safety, A+ state consistency**.

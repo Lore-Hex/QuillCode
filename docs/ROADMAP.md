@@ -200,6 +200,11 @@
   `release not found` response retries only after the canonical release is independently visible.
   Cleanup deletion is idempotent across lost responses, and persistent outages stop after five
   attempts without beginning a mutation.
+- The moving tester release now carries an exact manifest-derived version/build title. Publication
+  rejects malformed or mismatched identity before GitHub mutation, the public verifier recomputes
+  that identity from downloaded evidence, and the website displays it beside freshness only after
+  the full release contract passes. API outages and legacy titles retain the static universal tester
+  download instead of advertising unverified metadata.
 - Structured JSON artifact previews now share one metadata-keyed document reader instead of mapping
   and parsing the same file independently for each candidate format. Successful and invalid parses
   are purgeable and bounded to four entries / 4 MiB estimated residency; same-key concurrent reads

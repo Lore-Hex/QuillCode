@@ -9,12 +9,17 @@ from typing import Any, Iterable
 
 
 TAG = "tester-latest"
-TITLE = "Quill Cowork Tester Build"
+TITLE_PREFIX = "Quill Cowork Tester"
 MANIFEST_NAME = "latest-tester-build.json"
+MANIFEST_MAXIMUM_BYTES = 1_048_576
 ASSET_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,179}")
 COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 RUN_ID_PATTERN = re.compile(r"[1-9][0-9]*")
+VERSION_PATTERN = re.compile(
+    r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+)
+BUILD_PATTERN = re.compile(r"[1-9][0-9]*")
 TRANSACTION_ALIAS_PATTERN = re.compile(
     r"quill-cowork-(candidate|rollback)-([1-9][0-9]*)-(.+)"
 )
@@ -30,6 +35,16 @@ class LocalAsset:
     path: Path
     size: int
     digest: str
+
+
+@dataclass(frozen=True)
+class TesterReleaseIdentity:
+    version: str
+    build: str
+
+    @property
+    def title(self) -> str:
+        return f"{TITLE_PREFIX} {self.version} ({self.build})"
 
 
 @dataclass(frozen=True)
@@ -141,6 +156,46 @@ def load_local_assets(directory: Path) -> dict[str, LocalAsset]:
     return assets
 
 
+def load_tester_release_identity(
+    assets: dict[str, LocalAsset],
+    *,
+    repository: str,
+    commit: str,
+    run_id: str,
+) -> TesterReleaseIdentity:
+    manifest_asset = assets[MANIFEST_NAME]
+    if manifest_asset.size <= 0 or manifest_asset.size > MANIFEST_MAXIMUM_BYTES:
+        raise PublicationError("Tester manifest must contain between 1 byte and 1 MiB.")
+    try:
+        value = json.loads(manifest_asset.path.read_bytes().decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PublicationError("Tester manifest must be valid UTF-8 JSON.") from error
+    if not isinstance(value, dict):
+        raise PublicationError("Tester manifest must be a JSON object.")
+
+    expected = {
+        "product": "Quill Cowork",
+        "channel": "tester",
+        "tag": TAG,
+        "releaseURL": f"https://github.com/{repository}/releases/tag/{TAG}",
+        "commit": commit,
+        "workflowRunURL": f"https://github.com/{repository}/actions/runs/{run_id}",
+    }
+    if type(value.get("schemaVersion")) is not int or value["schemaVersion"] != 1:
+        raise PublicationError("Tester manifest schemaVersion must be 1.")
+    for field, expected_value in expected.items():
+        if value.get(field) != expected_value:
+            raise PublicationError(f"Tester manifest {field} disagrees with publication.")
+
+    version = value.get("version")
+    build = value.get("build")
+    if not isinstance(version, str) or VERSION_PATTERN.fullmatch(version) is None:
+        raise PublicationError("Tester manifest version must be canonical semantic versioning.")
+    if not isinstance(build, str) or BUILD_PATTERN.fullmatch(build) is None:
+        raise PublicationError("Tester manifest build must be a positive canonical integer.")
+    return TesterReleaseIdentity(version=version, build=build)
+
+
 def ordered_asset_names(names: Iterable[str]) -> list[str]:
     name_set = set(names)
     values = sorted(name for name in name_set if name != MANIFEST_NAME)
@@ -152,12 +207,13 @@ def ordered_asset_names(names: Iterable[str]) -> list[str]:
 def validate_release_metadata(
     release: ReleaseSnapshot,
     commit: str,
+    title: str,
     notes: str,
 ) -> None:
     if (
         release.tag_name != TAG
         or release.target_commitish != commit
-        or release.name != TITLE
+        or release.name != title
         or release.body != notes
         or release.draft
         or not release.prerelease
