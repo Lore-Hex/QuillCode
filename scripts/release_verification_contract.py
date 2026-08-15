@@ -204,6 +204,13 @@ def validate_manifest(
         raise VerificationError("manifest version/build metadata is not canonical")
     if channel == "stable" and tag != f"v{version}":
         raise VerificationError("stable release tag does not match the manifest version")
+    expected_release_name = (
+        f"Quill Cowork {tag}"
+        if channel == "stable"
+        else f"Quill Cowork Tester {version} ({build})"
+    )
+    if release.get("name") != expected_release_name:
+        raise VerificationError("GitHub release name does not match the manifest identity")
     generated_at = required_string(manifest.get("generatedAt"), "manifest generatedAt")
     timestamp_pattern = r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"
     if not re.fullmatch(timestamp_pattern, generated_at):

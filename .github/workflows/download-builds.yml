@@ -381,7 +381,6 @@ jobs:
             RELEASE_CHANNEL="stable"
           else
             RELEASE_TAG="tester-latest"
-            RELEASE_TITLE="Quill Cowork Tester Build"
             RELEASE_CHANNEL="tester"
           fi
           scripts/build-release-notes.py \

@@ -23,10 +23,13 @@ const testerReleaseURL = `${repositoryURL}/releases/tag/tester-latest`;
 function releaseFixture(channel, overrides = {}) {
   const isStable = channel === "stable";
   const version = isStable ? "1.2.3" : "0.1.0";
+  const build = "772";
   const tag = isStable ? `v${version}` : "tester-latest";
   const assetURL = (name) => `${repositoryURL}/releases/download/${tag}/${name}`;
   return {
-    name: isStable ? `Quill Cowork ${tag}` : "Quill Cowork Tester Build",
+    name: isStable
+      ? `Quill Cowork ${tag}`
+      : `Quill Cowork Tester ${version} (${build})`,
     tag_name: tag,
     html_url: `${repositoryURL}/releases/tag/${tag}`,
     draft: false,
@@ -136,7 +139,9 @@ assert.equal(
   stable.document.documentElement.dataset.commit,
   stableRelease.target_commitish,
 );
-assert.ok(stable.labels.every(({ textContent }) => textContent.startsWith("Updated ")));
+assert.equal(stable.document.documentElement.dataset.version, "1.2.3");
+assert.equal(stable.document.documentElement.dataset.build, undefined);
+assert.ok(stable.labels.every(({ textContent }) => textContent === "Version 1.2.3 · Updated Aug 13, 2026"));
 assert.ok(stable.releaseKinds.every(({ textContent }) => textContent === "Stable release"));
 assert.ok(stable.releaseSections.every(({ textContent }) => textContent === "Stable release"));
 assert.ok(stable.guidance.every(({ textContent }) => textContent.includes("notarized")));
@@ -158,6 +163,9 @@ assert.equal(
   tester.document.documentElement.dataset.commit,
   testerRelease.target_commitish,
 );
+assert.equal(tester.document.documentElement.dataset.version, "0.1.0");
+assert.equal(tester.document.documentElement.dataset.build, "772");
+assert.ok(tester.labels.every(({ textContent }) => textContent === "0.1.0 (772) · Updated Aug 13, 2026"));
 assert.ok(tester.releaseKinds.every(({ textContent }) => textContent === "Free tester build"));
 assert.ok(tester.guidance.every(({ textContent }) => textContent.includes("Control-click")));
 assert.ok(tester.downloadLinks.every(({ href }) => href === testerInstallerURL));
@@ -179,6 +187,16 @@ const assetFallback = await runSiteScript(new Map([
   [testerAPIURL, { body: testerRelease }],
 ]));
 assert.equal(assetFallback.document.documentElement.dataset.release, "tester");
+
+const malformedTesterTitle = releaseFixture("tester", {
+  name: "Quill Cowork Tester Build",
+});
+const titleFallback = await runSiteScript(new Map([
+  [stableAPIURL, { ok: false }],
+  [testerAPIURL, { body: malformedTesterTitle }],
+]));
+assert.equal(titleFallback.document.documentElement.dataset.release, undefined);
+assert.equal(titleFallback.document.documentElement.dataset.build, undefined);
 
 const unavailable = await runSiteScript(new Map([
   [stableAPIURL, new Error("offline")],
