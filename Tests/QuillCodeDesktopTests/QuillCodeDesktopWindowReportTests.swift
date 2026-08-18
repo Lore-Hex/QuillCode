@@ -852,6 +852,44 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
+    func testSettingsActivationRequiresTheEditionSpecificAccountControl() {
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityInteractionVerifier.settingsRequiredControlIdentifier(
+                requiresConfidentialRouting: false
+            ),
+            "quillcode-settings-api-base-url"
+        )
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityInteractionVerifier.settingsRequiredControlIdentifier(
+                requiresConfidentialRouting: true
+            ),
+            "quillcode-settings-confidential-jurisdiction"
+        )
+    }
+
+    func testModelPickerActivationSearchesAnEditionSpecificAllowedModel() {
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityInteractionVerifier.modelPickerSmokeExpectation(
+                requiresConfidentialRouting: false
+            ),
+            ModelPickerSmokeExpectation(
+                searchText: "Prometheus",
+                optionIdentifier: "quillcode-model-option-trustedrouter/fusion",
+                optionLabel: TrustedRouterDefaults.prometheusModelDisplayName
+            )
+        )
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityInteractionVerifier.modelPickerSmokeExpectation(
+                requiresConfidentialRouting: true
+            ),
+            ModelPickerSmokeExpectation(
+                searchText: "Confidential",
+                optionIdentifier: "quillcode-model-option-trustedrouter/confidential",
+                optionLabel: TrustedRouterDefaults.confidentialModelDisplayName
+            )
+        )
+    }
+
     func testWindowAccessibilityActivationSamplerPreservesDeclaredOrderWithinPhases() {
         XCTAssertEqual(
             QuillCodeDesktopAccessibilityActivationSampler.orderedActivationContractIDs(

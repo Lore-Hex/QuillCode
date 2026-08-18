@@ -62,12 +62,11 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             memorySources: memories.map(\.relativePath),
             modelLabel: modelCatalog.modelLabel(),
             selectedModelID: topBarState.model,
-            // A confidential thread's picker stays USABLE but restricted (see modelCatalogBuilder).
-            // It renders locked only when the eligible set offers no real choice (just the E2E
-            // route) — an openable picker with a single row would read as broken, while the lock
-            // honestly says "pinned". Unique ids, because Favorites/Recent duplicate entries.
-            modelIsLocked: (thread?.runtimeContext.isConfidential == true
-                || distribution.requiresConfidentialRouting)
+            // Confidential Cowork always keeps this picker open: its authenticated catalog can add
+            // eligible provider/model choices after launch. An ad hoc confidential chat in the
+            // standard edition remains visibly pinned when its E2E allowlist has only one route.
+            modelIsLocked: !distribution.requiresConfidentialRouting
+                && thread?.runtimeContext.isConfidential == true
                 && Set(modelCatalog.categories().flatMap { $0.models.map(\.id) }).count <= 1,
             modelCategories: modelCatalog.categories(),
             modelCatalogSource: modelCatalogStatus.source,
@@ -172,11 +171,9 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         return WorktreeStatus(label: label, detail: detail, isWarning: !isResolvable)
     }
 
-    /// Inside a confidential chat the picker stays USABLE but only offers models whose TrustedRouter
-    /// routing is end-to-end encrypted (the E2E meta-route + Confidential-tier catalog models). The
-    /// model-level `setModel` guard is the enforcement; the builder-side restriction keeps the picker
-    /// honest about what it can actually switch to (and must live INSIDE the builder — its catalog
-    /// normalization would regrow a pre-filtered list).
+    /// Privacy filtering lives inside the builder because catalog normalization adds bundled models.
+    /// Ad hoc confidential chats use the E2E policy; Confidential Cowork uses its distribution-wide
+    /// Confidential-tier policy. The model-level selection and run guards remain the final authority.
     private func modelCatalogBuilder() -> WorkspaceModelCatalogSurfaceBuilder {
         WorkspaceModelCatalogSurfaceBuilder(
             catalog: modelCatalog,
@@ -184,9 +181,18 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             defaultModelID: defaultModelID,
             favoriteModelIDs: favoriteModelIDs,
             recentModelIDs: recentModelIDs(),
-            restrictToE2EEligible: thread?.runtimeContext.isConfidential == true
-                || distribution.requiresConfidentialRouting
+            restriction: modelCatalogRestriction
         )
+    }
+
+    private var modelCatalogRestriction: WorkspaceModelCatalogRestriction {
+        if distribution.requiresConfidentialRouting {
+            return .confidential
+        }
+        if thread?.runtimeContext.isConfidential == true {
+            return .e2e
+        }
+        return .unrestricted
     }
 
     private func recentModelIDs() -> [String] {
