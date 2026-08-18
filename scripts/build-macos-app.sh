@@ -4,16 +4,37 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="${QUILLCODE_MACOS_APP_OUTPUT_DIR:-$ROOT_DIR/.build/quillcode-macos-app}"
 CONFIGURATION="${QUILLCODE_MACOS_APP_CONFIGURATION:-debug}"
-APP_NAME="${QUILLCODE_MACOS_APP_NAME:-Quill Cowork}"
-BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-co.lorehex.QuillCowork}"
+EDITION="${QUILLCODE_EDITION:-standard}"
+case "$EDITION" in
+  standard)
+    DEFAULT_APP_NAME="Quill Cowork"
+    DEFAULT_BUNDLE_ID="co.lorehex.QuillCowork"
+    DEFAULT_UPDATE_MANIFEST_URL="https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"
+    DEFAULT_STABLE_UPDATE_MANIFEST_URL="https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json"
+    DEFAULT_TESTER_UPDATE_MANIFEST_URL="$DEFAULT_UPDATE_MANIFEST_URL"
+    ;;
+  confidential)
+    DEFAULT_APP_NAME="Confidential Cowork"
+    DEFAULT_BUNDLE_ID="com.trustedrouter.ConfidentialCowork"
+    DEFAULT_UPDATE_MANIFEST_URL="https://github.com/Lore-Hex/QuillCode/releases/download/confidential-cowork-latest/latest-confidential-cowork-build.json"
+    DEFAULT_STABLE_UPDATE_MANIFEST_URL="https://github.com/Lore-Hex/QuillCode/releases/download/confidential-cowork-stable/latest-confidential-cowork-stable-build.json"
+    DEFAULT_TESTER_UPDATE_MANIFEST_URL="$DEFAULT_UPDATE_MANIFEST_URL"
+    ;;
+  *)
+    echo "QUILLCODE_EDITION must be standard or confidential." >&2
+    exit 2
+    ;;
+esac
+APP_NAME="${QUILLCODE_MACOS_APP_NAME:-$DEFAULT_APP_NAME}"
+BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-$DEFAULT_BUNDLE_ID}"
 MINIMUM_SYSTEM_VERSION="${QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION:-14.0}"
 VERSION="${QUILLCODE_MACOS_APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${QUILLCODE_MACOS_BUILD_NUMBER:-1}"
 BUILD_COMMIT="${QUILLCODE_MACOS_BUILD_COMMIT:-}"
 UPDATE_CHANNEL="${QUILLCODE_MACOS_UPDATE_CHANNEL:-tester}"
-UPDATE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
-UPDATE_STABLE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json}"
-UPDATE_TESTER_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
+UPDATE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_MANIFEST_URL:-$DEFAULT_UPDATE_MANIFEST_URL}"
+UPDATE_STABLE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL:-$DEFAULT_STABLE_UPDATE_MANIFEST_URL}"
+UPDATE_TESTER_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL:-$DEFAULT_TESTER_UPDATE_MANIFEST_URL}"
 SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
 SIGNING_TEAM_IDENTIFIER="${QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER:-}"
 SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
@@ -135,6 +156,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>$BUILD_NUMBER</string>
   <key>QuillCodeBuildCommit</key>
   <string>$BUILD_COMMIT</string>
+  <key>QuillCodeEdition</key>
+  <string>$EDITION</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MINIMUM_SYSTEM_VERSION</string>
   <key>LSApplicationCategoryType</key>

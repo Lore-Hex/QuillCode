@@ -66,7 +66,7 @@ public struct WorkspaceStartupLoadIssue: Sendable, Hashable {
     }
 
     private var storageUnavailableMessage: String {
-        "Quill Cowork started in recovery mode without changing your saved workspace data. " +
+        "\(QuillCodeProduct.displayName) started in recovery mode without changing your saved workspace data. " +
             "Review storage permissions and available disk space before continuing."
     }
 
@@ -74,7 +74,7 @@ public struct WorkspaceStartupLoadIssue: Sendable, Hashable {
         let healthyChats = loadedThreadCount == 0
             ? ""
             : " Your \(loadedThreadCount) saved \(loadedThreadCount == 1 ? "chat is" : "chats are") still available."
-        return "Quill Cowork loaded every healthy record and used safe defaults for the affected data." +
+        return "\(QuillCodeProduct.displayName) loaded every healthy record and used safe defaults for the affected data." +
             healthyChats + " The original files were left unchanged so they can be recovered."
     }
 

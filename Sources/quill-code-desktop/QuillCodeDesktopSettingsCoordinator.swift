@@ -112,6 +112,7 @@ struct QuillCodeDesktopSettingsCoordinator {
     ) throws -> QuillCodeDesktopSettingsResult {
         var config = currentConfig
         config.apiBaseURL = update.apiBaseURL
+        config.confidentialJurisdiction = update.confidentialJurisdiction
         config.authMode = update.authMode
         config.developerOverrideEnabled = update.developerOverrideEnabled || update.authMode == .developerOverride
         config.computerUseApprovedBundleIdentifiers = update.computerUseApprovedBundleIdentifiers
@@ -125,6 +126,7 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.reviewModel = update.reviewModel
         config.reviewDelivery = update.reviewDelivery
         config.defaultPersonality = update.defaultPersonality
+        config = bootstrap.distribution.enforcing(config)
 
         let credentialMutation: WorkspaceTrustedRouterCredentialMutation
         if let replacementAPIKey = update.replacementAPIKey {
@@ -173,6 +175,7 @@ struct QuillCodeDesktopSettingsCoordinator {
         for config: AppConfig,
         persistedKinds: Set<WorkspaceSettingsPersistenceKind>
     ) -> QuillCodeDesktopSettingsResult {
+        let config = bootstrap.distribution.enforcing(config)
         let runtime = bootstrap.makeRuntime(config: config)
         return QuillCodeDesktopSettingsResult(
             config: config,

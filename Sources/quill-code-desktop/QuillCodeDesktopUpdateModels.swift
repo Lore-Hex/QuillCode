@@ -207,7 +207,7 @@ enum QuillCodeDesktopUpdateError: LocalizedError, Equatable, Sendable {
         case .noCompatibleApplication:
             "No compatible macOS app is available for this Mac."
         case .wrongSigningIdentity:
-            "The update's signing identity does not match Quill Cowork's trusted update requirements."
+            "The update's signing identity does not match \(QuillCodeProduct.displayName)'s trusted update requirements."
         case .unsignedStableUpdate:
             "The stable update is not marked as signed and notarized."
         case .downloadSizeMismatch:
@@ -217,7 +217,7 @@ enum QuillCodeDesktopUpdateError: LocalizedError, Equatable, Sendable {
         case .invalidApplication(let reason):
             "The downloaded app could not be verified: \(reason)"
         case .installationUnavailable:
-            "This copy cannot replace itself. Install Quill Cowork in Applications, reopen it, and try again."
+            "This copy cannot replace itself. Install \(QuillCodeProduct.displayName) in Applications, reopen it, and try again."
         case .installationFailed(let reason):
             "The update could not be installed: \(reason)"
         }

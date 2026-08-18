@@ -13,7 +13,7 @@ final class WorkspaceSettingsPersistenceIssueTracker {
             title: affectedKinds.count == 1
                 ? "A settings change is not saved"
                 : "Some settings changes are not saved",
-            message: "Quill Cowork could not safely update one or more settings files. "
+            message: "\(QuillCodeProduct.displayName) could not safely update one or more settings files. "
                 + "Affected changes may remain available only in this session or may have been "
                 + "left unapplied to protect the previous configuration. Check available disk "
                 + "space and app-data permissions, then retry each affected setting.",

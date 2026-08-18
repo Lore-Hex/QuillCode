@@ -10,6 +10,24 @@ final class QuillCodePathsTests: PersistenceTestCase {
         )
     }
 
+    func testNamedLiveHomesRemainUserScopedButDoNotShareStorage() {
+        let standard = QuillCodePaths(
+            liveHomeDirectoryName: ".quillcode",
+            secretStorageService: "co.lorehex.QuillCowork.secrets"
+        )
+        let confidential = QuillCodePaths(
+            liveHomeDirectoryName: ".confidential-cowork",
+            secretStorageService: "com.trustedrouter.ConfidentialCowork.secrets"
+        )
+
+        XCTAssertEqual(standard.secretStorageScope, .userAccount)
+        XCTAssertEqual(confidential.secretStorageScope, .userAccount)
+        XCTAssertNotEqual(standard.secretStorageService, confidential.secretStorageService)
+        XCTAssertEqual(standard.home.lastPathComponent, ".quillcode")
+        XCTAssertEqual(confidential.home.lastPathComponent, ".confidential-cowork")
+        XCTAssertNotEqual(standard.home, confidential.home)
+    }
+
     func testExplicitHomeUsesAnIsolatedHookConfigurationPathSet() throws {
         let home = try makeTempDirectory().appendingPathComponent("portable")
         let paths = QuillCodePaths(home: home)

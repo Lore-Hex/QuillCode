@@ -15,7 +15,7 @@ final class WorkspaceThreadPersistenceIssueTracker {
             title: failedThreadIDs.count == 1
                 ? "A chat change is not saved"
                 : "Some chat changes are not saved",
-            message: "Quill Cowork could not update its saved-chat files for "
+            message: "\(QuillCodeProduct.displayName) could not update its saved-chat files for "
                 + "\(failedThreadIDs.count) \(chatLabel). The current session can continue, "
                 + "but affected changes may not survive a relaunch. Check available disk space "
                 + "and app-data permissions, or compact a very large chat. Make another change "

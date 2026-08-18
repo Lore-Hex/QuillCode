@@ -533,8 +533,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
             "testerUpdateManifestURL=$TESTER_MANIFEST_URL",
             "QUILLCODE_MACOS_BUILD_COMMIT=\"$COMMIT\"",
-            "installer=Quill-Cowork-macOS-$ARCH.dmg",
-            "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
+            "installer=$ASSET_PREFIX-macOS-$ARCH.dmg",
+            "performance=$ASSET_PREFIX-macOS-$ARCH-PERFORMANCE.json",
             "SYMBOLS_STRIPPED=false",
             #"if [[ "$CONFIGURATION" == "release" ]]; then"#,
             "SYMBOLS_STRIPPED=true",
@@ -578,6 +578,46 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json",
             "assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json",
             "assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"
+        ])
+    }
+
+    func testConfidentialCoworkDownloadsStayIsolatedFromStandardReleases() throws {
+        let root = Self.packageRoot()
+        let workflow = try String(
+            contentsOf: root.appendingPathComponent(".github/workflows/confidential-cowork-downloads.yml"),
+            encoding: .utf8
+        )
+        let packageScript = try String(
+            contentsOf: root.appendingPathComponent("scripts/package-macos-downloads.sh"),
+            encoding: .utf8
+        )
+        let appBuildScript = try String(
+            contentsOf: root.appendingPathComponent("scripts/build-macos-app.sh"),
+            encoding: .utf8
+        )
+
+        Self.assertSource(workflow, containsAll: [
+            "QUILLCODE_EDITION: confidential",
+            "QUILLCODE_PRODUCT_NAME: Confidential Cowork",
+            "QUILLCODE_ASSET_PREFIX: Confidential-Cowork",
+            "QUILLCODE_MACOS_BUNDLE_ID: com.trustedrouter.ConfidentialCowork",
+            "QUILLCODE_TESTER_RELEASE_TAG: confidential-cowork-latest",
+            "latest-confidential-cowork-build.json",
+            "Confidential-Cowork-macOS-universal.dmg"
+        ])
+        Self.assertSource(packageScript, containsAll: [
+            #"EDITION="${QUILLCODE_EDITION:-standard}""#,
+            #"if [[ "$EDITION" == "standard" ]]; then"#,
+            "DEFAULT_PRODUCT_NAME=\"Confidential Cowork\"",
+            "DEFAULT_BUNDLE_ID=\"com.trustedrouter.ConfidentialCowork\"",
+            "DEFAULT_TESTER_TAG=\"confidential-cowork-latest\"",
+            "installer=$ASSET_PREFIX-macOS-$ARCH.dmg"
+        ])
+        Self.assertSource(appBuildScript, containsAll: [
+            #"EDITION="${QUILLCODE_EDITION:-standard}""#,
+            "DEFAULT_APP_NAME=\"Confidential Cowork\"",
+            "DEFAULT_BUNDLE_ID=\"com.trustedrouter.ConfidentialCowork\"",
+            "<key>QuillCodeEdition</key>"
         ])
     }
 

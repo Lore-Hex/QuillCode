@@ -30,7 +30,7 @@ final class WorkspaceRegistryPersistenceIssueTracker {
             title: affectedKinds.count == 1
                 ? "A workspace change is not saved"
                 : "Some workspace changes are not saved",
-            message: "Quill Cowork could not update one or more workspace data files. "
+            message: "\(QuillCodeProduct.displayName) could not update one or more workspace data files. "
                 + "Changes to the affected data remain available in this session, but may not "
                 + "survive a relaunch. Check available disk space and app-data permissions, then "
                 + "change each affected item again to retry its complete saved state.",

@@ -33,6 +33,19 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func setModel(_ model: String) -> String {
+        if root.distribution.requiresConfidentialRouting {
+            let canonical = TrustedRouterDefaults.canonicalModelID(model)
+            guard root.distribution.allowsModel(canonical, catalog: root.modelCatalog) else {
+                setLastError("Confidential Cowork only runs on confidential models.")
+                return selectedThread?.model ?? root.config.defaultModel
+            }
+            root.config.defaultModel = canonical
+            mutateSelectedThread { thread in
+                WorkspaceConfigurationEngine.setModelID(canonical, thread: &thread)
+            }
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return canonical
+        }
         // Inside a confidential chat the user may still pick an EXACT model — but only one whose
         // TrustedRouter routing is end-to-end encrypted (the E2E meta-route, or a Confidential-tier
         // catalog model). Anything else is refused at the MODEL level (typed /model bypasses the
@@ -41,7 +54,7 @@ extension QuillCodeWorkspaceModel {
         if let thread = selectedThread, thread.runtimeContext.isConfidential {
             let canonical = TrustedRouterDefaults.canonicalModelID(model)
             guard TrustedRouterDefaults.isE2EEligible(canonical, catalog: root.modelCatalog) else {
-                setLastError("Confidential chats only run on end-to-end encrypted models.")
+                setLastError("Confidential chats only run on confidential models.")
                 return thread.model
             }
             mutateSelectedThread { thread in
@@ -110,16 +123,39 @@ extension QuillCodeWorkspaceModel {
     /// say so — otherwise the chip and picker keep claiming a model the run-level clamp silently
     /// swaps out, and routing honesty is this mode's entire promise.
     private func repinConfidentialThreadsAfterCatalogChange() {
-        for thread in root.threads where thread.runtimeContext.isConfidential {
-            guard !TrustedRouterDefaults.isE2EEligible(thread.model, catalog: root.modelCatalog) else {
-                continue
+        if root.distribution.requiresConfidentialRouting {
+            root.config.defaultModel = root.distribution.enforcedModelID(
+                root.config.defaultModel,
+                catalog: root.modelCatalog
+            )
+        }
+        let requiresConfidentialRouting = root.distribution.requiresConfidentialRouting
+        let fallbackModel = requiresConfidentialRouting
+            ? root.distribution.defaultModel
+            : TrustedRouterDefaults.e2eModel
+        let catalog = root.modelCatalog
+        let repairs = root.threads.compactMap { thread -> (UUID, String)? in
+            let isProtectedThread = thread.runtimeContext.isConfidential || requiresConfidentialRouting
+            let isEligible = requiresConfidentialRouting
+                ? TrustedRouterDefaults.isConfidentialEligible(thread.model, catalog: catalog)
+                : TrustedRouterDefaults.isE2EEligible(thread.model, catalog: catalog)
+            guard isProtectedThread, !isEligible else {
+                return nil
             }
-            let displaced = WorkspaceStatusTextBuilder.subtitleModelLabel(thread.model)
-            mutateThread(thread.id) { thread in
-                WorkspaceConfigurationEngine.setModelID(TrustedRouterDefaults.e2eModel, thread: &thread)
+            return (thread.id, WorkspaceStatusTextBuilder.subtitleModelLabel(thread.model))
+        }
+        let routingDescription = requiresConfidentialRouting
+            ? "confidential routing"
+            : "end-to-end encrypted routing"
+        let fallbackDisplayName = requiresConfidentialRouting
+            ? TrustedRouterDefaults.confidentialModelDisplayName
+            : TrustedRouterDefaults.e2eModelDisplayName
+        for (threadID, displacedModel) in repairs {
+            mutateThread(threadID) { thread in
+                WorkspaceConfigurationEngine.setModelID(fallbackModel, thread: &thread)
                 thread.events.append(ThreadEvent(
                     kind: .notice,
-                    summary: "\(displaced) no longer offers end-to-end encrypted routing; switched back to \(TrustedRouterDefaults.e2eModelDisplayName)."
+                    summary: "\(displacedModel) no longer offers \(routingDescription); switched back to \(fallbackDisplayName)."
                 ))
             }
         }
@@ -153,8 +189,14 @@ extension QuillCodeWorkspaceModel {
             trustedRouterAPIKeyConfigured: trustedRouterAPIKeyConfigured,
             root: &root
         )
+        let enforcedConfig = root.config
+        let distribution = root.distribution
         mutateSelectedThread { thread in
-            WorkspaceConfigurationEngine.syncThread(&thread, to: config)
+            WorkspaceConfigurationEngine.syncThread(
+                &thread,
+                to: enforcedConfig,
+                distribution: distribution
+            )
         }
         enforceManagedWorktreeRetention()
         refreshTopBar(agentStatus: root.topBar.agentStatus)

@@ -3,6 +3,19 @@ import Foundation
 import QuillCodeApp
 import QuillCodePersistence
 
+private enum QuillCodeDesktopSmokeEnvironment {
+    static func isolated(appState: URL) -> [String: String] {
+        [
+            "QUILLCODE_USE_MOCK_LLM": "1",
+            // Native smoke state must be reproducible on developer and CI machines even when the
+            // host account has the opt-in live key file used for manual UI testing.
+            "QUILLCODE_API_KEY_FILE": appState
+                .appendingPathComponent("smoke-api-key", isDirectory: false)
+                .path,
+        ]
+    }
+}
+
 struct QuillCodeDesktopSmokeRequest: Sendable {
     var reportPath: String?
     var renderPath: String?
@@ -120,7 +133,7 @@ struct QuillCodeDesktopAgentRunCrashSmokeWorkspaceRoot: Sendable, Hashable {
         let paths = QuillCodePaths(home: appState)
         let runtimeFactory = QuillCodeRuntimeFactory(
             paths: paths,
-            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+            environment: QuillCodeDesktopSmokeEnvironment.isolated(appState: appState)
         )
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
@@ -158,7 +171,7 @@ struct QuillCodeDesktopComposerDraftCrashSmokeWorkspaceRoot: Sendable, Hashable 
         let paths = QuillCodePaths(home: appState)
         let runtimeFactory = QuillCodeRuntimeFactory(
             paths: paths,
-            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+            environment: QuillCodeDesktopSmokeEnvironment.isolated(appState: appState)
         )
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
@@ -200,7 +213,7 @@ struct QuillCodeDesktopWindowSmokeWorkspaceRoot: Sendable, Hashable {
         let paths = QuillCodePaths(home: appState)
         let runtimeFactory = QuillCodeRuntimeFactory(
             paths: paths,
-            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+            environment: QuillCodeDesktopSmokeEnvironment.isolated(appState: appState)
         )
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
@@ -240,7 +253,7 @@ struct QuillCodeDesktopSmokeWorkspaceRoot {
         let paths = QuillCodePaths(home: home)
         let runtimeFactory = QuillCodeRuntimeFactory(
             paths: paths,
-            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+            environment: QuillCodeDesktopSmokeEnvironment.isolated(appState: home)
         )
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),

@@ -44,6 +44,7 @@ public struct QuillCodeRuntime: Sendable {
 
 public struct QuillCodeRuntimeFactory: Sendable {
     public var paths: QuillCodePaths
+    public var distribution: QuillCodeDistribution
     public var environment: [String: String]
     public var modelCatalogURLSession: URLSession
     public var accountCreditsURLSession: URLSession
@@ -51,12 +52,14 @@ public struct QuillCodeRuntimeFactory: Sendable {
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
+        distribution: QuillCodeDistribution = .standard,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         modelCatalogURLSession: URLSession = .shared,
         accountCreditsURLSession: URLSession? = nil,
         secretStore: (any QuillSecretStore)? = nil
     ) {
         self.paths = paths
+        self.distribution = distribution
         self.environment = environment
         self.modelCatalogURLSession = modelCatalogURLSession
         self.accountCreditsURLSession = accountCreditsURLSession ?? modelCatalogURLSession
@@ -64,6 +67,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
     }
 
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
+        let config = distribution.enforcing(config)
         if forcedMock {
             return mockRuntime(
                 status: QuillCodeRuntimeStatusLabel.mockLLM,
@@ -92,6 +96,9 @@ public struct QuillCodeRuntimeFactory: Sendable {
         // single call is retried with backoff instead of killing the whole unattended run. Retry is
         // safe here (the HTTP status error throws before any token is streamed) and covers both the
         // agent run loop and context-summary calls, since both go through this client.
+        let requestPrivacy: TrustedRouterRequestPrivacy = distribution.requiresConfidentialRouting
+            ? .confidential(jurisdiction: config.confidentialJurisdiction)
+            : .standard
         let baseClient = TrustedRouterLLMClient(
             promptBuilder: TrustedRouterPromptBuilder(
                 imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory)
@@ -99,7 +106,8 @@ public struct QuillCodeRuntimeFactory: Sendable {
             sessionStore: sessionStore,
             apiKeyOverride: apiKey,
             model: config.defaultModel,
-            baseURL: config.apiBaseURL
+            baseURL: config.apiBaseURL,
+            requestPrivacy: requestPrivacy
         )
         // The agent run's client records each self-heal so the model can surface a "Self-healing"
         // thread notice — the run quietly survived a blip and says so.
@@ -113,7 +121,11 @@ public struct QuillCodeRuntimeFactory: Sendable {
         // bounded empty-response recovery, and the per-send context builder removes it entirely for
         // confidential/E2E traffic.
         let fallbackLLM = RetryingLLMClient(
-            base: baseClient.overridingModel(TrustedRouterDefaults.safetyPrimaryCatalogModel),
+            base: baseClient.overridingModel(
+                distribution.requiresConfidentialRouting
+                    ? TrustedRouterDefaults.confidentialModel
+                    : TrustedRouterDefaults.safetyPrimaryCatalogModel
+            ),
             onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
         )
         // Context-summary/compaction calls are one-shot auxiliary housekeeping: each prompt is
@@ -128,24 +140,29 @@ public struct QuillCodeRuntimeFactory: Sendable {
         let safetyClient = TrustedRouterSafetyModelClient(
             sessionStore: sessionStore,
             apiKeyOverride: apiKey,
-            baseURL: config.apiBaseURL
+            baseURL: config.apiBaseURL,
+            requestPrivacy: requestPrivacy
         )
         // host.web.search: grounded engines over the SSRF-safe fetch transport first. Brave's
         // server-rendered results are primary; DuckDuckGo is secondary because its HTML endpoint
         // can return a bot challenge. The model-based client remains a last resort, and the
         // downstream liveness filter vets every result.
-        let webSearch = FallbackWebSearchClient(
-            primary: BraveWebSearchClient(),
-            fallback: FallbackWebSearchClient(
-                primary: DuckDuckGoWebSearchClient(),
-                fallback: TrustedRouterWebSearchClient(
-                    sessionStore: sessionStore,
-                    apiKeyOverride: apiKey,
-                    model: config.defaultModel,
-                    baseURL: config.apiBaseURL
+        let trustedRouterWebSearch = TrustedRouterWebSearchClient(
+            sessionStore: sessionStore,
+            apiKeyOverride: apiKey,
+            model: config.defaultModel,
+            baseURL: config.apiBaseURL,
+            requestPrivacy: requestPrivacy
+        )
+        let webSearch: any WebSearchClient = distribution.requiresConfidentialRouting
+            ? trustedRouterWebSearch
+            : FallbackWebSearchClient(
+                primary: BraveWebSearchClient(),
+                fallback: FallbackWebSearchClient(
+                    primary: DuckDuckGoWebSearchClient(),
+                    fallback: trustedRouterWebSearch
                 )
             )
-        )
         // Compaction (issue #862): when a model call overflows the context window, the run loop folds
         // the thread's older turns into a summary and resumes instead of failing. It reuses the same
         // caching-disabled auxiliary client as context summaries; the aux MODEL is chosen per-compaction
@@ -176,7 +193,15 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 // paths OUTSIDE the workspace are still denied (F24). Containment stays with the
                 // hard-deny floors and the filesystem sandbox, not with lexical intent-matching.
                 safety: AutonomousApprovalSafetyReviewer(
-                    base: AutoSafetyReviewer(client: safetyClient)
+                    base: AutoSafetyReviewer(
+                        client: safetyClient,
+                        primaryModel: distribution.requiresConfidentialRouting
+                            ? TrustedRouterDefaults.confidentialModel
+                            : TrustedRouterDefaults.safetyPrimaryModel,
+                        fallbackModel: distribution.requiresConfidentialRouting
+                            ? TrustedRouterDefaults.confidentialModel
+                            : TrustedRouterDefaults.safetyFallbackModel
+                    )
                 ),
                 webSearch: webSearch,
                 webSearchLivenessChecker: WebFetchURLLivenessChecker(),
@@ -199,6 +224,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
         guard !forcedMock else {
             return TrustedRouterModelCatalog()
         }
+        let config = distribution.enforcing(config)
         let key = configuredAPIKey() ?? (try? sessionStore().apiKey())
         do {
             return try await TrustedRouterModelCatalogClient(
@@ -218,6 +244,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
 
     public func fetchTrustedRouterCredits(config: AppConfig) async -> TrustedRouterCreditsRefreshResult {
         guard !forcedMock else { return .unavailable }
+        let config = distribution.enforcing(config)
         guard let key = configuredAPIKey() ?? (try? sessionStore().apiKey()) else {
             return .unavailable
         }

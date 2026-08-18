@@ -72,6 +72,9 @@ public struct ConfigStore: Sendable {
                 config.apiBaseURL = value
             case "auth_mode":
                 explicitAuthMode = TrustedRouterAuthMode(rawValue: value) ?? config.authMode
+            case "confidential_jurisdiction":
+                config.confidentialJurisdiction = TrustedRouterJurisdiction(rawValue: value)
+                    ?? config.confidentialJurisdiction
             case "developer_override_enabled":
                 legacyDeveloperOverrideEnabled = (value == "true")
             case "trustedrouter_user_id":
@@ -179,6 +182,7 @@ public struct ConfigStore: Sendable {
         document.values["mode"] = .string(config.mode.rawValue)
         document.values["api_base_url"] = .string(config.apiBaseURL)
         document.values["auth_mode"] = .string(config.authMode.rawValue)
+        document.values["confidential_jurisdiction"] = .string(config.confidentialJurisdiction.rawValue)
         document.values["developer_override_enabled"] = .bool(config.developerOverrideEnabled)
         document.values["model_provider"] = .string("trustedrouter")
         let access = Self.accessValues(for: config.mode)
@@ -236,7 +240,7 @@ public struct ConfigStore: Sendable {
 
     private static let ownedKeys: Set<String> = [
         "default_model", "model", "personality", "review_model", "review_delivery", "mode", "api_base_url",
-        "auth_mode", "developer_override_enabled", "model_provider", "sandbox_mode",
+        "auth_mode", "confidential_jurisdiction", "developer_override_enabled", "model_provider", "sandbox_mode",
         "approvals_reviewer", "approval_policy", "trustedrouter_user_id", "trustedrouter_subject",
         "trustedrouter_email", "trustedrouter_wallet_address", "favorite_model",
         "computer_use_approved_bundle_identifier", "computer_use_approved_app_name",
@@ -293,6 +297,8 @@ public struct ConfigStore: Sendable {
             mode: mode,
             apiBaseURL: values.string("api_base_url") ?? TrustedRouterDefaults.defaultAPIBaseURL,
             authMode: authMode,
+            confidentialJurisdiction: values.string("confidential_jurisdiction")
+                .flatMap(TrustedRouterJurisdiction.init(rawValue:)) ?? .unitedStates,
             developerOverrideEnabled: authMode == .developerOverride,
             trustedRouterAccount: account.isEmpty ? nil : account,
             favoriteModels: values.stringArray("favorite_model"),

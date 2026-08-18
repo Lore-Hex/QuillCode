@@ -56,16 +56,23 @@ struct WorkspaceConfigurationEngine {
         trustedRouterAPIKeyConfigured: Bool,
         root: inout QuillCodeRootState
     ) {
-        root.config = config
+        root.config = root.distribution.enforcing(config)
         root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
     }
 
-    static func syncThread(_ thread: inout ChatThread, to config: AppConfig) {
+    static func syncThread(
+        _ thread: inout ChatThread,
+        to config: AppConfig,
+        distribution: QuillCodeDistribution = .standard
+    ) {
         thread.mode = config.mode
         // Saving Settings (even an unrelated option) must not overwrite a confidential thread's model:
         // the picker renders locked, and silently retargeting the next send at config.defaultModel
         // would defeat the advertised E2E pin.
         guard !thread.runtimeContext.isConfidential else { return }
-        thread.model = config.defaultModel
+        thread.model = distribution.enforcedModelID(
+            config.defaultModel,
+            catalog: TrustedRouterDefaults.bundledModelCatalog
+        )
     }
 }

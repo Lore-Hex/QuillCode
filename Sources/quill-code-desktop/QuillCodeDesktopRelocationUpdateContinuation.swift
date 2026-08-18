@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeApp
 
 @MainActor
 final class QuillCodeDesktopRelocationUpdateContinuation {
@@ -15,7 +16,7 @@ final class QuillCodeDesktopRelocationUpdateContinuation {
     }
 
     private static let mismatchedResultMessage =
-        "Quill Cowork could not confirm the completed move. Reopen it and check for updates again."
+        "\(QuillCodeProduct.displayName) could not confirm the completed move. Reopen it and check for updates again."
 
     private let intentStore: QuillCodeDesktopRelocationUpdateIntentStore
     private let installationInspector: any QuillCodeDesktopUpdateInstallationInspecting

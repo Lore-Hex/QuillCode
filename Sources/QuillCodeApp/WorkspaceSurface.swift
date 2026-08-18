@@ -210,6 +210,7 @@ public extension QuillCodeWorkspaceModel {
             commands: progress.commands,
             settings: WorkspaceSettingsSurface(
                 config: root.config,
+                distribution: root.distribution,
                 hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
                 runtimeIssue: progress.runtimeIssue,
                 computerUseRuntime: ComputerUseSettingsRuntime(topBarState: root.topBar),
@@ -377,6 +378,7 @@ public extension QuillCodeWorkspaceModel {
         let spendPeriodThreads = root.threads + discardedEphemeralSpendLedger.periodThreads()
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: topBarState,
+            distribution: root.distribution,
             thread: thread,
             projectName: root.topBar.projectName,
             instructions: activeSources.instructions,

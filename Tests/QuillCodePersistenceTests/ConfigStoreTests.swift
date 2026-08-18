@@ -18,6 +18,19 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
 
+    func testConfigRoundTripsConfidentialJurisdiction() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(confidentialJurisdiction: .europeanUnion)
+
+        try store.save(config)
+
+        XCTAssertEqual(try store.load().confidentialJurisdiction, .europeanUnion)
+        XCTAssertTrue(
+            try String(contentsOf: store.fileURL, encoding: .utf8)
+                .contains(#"confidential_jurisdiction = "eu""#)
+        )
+    }
+
     func testConfigRoundTripsCodeReviewSettings() throws {
         let store = try makeConfigStore()
         let config = AppConfig(

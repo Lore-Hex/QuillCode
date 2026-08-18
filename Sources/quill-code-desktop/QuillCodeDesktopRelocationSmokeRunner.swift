@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import QuillCodeApp
 
 struct QuillCodeDesktopRelocationSmokeRequest: Sendable {
     static let modeArgument = "--native-relocation-smoke"
@@ -123,11 +124,11 @@ enum QuillCodeDesktopRelocationSmokeRunner {
         try? write(
             report: QuillCodeDesktopRelocationSmokeReport(
                 status: .failed,
-                product: "Quill Cowork",
+                product: QuillCodeProduct.displayName,
                 sourceApplicationPath: configuration?.applicationURL.path ??
                     Bundle.main.bundleURL.path,
                 destinationApplicationPath: request.applicationsURL.appendingPathComponent(
-                    "Quill Cowork.app",
+                    "\(QuillCodeProduct.displayName).app",
                     isDirectory: true
                 ).path,
                 resultPath: resultURL?.path ?? "unknown",
@@ -150,10 +151,10 @@ enum QuillCodeDesktopRelocationSmokeRunner {
     ) -> QuillCodeDesktopRelocationSmokeReport {
         QuillCodeDesktopRelocationSmokeReport(
             status: status,
-            product: "Quill Cowork",
+            product: QuillCodeProduct.displayName,
             sourceApplicationPath: configuration.applicationURL.path,
             destinationApplicationPath: request.applicationsURL.appendingPathComponent(
-                "Quill Cowork.app",
+                "\(QuillCodeProduct.displayName).app",
                 isDirectory: true
             ).path,
             resultPath: resultURL.path,

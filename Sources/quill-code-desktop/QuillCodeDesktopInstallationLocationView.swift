@@ -50,7 +50,7 @@ struct QuillCodeDesktopInstallationLocationView: View {
                 .font(.system(size: 28, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(QuillCodeCharterTheme.sage)
-            Text("Finish Installing Quill Cowork")
+            Text("Finish Installing \(QuillCodeProduct.displayName)")
                 .font(.custom("Iowan Old Style", size: 20).weight(.semibold))
                 .accessibilityIdentifier("quillcode-install-location-title")
             Spacer()
@@ -107,11 +107,11 @@ struct QuillCodeDesktopInstallationLocationView: View {
     private var statusTitle: String {
         switch controller.state {
         case .ready:
-            "Move Quill Cowork to Applications"
+            "Move \(QuillCodeProduct.displayName) to Applications"
         case .moving:
             "Finishing Installation"
         case .failed:
-            "Quill Cowork Wasn't Moved"
+            "\(QuillCodeProduct.displayName) Wasn't Moved"
         }
     }
 

@@ -3,6 +3,7 @@ import QuillCodeCore
 
 public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var apiBaseURL: String
+    public var confidentialJurisdiction: TrustedRouterJurisdiction
     public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
     public var replacementAPIKey: String?
@@ -21,6 +22,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
 
     public init(
         apiBaseURL: String,
+        confidentialJurisdiction: TrustedRouterJurisdiction = .unitedStates,
         authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool = false,
         replacementAPIKey: String? = nil,
@@ -38,6 +40,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         defaultPersonality: QuillCodePersonality = .defaultValue
     ) {
         self.apiBaseURL = apiBaseURL
+        self.confidentialJurisdiction = confidentialJurisdiction
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.replacementAPIKey = replacementAPIKey

@@ -1,7 +1,8 @@
 import Foundation
+import QuillCodeApp
 
 enum QuillCodeDesktopWorkspaceRootResolver {
-    static let fallbackDirectoryName = "Quill Cowork Workspace"
+    static var fallbackDirectoryName: String { "\(QuillCodeProduct.displayName) Workspace" }
     private static let legacyFallbackDirectoryName = "QuillCode Workspace"
 
     static func resolve(

@@ -16,9 +16,10 @@ NOTARY_KEY_ID="${QUILLCODE_MACOS_NOTARY_KEY_ID:-}"
 NOTARY_ISSUER_ID="${QUILLCODE_MACOS_NOTARY_ISSUER_ID:-}"
 NOTARY_KEY_PATH="${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}"
 UPDATE_CHANNEL="${QUILLCODE_UPDATE_CHANNEL:-tester}"
+PRODUCT_NAME="${QUILLCODE_PRODUCT_NAME:-Quill Cowork}"
 MAXIMUM_ARCHIVE_BYTES=$((1024 * 1024 * 1024))
-APP_NAME="Quill Cowork.app"
-EXECUTABLE_RELATIVE_PATH="Contents/MacOS/Quill Cowork"
+APP_NAME="$PRODUCT_NAME.app"
+EXECUTABLE_RELATIVE_PATH="Contents/MacOS/$PRODUCT_NAME"
 SUPERVISOR_RELATIVE_PATH="Contents/Helpers/quill-code-process-supervisor"
 
 usage() {
@@ -69,6 +70,7 @@ done
   exit 2
 }
 [[ "$OUTPUT_PATH" == *.dmg ]] || fail "Universal installer output must end in .dmg." 2
+[[ -n "$PRODUCT_NAME" && "$PRODUCT_NAME" != */* ]] || fail "Product name must be a non-empty app-bundle name." 2
 
 validate_archive() {
   local archive="$1"
@@ -121,7 +123,7 @@ validate_app_bundle() {
   [[ -f "$app_bundle/Contents/Info.plist" && ! -L "$app_bundle/Contents/Info.plist" ]] || \
     fail "$expected_architecture app has no regular Info.plist." 2
   [[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] || \
-    fail "$expected_architecture app has no executable Quill Cowork binary." 2
+    fail "$expected_architecture app has no executable $PRODUCT_NAME binary." 2
   [[ -f "$supervisor" && -x "$supervisor" && ! -L "$supervisor" ]] || \
     fail "$expected_architecture app has no process supervisor helper." 2
   if find "$app_bundle" \( -type l -o \( ! -type d ! -type f \) \) -print -quit | grep -q .; then
@@ -155,7 +157,7 @@ bundle_inventory() {
     cd "$app_bundle"
     find Contents \
       -path 'Contents/_CodeSignature' -prune -o \
-      -path 'Contents/MacOS/Quill Cowork' -prune -o \
+      -path "$EXECUTABLE_RELATIVE_PATH" -prune -o \
       -path 'Contents/Helpers/quill-code-process-supervisor' -prune -o \
       -print | LC_ALL=C sort
   )
@@ -182,7 +184,7 @@ UNIVERSAL_APP="$UNIVERSAL_ROOT/$APP_NAME"
 "$DITTO_BIN" "$ARM64_APP" "$UNIVERSAL_APP"
 rm -rf "$UNIVERSAL_APP/Contents/_CodeSignature"
 UNIVERSAL_EXECUTABLE="$UNIVERSAL_APP/$EXECUTABLE_RELATIVE_PATH"
-MERGED_EXECUTABLE="$WORK_DIRECTORY/Quill Cowork"
+MERGED_EXECUTABLE="$WORK_DIRECTORY/$PRODUCT_NAME"
 "$LIPO_BIN" -create \
   "$ARM64_APP/$EXECUTABLE_RELATIVE_PATH" \
   "$X86_64_APP/$EXECUTABLE_RELATIVE_PATH" \
@@ -243,4 +245,4 @@ fi
   --dmg "$OUTPUT_PATH" \
   --expected-architecture "$(uname -m)"
 
-printf 'Quill Cowork universal macOS installer: %s\n' "$OUTPUT_PATH"
+printf '%s universal macOS installer: %s\n' "$PRODUCT_NAME" "$OUTPUT_PATH"

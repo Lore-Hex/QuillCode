@@ -43,6 +43,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
     public var apiKeyOverride: String?
     public var model: String
     public var baseURL: String
+    public var requestPrivacy: TrustedRouterRequestPrivacy
     /// Prompt-cache breakpoints are placed automatically for Anthropic-family models (a large
     /// recurring cost and latency win for the agent loop) and never for other routes, whose
     /// requests stay byte-identical. Set `.disabled` to opt out entirely.
@@ -54,6 +55,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         apiKeyOverride: String? = nil,
         model: String = TrustedRouterDefaults.defaultModel,
         baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        requestPrivacy: TrustedRouterRequestPrivacy = .standard,
         promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic
     ) {
         self.promptBuilder = promptBuilder
@@ -61,6 +63,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         self.apiKeyOverride = apiKeyOverride
         self.model = model
         self.baseURL = baseURL
+        self.requestPrivacy = requestPrivacy
         self.promptCachingPolicy = promptCachingPolicy
     }
 
@@ -118,6 +121,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         let body = try Self.chatCompletionBody(
             model: model,
             messages: assembled.messages,
+            requestPrivacy: requestPrivacy,
             promptCachingPolicy: promptCachingPolicy,
             historyPrefixStable: assembled.historyPrefixStable
         )
@@ -200,6 +204,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
     static func chatCompletionBody(
         model: String,
         messages: [[String: Any]],
+        requestPrivacy: TrustedRouterRequestPrivacy = .standard,
         promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic,
         historyPrefixStable: Bool = false
     ) throws -> Data {
@@ -211,6 +216,9 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
             policy: promptCachingPolicy,
             historyPrefixStable: historyPrefixStable
         )
+        if let provider = requestPrivacy.providerPayload {
+            body["provider"] = provider
+        }
         body["stream"] = true
         body["stream_options"] = ["include_usage": true]
         return try JSONSerialization.data(withJSONObject: body)

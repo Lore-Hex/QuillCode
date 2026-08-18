@@ -161,7 +161,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was too large",
-                message: "The selected model exceeded Quill Cowork's safe response limit. " +
+                message: "The selected model exceeded \(QuillCodeProduct.displayName)'s safe response limit. " +
                     "Retry with a narrower request or switch models.",
                 actionLabel: "Switch model",
                 recovery: .modelPicker(reason: .malformedModelAction)

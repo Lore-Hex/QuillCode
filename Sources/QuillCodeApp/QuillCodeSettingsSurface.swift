@@ -24,7 +24,9 @@ public struct ComputerUseSettingsRuntime: Sendable, Hashable {
 }
 
 public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
+    public var distribution: QuillCodeDistribution
     public var apiBaseURL: String
+    public var confidentialJurisdiction: TrustedRouterJurisdiction
     public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
     public var hasStoredAPIKey: Bool
@@ -78,6 +80,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
 
     public init(
         config: AppConfig,
+        distribution: QuillCodeDistribution = .standard,
         hasStoredAPIKey: Bool,
         runtimeIssue: RuntimeIssueSurface? = nil,
         computerUseRuntime: ComputerUseSettingsRuntime = ComputerUseSettingsRuntime(),
@@ -87,7 +90,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         managedWorktreeDefaultRoot: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".quillcode/worktrees")
     ) {
+        self.distribution = distribution
         self.apiBaseURL = config.apiBaseURL
+        self.confidentialJurisdiction = config.confidentialJurisdiction
         self.authMode = config.authMode
         self.developerOverrideEnabled = config.developerOverrideEnabled
         self.hasStoredAPIKey = hasStoredAPIKey
@@ -179,7 +184,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case distribution
         case apiBaseURL
+        case confidentialJurisdiction
         case authMode
         case developerOverrideEnabled
         case hasStoredAPIKey
@@ -234,7 +241,15 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.distribution = try container.decodeIfPresent(
+            QuillCodeDistribution.self,
+            forKey: .distribution
+        ) ?? .standard
         self.apiBaseURL = try container.decode(String.self, forKey: .apiBaseURL)
+        self.confidentialJurisdiction = try container.decodeIfPresent(
+            TrustedRouterJurisdiction.self,
+            forKey: .confidentialJurisdiction
+        ) ?? .unitedStates
         self.authMode = try container.decode(TrustedRouterAuthMode.self, forKey: .authMode)
         self.developerOverrideEnabled = try container.decode(Bool.self, forKey: .developerOverrideEnabled)
         self.hasStoredAPIKey = try container.decode(Bool.self, forKey: .hasStoredAPIKey)

@@ -227,6 +227,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var mode: AgentMode
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
+    public var confidentialJurisdiction: TrustedRouterJurisdiction
     public var developerOverrideEnabled: Bool
     public var trustedRouterAccount: TrustedRouterAccountProfile?
     public var favoriteModels: [String]
@@ -251,6 +252,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         case mode
         case apiBaseURL
         case authMode
+        case confidentialJurisdiction
         case developerOverrideEnabled
         case trustedRouterAccount
         case favoriteModels
@@ -273,6 +275,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         mode: AgentMode = .auto,
         apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
         authMode: TrustedRouterAuthMode = .oauth,
+        confidentialJurisdiction: TrustedRouterJurisdiction = .unitedStates,
         developerOverrideEnabled: Bool = false,
         trustedRouterAccount: TrustedRouterAccountProfile? = nil,
         favoriteModels: [String] = [],
@@ -297,6 +300,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.mode = mode
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
+        self.confidentialJurisdiction = confidentialJurisdiction
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.trustedRouterAccount = trustedRouterAccount?.isEmpty == true ? nil : trustedRouterAccount
         self.favoriteModels = Self.normalizedModelIDs(favoriteModels)
@@ -349,6 +353,10 @@ public struct AppConfig: Codable, Sendable, Hashable {
             mode: try container.decodeIfPresent(AgentMode.self, forKey: .mode) ?? .auto,
             apiBaseURL: apiBaseURL,
             authMode: try container.decodeIfPresent(TrustedRouterAuthMode.self, forKey: .authMode) ?? .oauth,
+            confidentialJurisdiction: try container.decodeIfPresent(
+                TrustedRouterJurisdiction.self,
+                forKey: .confidentialJurisdiction
+            ) ?? .unitedStates,
             developerOverrideEnabled: developerOverrideEnabled,
             trustedRouterAccount: trustedRouterAccount,
             favoriteModels: try container.decodeIfPresent([String].self, forKey: .favoriteModels) ?? [],

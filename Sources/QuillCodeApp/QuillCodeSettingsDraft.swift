@@ -4,6 +4,7 @@ import QuillComputerUseKit
 
 struct QuillCodeSettingsDraft: Equatable {
     var apiBaseURL: String = ""
+    var confidentialJurisdiction: TrustedRouterJurisdiction = .unitedStates
     var authMode: TrustedRouterAuthMode = .oauth
     var developerOverrideEnabled: Bool = false
     var replacementAPIKey: String = ""
@@ -36,6 +37,7 @@ struct QuillCodeSettingsDraft: Equatable {
         authModeOverride: TrustedRouterAuthMode? = nil
     ) {
         self.apiBaseURL = settings.apiBaseURL
+        self.confidentialJurisdiction = settings.confidentialJurisdiction
         self.authMode = authModeOverride ?? settings.authMode
         self.developerOverrideEnabled = authModeOverride.map { $0 == .developerOverride }
             ?? settings.developerOverrideEnabled
@@ -81,6 +83,7 @@ struct QuillCodeSettingsDraft: Equatable {
         let trimmedReplacementAPIKey = replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkspaceSettingsUpdate(
             apiBaseURL: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            confidentialJurisdiction: confidentialJurisdiction,
             authMode: authMode,
             developerOverrideEnabled: developerOverrideEnabled,
             replacementAPIKey: trimmedReplacementAPIKey.isEmpty ? nil : trimmedReplacementAPIKey,
