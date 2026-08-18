@@ -23,7 +23,7 @@ final class ParityPlatformCredentialStorageGateTests: QuillCodeParityTestCase {
         )
     }
 
-    func testKeychainActivationStaysBoundToDeveloperIDMetadataMigrationAndEdition() throws {
+    func testKeychainActivationStaysBoundToDeveloperIDMetadataAndMigration() throws {
         let source = try String(
             contentsOf: Self.packageRoot()
                 .appendingPathComponent("Sources/QuillCodePersistence/PlatformSecretStore.swift"),
