@@ -23,7 +23,7 @@ final class ParityPlatformCredentialStorageGateTests: QuillCodeParityTestCase {
         )
     }
 
-    func testKeychainActivationStaysBoundToDeveloperIDMetadataAndMigration() throws {
+    func testKeychainActivationStaysBoundToDeveloperIDMetadataMigrationAndEdition() throws {
         let source = try String(
             contentsOf: Self.packageRoot()
                 .appendingPathComponent("Sources/QuillCodePersistence/PlatformSecretStore.swift"),
@@ -43,7 +43,7 @@ final class ParityPlatformCredentialStorageGateTests: QuillCodeParityTestCase {
             "SecCodeCopySigningInformation",
             "runtimeSigningTeamIdentifier == signingTeamIdentifier",
             "LegacyMigratingSecretStore(",
-            "KeychainSecretStore(service: macOSService)",
+            "KeychainSecretStore(service: paths.secretStorageService)",
             "kSecAttrSynchronizable as String: false",
             "try primary.write(value, for: key)",
             "try legacy.delete(key)"
