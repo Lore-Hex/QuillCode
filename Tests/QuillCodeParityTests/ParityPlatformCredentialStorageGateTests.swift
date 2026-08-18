@@ -43,7 +43,7 @@ final class ParityPlatformCredentialStorageGateTests: QuillCodeParityTestCase {
             "SecCodeCopySigningInformation",
             "runtimeSigningTeamIdentifier == signingTeamIdentifier",
             "LegacyMigratingSecretStore(",
-            "KeychainSecretStore(service: macOSService)",
+            "KeychainSecretStore(service: paths.secretStorageService)",
             "kSecAttrSynchronizable as String: false",
             "try primary.write(value, for: key)",
             "try legacy.delete(key)"

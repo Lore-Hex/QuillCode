@@ -14,20 +14,26 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
     public typealias AccountCreditsFetcher = @Sendable (AppConfig) async -> TrustedRouterCreditsRefreshResult
 
     public var paths: QuillCodePaths
+    public var distribution: QuillCodeDistribution
     public var runtimeFactory: QuillCodeRuntimeFactory
     public var modelCatalogFetcher: ModelCatalogFetcher?
     public var accountCreditsFetcher: AccountCreditsFetcher?
     public var now: @Sendable () -> Date
 
     public init(
-        paths: QuillCodePaths = QuillCodePaths(),
+        paths: QuillCodePaths = QuillCodeProduct.defaultPaths,
+        distribution: QuillCodeDistribution = QuillCodeProduct.distribution,
         runtimeFactory: QuillCodeRuntimeFactory? = nil,
         modelCatalogFetcher: ModelCatalogFetcher? = nil,
         accountCreditsFetcher: AccountCreditsFetcher? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.paths = paths
-        self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(paths: paths)
+        self.distribution = distribution
+        self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(
+            paths: paths,
+            distribution: distribution
+        )
         self.modelCatalogFetcher = modelCatalogFetcher
         self.accountCreditsFetcher = accountCreditsFetcher
         self.now = now
@@ -43,13 +49,14 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         } catch {
             unreadableDataKinds.append(.workspaceStorage)
         }
-        let config: AppConfig
+        let loadedConfig: AppConfig
         do {
-            config = try ConfigStore(fileURL: paths.configFile).load()
+            loadedConfig = try ConfigStore(fileURL: paths.configFile).load()
         } catch {
-            config = AppConfig()
+            loadedConfig = AppConfig()
             unreadableDataKinds.append(.configuration)
         }
+        let config = distribution.enforcing(loadedConfig)
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
         let composerDraftStore = ComposerDraftCheckpointStore(directory: paths.composerDraftsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
@@ -85,7 +92,19 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             subagentReconciliation.threads,
             now: currentDate
         )
-        let threads = runReconciliation.threads
+        var threads = runReconciliation.threads
+        var distributionAdjustedThreadIDs = Set<UUID>()
+        if distribution.requiresConfidentialRouting {
+            for index in threads.indices {
+                let enforcedModel = distribution.enforcedModelID(
+                    threads[index].model,
+                    catalog: TrustedRouterDefaults.bundledModelCatalog
+                )
+                guard enforcedModel != threads[index].model else { continue }
+                threads[index].model = enforcedModel
+                distributionAdjustedThreadIDs.insert(threads[index].id)
+            }
+        }
         var projects = storedProjects
         if !WorkspaceBootstrapProjectMigration.isComplete(in: paths.home)
             && !unreadableDataKinds.contains(.projects) {
@@ -108,6 +127,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         }
         let reconciledThreadIDs = subagentReconciliation.changedThreadIDs
             .union(runReconciliation.changedThreadIDs)
+            .union(distributionAdjustedThreadIDs)
         for thread in threads where reconciledThreadIDs.contains(thread.id) {
             do {
                 try threadStore.save(thread)
@@ -140,6 +160,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             .resolvingTrust(hookTrustStore.load(forWorkspaceRoot: paths.home))
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(
+                distribution: distribution,
                 config: config,
                 projects: projects,
                 selectedProjectID: selectedProjectID,
@@ -203,7 +224,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
 
     public func saveConfig(_ config: AppConfig) throws {
         try paths.ensure()
-        try ConfigStore(fileURL: paths.configFile).save(config)
+        try ConfigStore(fileURL: paths.configFile).save(distribution.enforcing(config))
     }
 
     public func saveSettingsTransaction(
@@ -211,6 +232,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         proposedConfig: AppConfig,
         credentialMutation: WorkspaceTrustedRouterCredentialMutation
     ) throws {
+        let enforcedCurrentConfig = distribution.enforcing(currentConfig)
+        let enforcedProposedConfig = distribution.enforcing(proposedConfig)
         let normalizedMutation: WorkspaceTrustedRouterCredentialMutation
         switch credentialMutation {
         case .replace(let credential):
@@ -255,8 +278,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             }
         )
         try transaction.apply(
-            currentConfig: currentConfig,
-            proposedConfig: proposedConfig,
+            currentConfig: enforcedCurrentConfig,
+            proposedConfig: enforcedProposedConfig,
             credentialMutation: normalizedMutation
         )
     }

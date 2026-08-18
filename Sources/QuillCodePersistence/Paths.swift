@@ -52,12 +52,8 @@ public struct HookConfigurationPaths: Sendable, Hashable {
 public struct QuillCodePaths: Sendable, Hashable {
     public var home: URL
     public var hookConfigurationPaths: HookConfigurationPaths
-    public var secretStorageScope: QuillCodeSecretStorageScope {
-        let liveHome = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".quillcode", isDirectory: true)
-            .standardizedFileURL
-        return home.standardizedFileURL == liveHome ? .userAccount : .isolatedFile
-    }
+    public var secretStorageScope: QuillCodeSecretStorageScope
+    public var secretStorageService: String
     public var configFile: URL { home.appendingPathComponent("config.toml") }
     public var automationsFile: URL { home.appendingPathComponent("automations.json") }
     public var projectsFile: URL { home.appendingPathComponent("projects.json") }
@@ -87,13 +83,36 @@ public struct QuillCodePaths: Sendable, Hashable {
             .appendingPathComponent(".quillcode", isDirectory: true)
         self.home = home
         self.hookConfigurationPaths = .live(quillCodeHome: home)
+        self.secretStorageScope = .userAccount
+        self.secretStorageService = QuillSecretStoreFactory.standardMacOSService
+    }
+
+    /// A live product home uses the user's account secret store while keeping each distribution's
+    /// transcripts and settings isolated on disk.
+    public init(liveHomeDirectoryName: String, secretStorageService: String) {
+        let directoryName = liveHomeDirectoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let service = secretStorageService.trimmingCharacters(in: .whitespacesAndNewlines)
+        precondition(!directoryName.isEmpty && !directoryName.contains("/") && !service.isEmpty)
+        let home = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(directoryName, isDirectory: true)
+        self.home = home
+        self.hookConfigurationPaths = .live(quillCodeHome: home)
+        self.secretStorageScope = .userAccount
+        self.secretStorageService = service
     }
 
     /// Explicit non-live homes are isolated so tests and portable installations never read the
     /// host user's Codex, system configuration, or account credential store accidentally.
-    public init(home: URL, hookConfigurationPaths: HookConfigurationPaths? = nil) {
+    public init(
+        home: URL,
+        hookConfigurationPaths: HookConfigurationPaths? = nil,
+        secretStorageScope: QuillCodeSecretStorageScope = .isolatedFile,
+        secretStorageService: String = QuillSecretStoreFactory.standardMacOSService
+    ) {
         self.home = home
         self.hookConfigurationPaths = hookConfigurationPaths ?? .isolated(home: home)
+        self.secretStorageScope = secretStorageScope
+        self.secretStorageService = secretStorageService
     }
 
     public func ensure() throws {

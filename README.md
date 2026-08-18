@@ -15,6 +15,18 @@ are written entirely in Swift, with no Electron or web-app shell. Bounded backgr
 persistent local state, and a verified updater with automatic rollback are built into that Swift
 architecture.
 
+## Confidential Cowork
+
+**Confidential Cowork by TrustedRouter** is the locked enterprise distribution of the same native
+Swift app. It defaults to `trustedrouter/confidential`, requires Confidential-tier providers for
+every model-backed request, supports US or EU processing policy, and fails closed instead of using a
+standard route. It has a separate application identity and local data store, so it can be installed
+beside Quill Cowork without sharing tasks or credentials.
+
+The confidential policy also covers safety review, summaries, compaction, code review, fallback, and
+model-assisted search. Settings cannot disable the policy or replace the official TrustedRouter API
+endpoint. Build it locally with `scripts/build-confidential-cowork-app.sh`.
+
 ## What You Can Do
 
 - Build Swift projects with a coding agent whose application and agent runtime are themselves Swift.

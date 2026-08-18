@@ -4891,3 +4891,26 @@
   validation also waited for detached work to finish.
 - **Evidence:** `BoundedSubprocessRunnerTests`, `QuillCodeDesktopUpdateModelTests`, full Swift
   coverage, packaged crash/render/Accessibility smoke, and the three-launch resource manifest.
+
+## 2026-08-18: Confidential Cowork is a fail-closed product edition
+
+- **Decision:** One Swift codebase produces **Quill Cowork by TrustedRouter** and
+  **Confidential Cowork by TrustedRouter**. The confidential edition has its own bundle identifier,
+  local data directory, and release artifact; it is a distribution policy rather than a UI toggle.
+- **Routing boundary:** Every model-backed request uses `trustedrouter/confidential` by default and
+  includes `data_collection=deny`, `min_privacy=confidential`, and the selected US or EU
+  jurisdiction. The same rule covers the main agent, safety reviewer, fallback, summaries,
+  compaction, code review, and model-assisted search. Direct third-party search fallbacks are not
+  wired into this edition.
+- **Fail-closed boundary:** Restored configuration cannot retain a custom API base URL, developer
+  override, ordinary default/review model, or non-confidential favorite. The model picker and typed
+  model command accept only catalog models marked Confidential-tier, and unknown or downgraded
+  choices return to the guaranteed confidential route. Server-side privacy requirements remain on
+  every request even if local state is corrupted.
+- **Storage boundary:** `.confidential-cowork` does not share transcripts, configuration, or secret
+  scope identifiers with `.quillcode`. This prevents the two installed apps from silently inheriting
+  one another's state while preserving native Keychain/Secret Service storage.
+- **Branding:** In-app and packaged names are concise (`Quill Cowork` and `Confidential Cowork`),
+  with the visible signature `by TrustedRouter`. Bundle filenames do not include the byline.
+- **Evidence:** `QuillCodeDistributionTests`, `TrustedRouterRequestPrivacyTests`, configuration/path
+  round trips, the confidential packaged-app smoke, and native UI screenshots for both editions.

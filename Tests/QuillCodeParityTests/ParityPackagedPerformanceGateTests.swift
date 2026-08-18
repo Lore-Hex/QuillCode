@@ -181,9 +181,9 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "daily-driver-100-chats"
         ])
         Self.assertSource(packageDownloads, containsAll: [
-            "Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
+            "$ASSET_PREFIX-macOS-$ARCH-PERFORMANCE.json",
             "scripts/packaged-macos-performance-smoke.sh",
-            "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
+            "performance=$ASSET_PREFIX-macOS-$ARCH-PERFORMANCE.json",
             #"SWIFT_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")"#
         ])
         Self.assertSource(releaseNotes, containsAll: [

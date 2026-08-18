@@ -100,8 +100,8 @@ struct QuillCodeDesktopRootView: View {
 
     private var unexpectedExitTitle: String {
         unexpectedExit?.requiresRecoveryStartup == true
-            ? "Quill Cowork opened in recovery mode"
-            : "Quill Cowork closed unexpectedly"
+            ? "\(QuillCodeProduct.displayName) opened in recovery mode"
+            : "\(QuillCodeProduct.displayName) closed unexpectedly"
     }
 
     private func continueWithAutomaticWorkspaceServicesPaused() {

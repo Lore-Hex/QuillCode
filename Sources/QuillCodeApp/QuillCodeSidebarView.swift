@@ -56,6 +56,7 @@ struct QuillCodeSidebarView: View {
                 onMoveProjectToBottom: onMoveProjectToBottom
             )
             Spacer(minLength: 0)
+            brandLockup
             QuillCodeSidebarUtilityActionsView(commands: commands, onCommand: onCommand)
         }
         .padding(.top, QuillCodeMetrics.sidebarVerticalInset)
@@ -63,6 +64,30 @@ struct QuillCodeSidebarView: View {
         .padding(.leading, QuillCodeMetrics.sidebarLeadingInset)
         .padding(.trailing, QuillCodeMetrics.sidebarTrailingInset)
         .background(QuillCodePalette.sidebar)
+    }
+
+    private var brandLockup: some View {
+        HStack(spacing: 8) {
+            Image(systemName: QuillCodeProduct.distribution.requiresConfidentialRouting
+                ? "lock.shield.fill"
+                : "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodeProduct.distribution.requiresConfidentialRouting
+                    ? QuillCodePalette.green
+                    : QuillCodePalette.blue)
+                .frame(width: 16, height: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(QuillCodeProduct.displayName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.body)
+                    .lineLimit(1)
+                Text(QuillCodeProduct.brandByline)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(QuillCodeProduct.fullBrandName)
     }
 
     private var showsThreadHeader: Bool {

@@ -93,6 +93,7 @@ public struct TopBarState: Sendable, Hashable {
 }
 
 public struct QuillCodeRootState: Sendable, Hashable {
+    public var distribution: QuillCodeDistribution
     public var config: AppConfig
     public var projects: [ProjectRef]
     public var selectedProjectID: UUID?
@@ -106,6 +107,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public var trustedRouterCredits: TrustedRouterCreditsState
 
     public init(
+        distribution: QuillCodeDistribution = .standard,
         config: AppConfig = AppConfig(),
         projects: [ProjectRef] = [],
         selectedProjectID: UUID? = nil,
@@ -118,7 +120,8 @@ public struct QuillCodeRootState: Sendable, Hashable {
         trustedRouterAPIKeyConfigured: Bool = false,
         trustedRouterCredits: TrustedRouterCreditsState = .unavailable
     ) {
-        self.config = config
+        self.distribution = distribution
+        self.config = distribution.enforcing(config)
         self.projects = projects
         self.selectedProjectID = selectedProjectID
         self.threads = threads

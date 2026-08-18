@@ -5,7 +5,8 @@ import Security
 #endif
 
 public enum QuillSecretStoreFactory {
-    public static let macOSService = "co.lorehex.QuillCowork.secrets"
+    public static let standardMacOSService = "co.lorehex.QuillCowork.secrets"
+    public static let macOSService = standardMacOSService
 
     public static func make(for paths: QuillCodePaths) -> any QuillSecretStore {
         #if canImport(Security)
@@ -42,7 +43,7 @@ public enum QuillSecretStoreFactory {
         // Require the sealed metadata to agree with the running signature. Ad-hoc designated
         // requirements are build-specific hashes and do not provide a durable Keychain identity.
         return LegacyMigratingSecretStore(
-            primary: KeychainSecretStore(service: macOSService),
+            primary: KeychainSecretStore(service: paths.secretStorageService),
             legacy: legacy
         )
     }

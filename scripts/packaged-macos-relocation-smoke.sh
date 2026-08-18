@@ -3,12 +3,14 @@ set -euo pipefail
 
 DMG=""
 EXPECTED_ARCHITECTURE=""
+PRODUCT_NAME="Quill Cowork"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/packaged-macos-relocation-smoke.sh --dmg PATH --expected-architecture ARCH
+Usage: scripts/packaged-macos-relocation-smoke.sh \
+  --dmg PATH --expected-architecture ARCH [--product-name NAME]
 
-Mounts the packaged DMG read-only, moves Quill Cowork through its production
+Mounts the packaged DMG read-only, moves the app through its production
 first-install helper, and requires a verified stable relaunch.
 USAGE
 }
@@ -21,6 +23,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --expected-architecture)
       EXPECTED_ARCHITECTURE="${2:-}"
+      shift 2
+      ;;
+    --product-name)
+      PRODUCT_NAME="${2:-}"
       shift 2
       ;;
     --help|-h)
@@ -37,6 +43,10 @@ done
 
 if [[ -z "$DMG" || ! -f "$DMG" ]]; then
   echo "A packaged DMG is required." >&2
+  exit 2
+fi
+if [[ -z "$PRODUCT_NAME" || "$PRODUCT_NAME" == */* ]]; then
+  echo "Product name must be a non-empty app-bundle name." >&2
   exit 2
 fi
 case "$EXPECTED_ARCHITECTURE" in
@@ -60,7 +70,7 @@ PROCESS_TMP="$SMOKE_ROOT/tmp"
 REPORT="$SMOKE_ROOT/relocation-report.json"
 SOURCE_LOG="$SMOKE_ROOT/source.log"
 MOUNTED=false
-DESTINATION_EXECUTABLE="$APPLICATIONS/Quill Cowork.app/Contents/MacOS/Quill Cowork"
+DESTINATION_EXECUTABLE="$APPLICATIONS/$PRODUCT_NAME.app/Contents/MacOS/$PRODUCT_NAME"
 DESTINATION_PID=""
 
 stop_destination_process() {
@@ -99,11 +109,11 @@ mkdir -p "$MOUNT_POINT" "$APPLICATIONS" "$HOME_ROOT" "$PROCESS_TMP"
 hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT_POINT" >/dev/null
 MOUNTED=true
 
-SOURCE_APP="$MOUNT_POINT/Quill Cowork.app"
-SOURCE_EXECUTABLE="$SOURCE_APP/Contents/MacOS/Quill Cowork"
+SOURCE_APP="$MOUNT_POINT/$PRODUCT_NAME.app"
+SOURCE_EXECUTABLE="$SOURCE_APP/Contents/MacOS/$PRODUCT_NAME"
 SOURCE_INFO="$SOURCE_APP/Contents/Info.plist"
 if [[ ! -x "$SOURCE_EXECUTABLE" || ! -f "$SOURCE_INFO" ]]; then
-  echo "Mounted DMG does not contain an executable Quill Cowork app." >&2
+  echo "Mounted DMG does not contain an executable $PRODUCT_NAME app." >&2
   exit 1
 fi
 
@@ -167,7 +177,7 @@ if [[ -z "$DESTINATION_PID" ]]; then
   exit 1
 fi
 
-EXPECTED_DESTINATION_APP="$(cd "$APPLICATIONS" && pwd -P)/Quill Cowork.app"
+EXPECTED_DESTINATION_APP="$(cd "$APPLICATIONS" && pwd -P)/$PRODUCT_NAME.app"
 REPORTED_DESTINATION_APP="$(
   cd "$(dirname "$DESTINATION_APP")"
   printf '%s/%s' "$(pwd -P)" "$(basename "$DESTINATION_APP")"
@@ -206,4 +216,4 @@ if [[ ! "$DESTINATION_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-echo "Quill Cowork packaged relocation smoke passed."
+echo "$PRODUCT_NAME packaged relocation smoke passed."

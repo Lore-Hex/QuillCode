@@ -23,7 +23,7 @@ struct QuillCodeProjectSetupView: View {
                 .font(.custom("Iowan Old Style", size: 22).weight(.semibold))
                 .foregroundStyle(QuillCodePalette.text)
 
-            Text("Choose the workspace folder Quill Cowork can work in.")
+            Text("Choose the workspace folder \(QuillCodeProduct.displayName) can work in.")
                 .font(.body)
                 .foregroundStyle(QuillCodePalette.muted)
 

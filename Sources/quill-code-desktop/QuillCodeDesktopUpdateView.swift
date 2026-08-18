@@ -39,7 +39,7 @@ struct QuillCodeDesktopUpdateView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(QuillCodeCharterTheme.sage)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Quill Cowork Update")
+                Text("\(QuillCodeProduct.displayName) Update")
                     .font(.custom("Iowan Old Style", size: 20).weight(.semibold))
                     .accessibilityIdentifier("quillcode-update-title")
                 if let configuration = controller.configuration {
@@ -89,14 +89,14 @@ struct QuillCodeDesktopUpdateView: View {
             statusContent(
                 icon: "shippingbox",
                 title: "Preparing \(release.displayVersion)",
-                detail: "Quill Cowork will relaunch when the verified update is ready.",
+                detail: "\(QuillCodeProduct.displayName) will relaunch when the verified update is ready.",
                 showsProgress: true
             )
         case .upToDate(let version, let build):
             statusContent(
                 icon: "checkmark.circle.fill",
                 title: "You're up to date",
-                detail: "Quill Cowork \(version) (\(build)) is the latest version.",
+                detail: "\(QuillCodeProduct.displayName) \(version) (\(build)) is the latest version.",
                 showsProgress: false
             )
         case .failed(let message, _):
@@ -175,7 +175,7 @@ struct QuillCodeDesktopUpdateView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if controller.updateRequiresRelocation {
                     Label(
-                        "Move Quill Cowork to Applications once. It will reopen and continue this update.",
+                        "Move \(QuillCodeProduct.displayName) to Applications once. It will reopen and continue this update.",
                         systemImage: "folder.badge.plus"
                     )
                 } else {
@@ -278,7 +278,7 @@ struct QuillCodeDesktopUpdateView: View {
                     .quillCodeFormActionTarget()
             case .installing:
                 Spacer()
-                Text("Keep Quill Cowork open")
+                Text("Keep \(QuillCodeProduct.displayName) open")
                     .font(.caption)
                     .foregroundStyle(QuillCodeCharterTheme.body)
             case .failed(_, let release):

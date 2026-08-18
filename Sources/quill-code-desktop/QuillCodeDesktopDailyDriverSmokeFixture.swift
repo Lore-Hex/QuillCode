@@ -120,7 +120,7 @@ enum QuillCodeDesktopDailyDriverSmokeFixture {
         let newestDate = baseDate.addingTimeInterval(TimeInterval(chatCount * 3_600))
         let project = ProjectRef(
             id: projectID,
-            name: "Quill Cowork Daily Driver",
+            name: "\(QuillCodeProduct.displayName) Daily Driver",
             path: destinationWorkspace.path,
             lastOpenedAt: newestDate
         )

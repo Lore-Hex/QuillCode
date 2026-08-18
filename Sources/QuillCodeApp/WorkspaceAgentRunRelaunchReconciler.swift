@@ -13,9 +13,9 @@ struct WorkspaceAgentRunRelaunchReconciliation: Sendable, Hashable {
 /// those checkpoints are cleared silently. Every other checkpoint becomes a visible, retryable
 /// interruption. An open tool receives a terminal event first so no transcript card stays Running.
 enum WorkspaceAgentRunRelaunchReconciler {
-    static let toolFailureSummary = "Interrupted when Quill Cowork closed"
+    static let toolFailureSummary = "Interrupted when \(QuillCodeProduct.displayName) closed"
     static let toolFailurePayloadJSON =
-        #"{"ok":false,"error":"Interrupted when Quill Cowork closed before this tool finished."}"#
+        "{\"ok\":false,\"error\":\"Interrupted when \(QuillCodeProduct.displayName) closed before this tool finished.\"}"
     static let recoveryMessage = WorkspaceRunFailureNoticePlanner.interruptedRelaunchDiagnostic
 
     static func reconcile(

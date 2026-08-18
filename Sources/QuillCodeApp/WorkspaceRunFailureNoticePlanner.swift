@@ -11,7 +11,7 @@ enum WorkspaceRunFailureNoticePlanner {
     /// this prefix — keep summary construction and detection in lockstep).
     static let noticePrefix = "Run stopped after an error"
     static let interruptedRelaunchDiagnostic =
-        "Quill Cowork closed before the run finished. Review any partial work before retrying."
+        "\(QuillCodeProduct.displayName) closed before the run finished. Review any partial work before retrying."
     static let interruptedRelaunchSummary = "\(noticePrefix): \(interruptedRelaunchDiagnostic)"
 
     /// Reuses the summary sanitizer so a persisted failure can never carry an API key or private key

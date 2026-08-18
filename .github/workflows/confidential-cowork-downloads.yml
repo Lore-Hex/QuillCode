@@ -1,0 +1,206 @@
+name: Confidential Cowork downloads
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Package.swift"
+      - "Package.resolved"
+      - "Sources/**"
+      - "Resources/**"
+      - "scripts/build-macos-app.sh"
+      - "scripts/build-confidential-cowork-app.sh"
+      - "scripts/package-macos-downloads.sh"
+      - "scripts/package-macos-universal-installer.sh"
+      - "scripts/build-download-manifest.py"
+      - "scripts/configure-macos-distribution-signing.sh"
+      - "scripts/create-macos-disk-image.sh"
+      - "scripts/packaged-macos-*.sh"
+      - ".github/workflows/confidential-cowork-downloads.yml"
+
+concurrency:
+  group: confidential-cowork-downloads
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  QUILLCODE_EDITION: confidential
+  QUILLCODE_PRODUCT_NAME: Confidential Cowork
+  QUILLCODE_ASSET_PREFIX: Confidential-Cowork
+  QUILLCODE_MACOS_BUNDLE_ID: com.trustedrouter.ConfidentialCowork
+  QUILLCODE_UPDATE_CHANNEL: tester
+  QUILLCODE_BUILD_VERSION: 0.1.0
+  QUILLCODE_TESTER_RELEASE_TAG: confidential-cowork-latest
+  QUILLCODE_TESTER_MANIFEST_NAME: latest-confidential-cowork-build.json
+  QUILLCODE_STABLE_RELEASE_TAG: confidential-cowork-stable
+  QUILLCODE_STABLE_MANIFEST_NAME: latest-confidential-cowork-stable-build.json
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify native architecture
+        run: test "$(uname -m)" = "${{ matrix.arch }}"
+      - name: Configure Apple distribution signing
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: scripts/configure-macos-distribution-signing.sh
+      - name: Package signed and notarized app
+        env:
+          QUILLCODE_BUILD_NUMBER: ${{ github.run_number }}
+          QUILLCODE_DOWNLOAD_DIST_DIR: ${{ runner.temp }}/confidential-cowork-${{ matrix.arch }}
+        run: scripts/package-macos-downloads.sh
+      - name: Remove temporary Apple signing material
+        if: always()
+        run: |
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}" && -f "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" || true
+          fi
+          rm -f "${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}" "${QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH:-}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: confidential-cowork-macos-${{ matrix.arch }}
+          path: ${{ runner.temp }}/confidential-cowork-${{ matrix.arch }}/assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  universal:
+    needs: macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: confidential-cowork-macos-*
+          path: ${{ runner.temp }}/thin
+      - name: Configure Apple distribution signing
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: scripts/configure-macos-distribution-signing.sh
+      - name: Package universal installer
+        run: |
+          mkdir -p "$RUNNER_TEMP/universal"
+          scripts/package-macos-universal-installer.sh \
+            --arm64-app-zip "$RUNNER_TEMP/thin/confidential-cowork-macos-arm64/Confidential-Cowork-macOS-arm64.zip" \
+            --x86-64-app-zip "$RUNNER_TEMP/thin/confidential-cowork-macos-x86_64/Confidential-Cowork-macOS-x86_64.zip" \
+            --output "$RUNNER_TEMP/universal/Confidential-Cowork-macOS-universal.dmg"
+      - name: Remove temporary Apple signing material
+        if: always()
+        run: |
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}" && -f "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" || true
+          fi
+          rm -f "${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}" "${QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH:-}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: confidential-cowork-macos-universal
+          path: ${{ runner.temp }}/universal/Confidential-Cowork-macOS-universal.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [macos, universal]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: confidential-cowork-macos-*
+          path: ${{ runner.temp }}/downloads
+      - name: Prepare release
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          find "$RUNNER_TEMP/downloads" -maxdepth 3 -type f -exec cp {} "$RUNNER_TEMP/release/" \;
+          cp "$RUNNER_TEMP/release/BUILD_INFO-macOS-arm64.txt" "$RUNNER_TEMP/release/BUILD_INFO.txt"
+          (
+            cd "$RUNNER_TEMP/release"
+            find . -maxdepth 1 -type f ! -name SHASUMS256.txt -printf '%P\0' | sort -z | xargs -0 sha256sum > SHASUMS256.txt
+          )
+          scripts/build-download-manifest.py \
+            --assets-dir "$RUNNER_TEMP/release" \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$QUILLCODE_TESTER_RELEASE_TAG" \
+            --channel tester \
+            --product "$QUILLCODE_PRODUCT_NAME" \
+            --macos-asset-prefix "$QUILLCODE_ASSET_PREFIX" \
+            --tester-tag "$QUILLCODE_TESTER_RELEASE_TAG" \
+            --tester-manifest-name "$QUILLCODE_TESTER_MANIFEST_NAME" \
+            --stable-tag "$QUILLCODE_STABLE_RELEASE_TAG" \
+            --stable-manifest-name "$QUILLCODE_STABLE_MANIFEST_NAME" \
+            --commit "$GITHUB_SHA" \
+            --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/release/$QUILLCODE_TESTER_MANIFEST_NAME"
+      - name: Publish self-serve download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="$RUNNER_TEMP/confidential-cowork-notes.md"
+          cat > "$NOTES" <<EOF
+          Confidential Cowork by TrustedRouter
+
+          Enforced confidential LLM routing, selectable US or EU processing, and separate local storage from Quill Cowork.
+
+          Source commit: $GITHUB_SHA
+          EOF
+          if gh release view "$QUILLCODE_TESTER_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$QUILLCODE_TESTER_RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Confidential Cowork latest" \
+              --notes-file "$NOTES" \
+              --prerelease \
+              --latest=false
+          else
+            gh release create "$QUILLCODE_TESTER_RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Confidential Cowork latest" \
+              --notes-file "$NOTES" \
+              --prerelease \
+              --latest=false
+          fi
+          gh release upload "$QUILLCODE_TESTER_RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            "$RUNNER_TEMP"/release/*
+      - name: Verify public download
+        run: |
+          curl --fail --location --retry 5 --retry-delay 5 \
+            --output /dev/null \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/$QUILLCODE_TESTER_RELEASE_TAG/Confidential-Cowork-macOS-universal.dmg"
+          curl --fail --location --retry 5 --retry-delay 5 \
+            --output /dev/null \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/$QUILLCODE_TESTER_RELEASE_TAG/$QUILLCODE_TESTER_MANIFEST_NAME"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a machine-readable manifest for Quill Cowork download releases."""
+"""Build a machine-readable manifest for Quill Cowork product releases."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from urllib.parse import quote
 
 
 SCHEMA_VERSION = 1
-PRODUCT = "Quill Cowork"
+DEFAULT_PRODUCT = "Quill Cowork"
+DEFAULT_MACOS_ASSET_PREFIX = "Quill-Cowork"
 MACOS_ARCHITECTURES = ("arm64", "x86_64")
 MACOS_INSTALLER_ARCHITECTURES = ("universal", *MACOS_ARCHITECTURES)
 
@@ -22,6 +23,12 @@ def parse_arguments() -> argparse.Namespace:
         description="Write a channel download manifest for Quill Cowork release assets."
     )
     parser.add_argument("--assets-dir", required=True, help="Directory containing release assets.")
+    parser.add_argument("--product", default=DEFAULT_PRODUCT, help="Product name in the manifest.")
+    parser.add_argument(
+        "--macos-asset-prefix",
+        default=DEFAULT_MACOS_ASSET_PREFIX,
+        help="Filename prefix used by macOS app assets.",
+    )
     parser.add_argument("--repo", required=True, help="GitHub repository, for example Lore-Hex/QuillCode.")
     parser.add_argument("--tag", required=True, help="Release tag used in download URLs.")
     parser.add_argument("--commit", required=True, help="Git commit SHA for this build.")
@@ -33,6 +40,10 @@ def parse_arguments() -> argparse.Namespace:
         help="Release channel label.",
     )
     parser.add_argument("--generated-at", help="UTC ISO timestamp override for tests.")
+    parser.add_argument("--tester-tag", default="tester-latest")
+    parser.add_argument("--tester-manifest-name", default="latest-tester-build.json")
+    parser.add_argument("--stable-tag", default="")
+    parser.add_argument("--stable-manifest-name", default="latest-stable-build.json")
     parser.add_argument("--output", required=True, help="Manifest JSON output path.")
     return parser.parse_args()
 
@@ -78,6 +89,7 @@ def parse_macos_build_info(asset_directory: Path) -> dict[str, dict[str, str]]:
 
     shared_keys = (
         "product",
+        "edition",
         "platform",
         "version",
         "build",
@@ -104,12 +116,13 @@ def parse_macos_build_info(asset_directory: Path) -> dict[str, dict[str, str]]:
     return values_by_arch
 
 
-def classify_asset(name: str) -> dict[str, str]:
-    if name.startswith("Quill-Cowork-macOS-") and name.endswith(".dmg"):
-        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix(".dmg")
+def classify_asset(name: str, *, macos_asset_prefix: str) -> dict[str, str]:
+    macos_prefix = f"{macos_asset_prefix}-macOS-"
+    if name.startswith(macos_prefix) and name.endswith(".dmg"):
+        arch = name.removeprefix(macos_prefix).removesuffix(".dmg")
         return {"kind": "installer", "platform": "macOS", "arch": arch, "install": "dmg-app"}
-    if name.startswith("Quill-Cowork-macOS-") and name.endswith(".zip"):
-        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix(".zip")
+    if name.startswith(macos_prefix) and name.endswith(".zip"):
+        arch = name.removeprefix(macos_prefix).removesuffix(".zip")
         return {"kind": "app", "platform": "macOS", "arch": arch, "install": "zip-app"}
     if name.startswith("quill-code-macOS-") and name.endswith(".tar.gz"):
         arch = name.removeprefix("quill-code-macOS-").removesuffix(".tar.gz")
@@ -117,8 +130,8 @@ def classify_asset(name: str) -> dict[str, str]:
     if name.startswith("quill-code-linux-") and name.endswith(".tar.gz"):
         arch = name.removeprefix("quill-code-linux-").removesuffix(".tar.gz")
         return {"kind": "cli", "platform": "Linux", "arch": arch, "install": "tarball"}
-    if name.startswith("Quill-Cowork-macOS-") and name.endswith("-PERFORMANCE.json"):
-        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix("-PERFORMANCE.json")
+    if name.startswith(macos_prefix) and name.endswith("-PERFORMANCE.json"):
+        arch = name.removeprefix(macos_prefix).removesuffix("-PERFORMANCE.json")
         return {"kind": "performance", "platform": "macOS", "arch": arch, "install": "json"}
     if name == "BUILD_INFO.txt":
         return {"kind": "metadata", "platform": "macOS", "arch": "any", "install": "text"}
@@ -183,6 +196,10 @@ def build_updater_metadata(
     channel: str,
     build_infos: dict[str, dict[str, str]],
     assets: list[dict[str, object]],
+    tester_tag: str,
+    tester_manifest_name: str,
+    stable_tag: str,
+    stable_manifest_name: str,
 ) -> dict[str, object]:
     app_assets = exact_macos_assets(assets, kind="app", install="zip-app")
     installer_assets = exact_macos_assets(
@@ -191,18 +208,23 @@ def build_updater_metadata(
         install="dmg-app",
         architectures=MACOS_INSTALLER_ARCHITECTURES,
     )
-    for kind, install in (("performance", "json"), ("cli", "tarball")):
-        exact_macos_assets(assets, kind=kind, install=install)
+    exact_macos_assets(assets, kind="performance", install="json")
+    if any(asset.get("kind") == "cli" and asset.get("platform") == "macOS" for asset in assets):
+        exact_macos_assets(assets, kind="cli", install="tarball")
 
     build_info = build_infos["arm64"]
     signing_team = build_info.get("signingTeamIdentifier")
     if not signing_team or signing_team == "none":
         signing_team = None
-    stable_manifest_url = latest_release_download_url(repo, "latest-stable-build.json")
+    stable_manifest_url = (
+        release_download_url(repo, stable_tag, stable_manifest_name)
+        if stable_tag
+        else latest_release_download_url(repo, stable_manifest_name)
+    )
     tester_manifest_url = release_download_url(
         repo,
-        "tester-latest",
-        "latest-tester-build.json",
+        tester_tag,
+        tester_manifest_name,
     )
     manifest_url = stable_manifest_url if channel == "stable" else tester_manifest_url
     expected_build_info = {
@@ -252,7 +274,10 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
             continue
         if path.resolve() == output_path.resolve():
             continue
-        classification = classify_asset(path.name)
+        classification = classify_asset(
+            path.name,
+            macos_asset_prefix=arguments.macos_asset_prefix,
+        )
         assets.append(
             {
                 "name": path.name,
@@ -274,11 +299,15 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
         channel=arguments.channel,
         build_infos=build_infos,
         assets=assets,
+        tester_tag=arguments.tester_tag,
+        tester_manifest_name=arguments.tester_manifest_name,
+        stable_tag=arguments.stable_tag,
+        stable_manifest_name=arguments.stable_manifest_name,
     )
 
     return {
         "schemaVersion": SCHEMA_VERSION,
-        "product": PRODUCT,
+        "product": arguments.product,
         "channel": arguments.channel,
         "tag": arguments.tag,
         "releaseURL": f"https://github.com/{arguments.repo}/releases/tag/{quote(arguments.tag, safe='')}",

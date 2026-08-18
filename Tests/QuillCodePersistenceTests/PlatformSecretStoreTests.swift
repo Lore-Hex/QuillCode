@@ -66,6 +66,37 @@ final class PlatformSecretStoreTests: PersistenceTestCase {
         )
     }
 
+    func testSignedDistributionsUseIndependentKeychainServices() throws {
+        let team = "A1B2C3D4E5"
+        let standardPaths = QuillCodePaths(
+            liveHomeDirectoryName: ".quillcode",
+            secretStorageService: "co.lorehex.QuillCowork.secrets"
+        )
+        let confidentialPaths = QuillCodePaths(
+            liveHomeDirectoryName: ".confidential-cowork",
+            secretStorageService: "com.trustedrouter.ConfidentialCowork.secrets"
+        )
+
+        let standard = QuillSecretStoreFactory.make(
+            for: standardPaths,
+            signingTeamIdentifier: team,
+            runtimeSigningTeamIdentifier: team
+        )
+        let confidential = QuillSecretStoreFactory.make(
+            for: confidentialPaths,
+            signingTeamIdentifier: team,
+            runtimeSigningTeamIdentifier: team
+        )
+
+        let standardKeychain = (standard as? LegacyMigratingSecretStore)?.primary
+            as? KeychainSecretStore
+        let confidentialKeychain = (confidential as? LegacyMigratingSecretStore)?.primary
+            as? KeychainSecretStore
+        XCTAssertEqual(standardKeychain?.service, standardPaths.secretStorageService)
+        XCTAssertEqual(confidentialKeychain?.service, confidentialPaths.secretStorageService)
+        XCTAssertNotEqual(standardPaths.secretStorageService, confidentialPaths.secretStorageService)
+    }
+
     func testRuntimeSigningIdentityReturnsOnlyADeveloperTeamIdentifier() {
         let teamIdentifier = MacOSCodeSigningIdentity.currentTeamIdentifier
 

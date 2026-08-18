@@ -42,7 +42,7 @@ public struct WorkspaceSettingsPersistenceError: Error, CustomStringConvertible,
     }
 
     public var description: String {
-        "Quill Cowork could not safely save the settings change."
+        "\(QuillCodeProduct.displayName) could not safely save the settings change."
     }
 }
 

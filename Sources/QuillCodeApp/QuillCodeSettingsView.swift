@@ -130,6 +130,9 @@ struct QuillCodeSettingsView: View {
                 Text("Settings")
                     .font(.custom("Iowan Old Style", size: 24).weight(.semibold))
                     .accessibilityIdentifier("quillcode-settings-title")
+                Text(QuillCodeProduct.fullBrandName)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(QuillCodePalette.body)
                 Text(settings.loginStatusLabel)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -187,11 +190,36 @@ struct QuillCodeSettingsView: View {
 
     private var authenticationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            authenticationPicker
-            apiBaseURLField
-            authenticationDetail
+            if settings.distribution.requiresConfidentialRouting {
+                confidentialAuthenticationSection
+            } else {
+                authenticationPicker
+                apiBaseURLField
+                authenticationDetail
+            }
         }
         .quillCodeSettingsCard(tint: draft.authMode == .oauth ? QuillCodePalette.blue : QuillCodePalette.yellow)
+    }
+
+    private var confidentialAuthenticationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Confidential routing required", systemImage: "lock.shield.fill")
+                .font(.headline)
+                .foregroundStyle(QuillCodePalette.green)
+            Text("Every model, safety review, summary, and model-assisted search request is restricted to confidential providers. Requests fail closed instead of falling back to a standard route.")
+                .font(.callout)
+                .foregroundStyle(QuillCodePalette.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker("Processing region", selection: $draft.confidentialJurisdiction) {
+                ForEach(TrustedRouterJurisdiction.allCases) { jurisdiction in
+                    Text(jurisdiction.displayName).tag(jurisdiction)
+                }
+            }
+            .pickerStyle(.segmented)
+            .quillCodeSegmentedControlTarget()
+            .accessibilityIdentifier("quillcode-settings-confidential-jurisdiction")
+            oauthLoginSection
+        }
     }
 
     private var authenticationPicker: some View {
@@ -229,7 +257,9 @@ struct QuillCodeSettingsView: View {
 
     private var oauthLoginSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("OAuth browser login opens TrustedRouter and returns through \(QuillCodeProduct.displayName)'s local callback. Developer keys stay hidden unless you switch modes.")
+            Text(settings.distribution.requiresConfidentialRouting
+                ? "TrustedRouter login returns through \(QuillCodeProduct.displayName)'s local callback. Routing policy cannot be disabled in this edition."
+                : "OAuth browser login opens TrustedRouter and returns through \(QuillCodeProduct.displayName)'s local callback. Developer keys stay hidden unless you switch modes.")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)

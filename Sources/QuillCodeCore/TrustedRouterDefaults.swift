@@ -10,6 +10,7 @@ public enum TrustedRouterDefaults {
     /// The end-to-end-encrypted route: inference runs inside the attested TrustedRouter enclave and
     /// prompts are never visible to the provider. Confidential threads are pinned to it.
     public static let e2eModel = "trustedrouter/e2e"
+    public static let confidentialModel = "trustedrouter/confidential"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
@@ -28,6 +29,7 @@ public enum TrustedRouterDefaults {
     public static let aristotleModelDisplayName = "Aristotle 1.0"
     public static let platoModelDisplayName = "Plato 1.0"
     public static let e2eModelDisplayName = "E2E Encrypted"
+    public static let confidentialModelDisplayName = "Confidential"
     /// TrustedRouter's Confidential privacy tier (0 = Open, 2 = ZDR, 3 = Confidential): requests run
     /// end-to-end encrypted, attested enclave to confidential provider. The only tier a confidential
     /// chat may route to.
@@ -36,9 +38,22 @@ public enum TrustedRouterDefaults {
     /// Whether a model may carry a confidential chat's traffic: the E2E meta-route always, or any
     /// catalog model TrustedRouter marks Confidential-tier (its routing is end-to-end encrypted).
     /// Without an authenticated catalog (no tiers known), only the guaranteed route qualifies.
+    public static func isConfidentialEligible(_ modelID: String, catalog: [ModelInfo]) -> Bool {
+        let canonical = canonicalModelID(modelID)
+        if canonical == e2eModel || canonical == confidentialModel { return true }
+        guard let entry = catalog.first(where: { canonicalModelID($0.id) == canonical }) else {
+            return false
+        }
+        return entry.capabilities.privacyTier == confidentialPrivacyTier
+    }
+
     public static func isE2EEligible(_ modelID: String, catalog: [ModelInfo]) -> Bool {
         let canonical = canonicalModelID(modelID)
         if canonical == e2eModel { return true }
+        // `trustedrouter/confidential` is the product-wide policy route. A one-off E2E chat in
+        // Quill Cowork remains pinned to its narrower `trustedrouter/e2e` route so adding the
+        // Confidential Cowork distribution cannot silently change the standard product's contract.
+        if canonical == confidentialModel { return false }
         guard let entry = catalog.first(where: { canonicalModelID($0.id) == canonical }) else {
             return false
         }
@@ -113,7 +128,11 @@ public enum TrustedRouterDefaults {
         "tr/e2e": e2eModel,
         "e2e encrypted": e2eModel,
         "e2e-encrypted": e2eModel,
-        "encrypted": e2eModel
+        "encrypted": e2eModel,
+        "confidential": confidentialModel,
+        "/confidential": confidentialModel,
+        "tr/confidential": confidentialModel,
+        "confidential cowork": confidentialModel
     ]
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
@@ -134,6 +153,13 @@ public enum TrustedRouterDefaults {
             category: privateCategory,
             capabilities: ModelCapabilities(privacyTier: confidentialPrivacyTier)
         ),
+        .init(
+            id: confidentialModel,
+            provider: trustedRouterProvider,
+            displayName: confidentialModelDisplayName,
+            category: privateCategory,
+            capabilities: ModelCapabilities(privacyTier: confidentialPrivacyTier)
+        ),
         .init(id: minimaxM3Model, provider: "minimax", displayName: "MiniMax M3", category: "minimax"),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
@@ -148,7 +174,8 @@ public enum TrustedRouterDefaults {
         platoModel: platoModelDisplayName,
         // Display-only (NOT in recommendedModelIDs): the confidential-pinned E2E route must render its
         // human name in the locked model chip even when the live catalog omits the route.
-        e2eModel: e2eModelDisplayName
+        e2eModel: e2eModelDisplayName,
+        confidentialModel: confidentialModelDisplayName
     ]
 
     public static let recommendedSummaries: [String: String] = [

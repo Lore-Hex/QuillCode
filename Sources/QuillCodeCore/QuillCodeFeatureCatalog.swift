@@ -50,8 +50,8 @@ public enum QuillCodeFeatureCatalog {
             feature: .memories,
             stage: .beta,
             displayName: "Memories",
-            description: "Let Quill Cowork reuse durable preferences and project context across tasks.",
-            announcement: "Quill Cowork can remember useful context between tasks.",
+            description: "Let \(QuillCodeDistribution.current.displayName) reuse durable preferences and project context across tasks.",
+            announcement: "\(QuillCodeDistribution.current.displayName) can remember useful context between tasks.",
             defaultEnabled: true,
             supportsRuntimeEnablement: true
         )

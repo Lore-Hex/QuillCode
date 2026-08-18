@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeApp
 import QuillCodePersistence
 
 struct QuillCodeDesktopUpdateInstallResultReader: Sendable {
@@ -166,7 +167,7 @@ struct QuillCodeDesktopUpdateInstallResult: Codable, Equatable, Sendable {
     static func success(version: String, build: String) -> Self {
         Self(
             status: .success,
-            message: "Quill Cowork was updated successfully.",
+            message: "\(QuillCodeProduct.displayName) was updated successfully.",
             version: version,
             build: build,
             recordedAt: Date()

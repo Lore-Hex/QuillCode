@@ -4,6 +4,7 @@ import QuillCodeTools
 
 struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var topBarState: TopBarState
+    var distribution: QuillCodeDistribution = .standard
     var thread: ChatThread?
     var projectName: String?
     var instructions: [ProjectInstruction]
@@ -65,7 +66,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             // It renders locked only when the eligible set offers no real choice (just the E2E
             // route) — an openable picker with a single row would read as broken, while the lock
             // honestly says "pinned". Unique ids, because Favorites/Recent duplicate entries.
-            modelIsLocked: thread?.runtimeContext.isConfidential == true
+            modelIsLocked: (thread?.runtimeContext.isConfidential == true
+                || distribution.requiresConfidentialRouting)
                 && Set(modelCatalog.categories().flatMap { $0.models.map(\.id) }).count <= 1,
             modelCategories: modelCatalog.categories(),
             modelCatalogSource: modelCatalogStatus.source,
@@ -183,6 +185,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             favoriteModelIDs: favoriteModelIDs,
             recentModelIDs: recentModelIDs(),
             restrictToE2EEligible: thread?.runtimeContext.isConfidential == true
+                || distribution.requiresConfidentialRouting
         )
     }
 

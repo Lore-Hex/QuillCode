@@ -19,17 +19,17 @@ enum QuillCodeDesktopApplicationRelocationError: LocalizedError, Equatable, Send
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            "Quill Cowork could not write to Applications. Move the app there in Finder instead."
+            "\(QuillCodeProduct.displayName) could not write to Applications. Move the app there in Finder instead."
         case .invalidSource:
-            "This copy of Quill Cowork could not be verified for installation."
+            "This copy of \(QuillCodeProduct.displayName) could not be verified for installation."
         case .destinationConflict:
-            "Applications already contains a different app named Quill Cowork. Move it aside and try again."
+            "Applications already contains a different app named \(QuillCodeProduct.displayName). Move it aside and try again."
         case .otherCopyRunning:
-            "Another copy of Quill Cowork is running. Quit it, then try moving this copy again."
+            "Another copy of \(QuillCodeProduct.displayName) is running. Quit it, then try moving this copy again."
         case .verificationFailed:
-            "The copied app did not pass Quill Cowork's identity and code-signature checks."
+            "The copied app did not pass \(QuillCodeProduct.displayName)'s identity and code-signature checks."
         case .helperFailed:
-            "Quill Cowork could not start the installation helper. Move the app in Finder instead."
+            "\(QuillCodeProduct.displayName) could not start the installation helper. Move the app in Finder instead."
         }
     }
 }

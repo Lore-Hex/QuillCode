@@ -1,10 +1,11 @@
 import Darwin
 import Foundation
+import QuillCodeApp
 
 enum QuillCodeDesktopUpdateHelper {
     static func run(_ request: QuillCodeDesktopUpdateHelperRequest) -> Int32 {
         guard let environment = try? QuillCodeDesktopUpdateHelperEnvironment.production() else {
-            fputs("Quill Cowork update failed: updater paths are unavailable\n", stderr)
+            fputs("\(QuillCodeProduct.displayName) update failed: updater paths are unavailable\n", stderr)
             return 1
         }
         return run(request, environment: environment)
@@ -36,7 +37,7 @@ enum QuillCodeDesktopUpdateHelper {
                 to: request.resultURL,
                 allowedResultURL: environment.resultURL
             )
-            fputs("Quill Cowork update failed: \(error.localizedDescription)\n", stderr)
+            fputs("\(QuillCodeProduct.displayName) update failed: \(error.localizedDescription)\n", stderr)
             return 1
         }
     }

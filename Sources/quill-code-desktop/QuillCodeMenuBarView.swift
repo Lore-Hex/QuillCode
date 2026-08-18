@@ -26,6 +26,9 @@ struct QuillCodeMenuBarView: View {
     var body: some View {
         Text(surface.topBar.appName)
             .font(.headline)
+        Text(QuillCodeProduct.brandByline)
+            .font(.caption)
+            .foregroundStyle(.secondary)
         Text(surface.topBar.subtitle)
             .font(.caption)
         Divider()

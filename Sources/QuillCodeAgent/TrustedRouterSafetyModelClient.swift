@@ -7,15 +7,18 @@ public struct TrustedRouterSafetyModelClient: SafetyModelClient {
     public var sessionStore: (any TrustedRouterSessionStore)?
     public var apiKeyOverride: String?
     public var baseURL: String
+    public var requestPrivacy: TrustedRouterRequestPrivacy
 
     public init(
         sessionStore: (any TrustedRouterSessionStore)? = nil,
         apiKeyOverride: String? = nil,
-        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL
+        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        requestPrivacy: TrustedRouterRequestPrivacy = .standard
     ) {
         self.sessionStore = sessionStore
         self.apiKeyOverride = apiKeyOverride
         self.baseURL = baseURL
+        self.requestPrivacy = requestPrivacy
     }
 
     public func review(prompt: String, model: String) async throws -> String {
@@ -27,7 +30,8 @@ public struct TrustedRouterSafetyModelClient: SafetyModelClient {
                 ["role": "system", "content": "Return only the requested JSON object."],
                 ["role": "user", "content": prompt]
             ],
-            params: TrustedRouterChatParameters.jsonObjectResponse
+            params: TrustedRouterChatParameters.jsonObjectResponse,
+            provider: requestPrivacy.providerPreferences
         )
         guard let text = completion.choices.first?.message.content,
               !text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty

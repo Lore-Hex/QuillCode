@@ -41,7 +41,7 @@ public struct WorkspaceThreadLoadIssue: Sendable, Hashable {
 
     private var message: String {
         if directoryReadFailed {
-            return "Quill Cowork started without changing the chat directory. " +
+            return "\(QuillCodeProduct.displayName) started without changing the chat directory. " +
                 "Review the storage diagnostics before continuing."
         }
         let count = fileIssues.count

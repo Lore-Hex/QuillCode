@@ -7,6 +7,45 @@ import QuillCodeTools
 
 @MainActor
 final class WorkspaceConfidentialModeTests: XCTestCase {
+    func testConfidentialCoworkDistributionRejectsOrdinaryModelEverywhere() throws {
+        let thread = ChatThread(model: TrustedRouterDefaults.confidentialModel)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            distribution: .confidential,
+            config: AppConfig(defaultModel: TrustedRouterDefaults.fastModel),
+            threads: [thread],
+            selectedThreadID: thread.id,
+            topBar: TopBarState(model: TrustedRouterDefaults.confidentialModel)
+        ))
+
+        let returned = model.setModel(TrustedRouterDefaults.fastModel)
+        let modelIDs = model.surface().topBar.modelCategories.flatMap(\.models).map(\.id)
+
+        XCTAssertEqual(returned, TrustedRouterDefaults.confidentialModel)
+        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.confidentialModel)
+        XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.confidentialModel)
+        XCTAssertFalse(modelIDs.contains(TrustedRouterDefaults.fastModel))
+        XCTAssertTrue(modelIDs.allSatisfy {
+            TrustedRouterDefaults.isConfidentialEligible($0, catalog: model.root.modelCatalog)
+        })
+    }
+
+    func testConfidentialCoworkDistributionAllowsKnownConfidentialTierModel() throws {
+        let thread = ChatThread(model: TrustedRouterDefaults.confidentialModel)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            distribution: .confidential,
+            threads: [thread],
+            selectedThreadID: thread.id,
+            topBar: TopBarState(model: TrustedRouterDefaults.confidentialModel),
+            modelCatalog: TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+        ))
+
+        let returned = model.setModel(confidentialTierModel.id)
+
+        XCTAssertEqual(returned, confidentialTierModel.id)
+        XCTAssertEqual(model.selectedThread?.model, confidentialTierModel.id)
+        XCTAssertEqual(model.root.config.defaultModel, confidentialTierModel.id)
+    }
+
     func testConfidentialThreadFactoryPinsE2EModelAndCarriesNoWorkspaceContext() {
         let projectID = UUID()
 

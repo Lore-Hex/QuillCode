@@ -20,17 +20,20 @@ public struct TrustedRouterWebSearchClient: WebSearchClient {
     public var apiKeyOverride: String?
     public var model: String
     public var baseURL: String
+    public var requestPrivacy: TrustedRouterRequestPrivacy
 
     public init(
         sessionStore: (any TrustedRouterSessionStore)? = nil,
         apiKeyOverride: String? = nil,
         model: String = TrustedRouterDefaults.defaultModel,
-        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL
+        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        requestPrivacy: TrustedRouterRequestPrivacy = .standard
     ) {
         self.sessionStore = sessionStore
         self.apiKeyOverride = apiKeyOverride
         self.model = model
         self.baseURL = baseURL
+        self.requestPrivacy = requestPrivacy
     }
 
     public func search(_ request: WebSearchRequest) async throws -> [WebSearchResultItem] {
@@ -53,7 +56,8 @@ public struct TrustedRouterWebSearchClient: WebSearchClient {
             completion = try await client.chatCompletions(
                 model: model,
                 messages: Self.messages(for: request),
-                params: TrustedRouterChatParameters.jsonObjectResponse
+                params: TrustedRouterChatParameters.jsonObjectResponse,
+                provider: requestPrivacy.providerPreferences
             )
         } catch {
             throw WebSearchClientError.transport(String(describing: error))
