@@ -31,6 +31,7 @@ from .performance import (
     DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
     DEFAULT_MAX_REPEATED_RETAINED_THREAD_GROWTH,
     DEFAULT_MAX_THREAD_COUNT,
+    PERFORMANCE_PRODUCT,
     write_performance_manifest,
 )
 from .probe_contracts import validate_report
@@ -108,6 +109,7 @@ def main() -> None:
     )
     performance_parser.add_argument("reports", nargs="+", type=Path)
     performance_parser.add_argument("--manifest", required=True, type=Path)
+    performance_parser.add_argument("--expected-app-name", default=PERFORMANCE_PRODUCT)
     performance_parser.add_argument(
         "--max-launch-ready-milliseconds",
         type=float,
@@ -302,6 +304,7 @@ def main() -> None:
                 args.max_idle_resident_memory_growth_bytes
             ),
             max_idle_thread_growth=args.max_idle_thread_growth,
+            expected_app_name=args.expected_app_name,
         )
     elif args.command == "computer-use":
         write_computer_use_manifest(

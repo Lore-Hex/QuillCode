@@ -125,6 +125,28 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         )
     }
 
+    func testConfidentialActivationSamplerKeepsRestrictedModelPickerAndSkipsDeveloperOverride() throws {
+        let parent = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let paths = QuillCodePaths(home: parent.appendingPathComponent("confidential-state"))
+        let controller = QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(
+                paths: paths,
+                distribution: .confidential
+            ),
+            browserLiveDOMCapturer: nil,
+            automationNotifier: DailyDriverSmokeNoopNotifier()
+        )
+
+        let contractIDs = QuillCodeDesktopAccessibilityActivationSampler.applicableActivationContractIDs(
+            includesInitialSurface: true,
+            controller: controller
+        )
+        XCTAssertTrue(contractIDs.contains("composer.model-picker"))
+        XCTAssertFalse(contractIDs.contains("onboarding.developer-key"))
+        XCTAssertTrue(contractIDs.contains("command.settings"))
+    }
+
     func testSeederParsesRequiredStateRootAndRefusesExistingDestination() throws {
         XCTAssertNil(QuillCodeDesktopDailyDriverSmokeSeedRequest(arguments: ["Quill Cowork"]))
         let request = try XCTUnwrap(QuillCodeDesktopDailyDriverSmokeSeedRequest(arguments: [
@@ -196,4 +218,8 @@ final class QuillCodeDesktopDailyDriverSmokeFixtureTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }
+}
+
+private struct DailyDriverSmokeNoopNotifier: QuillCodeAutomationNotifying {
+    func deliver(_ report: AutomationRunReport) {}
 }

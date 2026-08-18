@@ -135,6 +135,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"--window-smoke-performance-workload "daily-driver-100-chats""#,
             "PERFORMANCE_ATTEMPT_COUNT=3",
             #"REPORT_PATHS+=("$REPORT_PATH")"#,
+            #"--expected-app-name "$EXECUTABLE_NAME""#,
             "--max-launch-ready-milliseconds",
             "--max-resident-memory-bytes",
             "--max-resident-memory-growth-bytes",
@@ -286,6 +287,39 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             8 * 1_024 * 1_024
         )
         XCTAssertEqual(budgets["maximumIdleThreadGrowth"] as? Int, 2)
+    }
+
+    func testPerformanceValidatorAcceptsOnlyTheExplicitPackagedIdentity() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            appName: "Confidential Cowork"
+        )
+
+        let accepted = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 2_500,
+            maximumResidentBytes: 128 * 1_024 * 1_024,
+            expectedAppName: "Confidential Cowork"
+        )
+        XCTAssertEqual(accepted.exitCode, 0, accepted.output)
+        let manifest = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: fixture.manifest)
+        ) as? [String: Any]
+        XCTAssertEqual(manifest?["product"] as? String, "Confidential Cowork")
+
+        let rejected = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 2_500,
+            maximumResidentBytes: 128 * 1_024 * 1_024,
+            expectedAppName: "Quill Cowork"
+        )
+        XCTAssertNotEqual(rejected.exitCode, 0)
+        XCTAssertTrue(rejected.output.contains("wrong app identity"), rejected.output)
     }
 
     func testPerformanceValidatorFailsClosedAboveEitherBudget() throws {
@@ -780,13 +814,14 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         idleDurationMilliseconds: Double = 2_000,
         idleProcessorTimeNanoseconds: Int = 100_000_000,
         idleResidentMemoryBytes: Int = 103 * 1_024 * 1_024,
-        idleThreadCount: Int = 19
+        idleThreadCount: Int = 19,
+        appName: String = "Quill Cowork"
     ) throws {
         let idleCPUPercent = Double(idleProcessorTimeNanoseconds) / 1_000_000_000
             / (idleDurationMilliseconds / 1_000) * 100
         let payload: [String: Any] = [
             "ok": true,
-            "appName": "Quill Cowork",
+            "appName": appName,
             "memoryPressure": [
                 "level": "critical",
                 "loadedThreadPayloadCountBefore": 12,
@@ -847,12 +882,14 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         manifest: URL,
         maximumLaunchMilliseconds: Int,
         maximumResidentBytes: Int,
-        maximumRepeatedRetainedThreadGrowth: Int = 4
+        maximumRepeatedRetainedThreadGrowth: Int = 4,
+        expectedAppName: String = "Quill Cowork"
     ) throws -> ScriptResult {
         try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
             arguments: ["performance"] + reports.map(\.path) + [
                 "--manifest", manifest.path,
+                "--expected-app-name", expectedAppName,
                 "--max-launch-ready-milliseconds", String(maximumLaunchMilliseconds),
                 "--max-resident-memory-bytes", String(maximumResidentBytes),
                 "--max-resident-memory-growth-bytes", String(80 * 1_024 * 1_024),

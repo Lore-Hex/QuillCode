@@ -11,7 +11,7 @@ struct QuillCodeModelPickerView: View {
             isPresented.toggle()
         } label: {
             HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                Image(systemName: topBar.modelIsLocked ? "lock.fill" : "diamond")
+                Image(systemName: pickerIcon)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(topBar.modelLabel)
@@ -36,9 +36,29 @@ struct QuillCodeModelPickerView: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(topBar.modelIsLocked)
-        .help(topBar.modelIsLocked ? "Model locked: confidential chats always use the E2E encrypted route" : "Choose model")
-        .accessibilityLabel(topBar.modelIsLocked ? "Model locked, \(topBar.modelLabel)" : "Model, \(topBar.modelLabel)")
+        .help(pickerHelp)
+        .accessibilityLabel(pickerAccessibilityLabel)
         .accessibilityIdentifier("quillcode-model-picker-button")
+    }
+
+    private var pickerIcon: String {
+        if topBar.modelIsLocked { return "lock.fill" }
+        return QuillCodeProduct.distribution.requiresConfidentialRouting ? "lock.shield.fill" : "diamond"
+    }
+
+    private var pickerHelp: String {
+        if topBar.modelIsLocked {
+            return "Model locked: confidential chats always use the E2E encrypted route"
+        }
+        return QuillCodeProduct.distribution.requiresConfidentialRouting
+            ? "Choose an approved Confidential model or provider"
+            : "Choose model"
+    }
+
+    private var pickerAccessibilityLabel: String {
+        topBar.modelIsLocked
+            ? "Model locked, \(topBar.modelLabel)"
+            : "Model, \(topBar.modelLabel)"
     }
 }
 
@@ -110,7 +130,7 @@ struct QuillCodeModelPickerDialog: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Choose Model")
                     .font(.custom("Iowan Old Style", size: 18).weight(.semibold))
-                Text("Search provider, category, model, state, or us-only / eu-only / china-only")
+                Text(modelSearchScopeDescription)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(topBar.modelCatalogStatusLabel)
@@ -145,6 +165,12 @@ struct QuillCodeModelPickerDialog: View {
             .help("Close model picker")
             .accessibilityLabel("Close model picker")
         }
+    }
+
+    private var modelSearchScopeDescription: String {
+        QuillCodeProduct.distribution.requiresConfidentialRouting
+            ? "Search approved Confidential models and providers"
+            : "Search provider, category, model, state, or us-only / eu-only / china-only"
     }
 
     private var searchField: some View {

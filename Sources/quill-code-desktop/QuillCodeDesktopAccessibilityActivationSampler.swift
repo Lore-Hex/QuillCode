@@ -134,7 +134,10 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             "onboarding.developer-key",
             phase: .initialSurface,
             expectedOutcome: "developer-key onboarding opens Developer override settings and dismisses through Close",
-            isApplicable: { !$0.model.root.trustedRouterAPIKeyConfigured },
+            isApplicable: {
+                !$0.model.root.distribution.requiresConfidentialRouting
+                    && !$0.model.root.trustedRouterAPIKeyConfigured
+            },
             observe: { $0.isSettingsPresented },
             resetToBaseline: { $1.isSettingsPresented = $0 },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyDeveloperKeySettingsDismissal

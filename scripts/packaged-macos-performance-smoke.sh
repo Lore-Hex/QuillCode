@@ -102,7 +102,7 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
   exit 1
 fi
 
-echo "==> Measuring packaged Quill Cowork launch and physical footprint"
+echo "==> Measuring packaged $EXECUTABLE_NAME launch and physical footprint"
 REPORT_PATHS=()
 for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
   REPORT_PATH="$SMOKE_ROOT/window-report-$attempt.json"
@@ -140,6 +140,7 @@ done
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" performance \
   "${REPORT_PATHS[@]}" \
   --manifest "$MANIFEST_PATH" \
+  --expected-app-name "$EXECUTABLE_NAME" \
   --max-launch-ready-milliseconds "$MAX_LAUNCH_READY_MILLISECONDS" \
   --max-resident-memory-bytes "$MAX_RESIDENT_MEMORY_BYTES" \
   --max-resident-memory-growth-bytes "$MAX_RESIDENT_MEMORY_GROWTH_BYTES" \

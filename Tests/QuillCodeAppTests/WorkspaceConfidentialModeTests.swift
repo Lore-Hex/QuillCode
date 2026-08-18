@@ -191,11 +191,39 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
             defaultModelID: TrustedRouterDefaults.defaultModel,
             favoriteModelIDs: [],
             recentModelIDs: [],
-            restrictToE2EEligible: true
+            restriction: .e2e
         )
         let listedIDs = builder.categories().flatMap { $0.models.map(\.id) }
         XCTAssertFalse(listedIDs.contains("z-ai/glm-5.2-confidential"), "\(listedIDs)")
         XCTAssertEqual(Set(listedIDs), [TrustedRouterDefaults.e2eModel])
+    }
+
+    func testConfidentialDistributionPickerStaysOpenAndUsesTheConfidentialAllowlist() {
+        let ordinaryModel = ModelInfo(
+            id: "openai/gpt-5",
+            provider: "openai",
+            displayName: "GPT-5",
+            category: "openai"
+        )
+        let thread = ChatThread(model: TrustedRouterDefaults.confidentialModel)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            distribution: .confidential,
+            threads: [thread],
+            selectedThreadID: thread.id,
+            topBar: TopBarState(model: TrustedRouterDefaults.confidentialModel),
+            modelCatalog: TrustedRouterDefaults.bundledModelCatalog + [ordinaryModel, confidentialTierModel]
+        ))
+
+        let topBar = model.surface().topBar
+        let listedIDs = Set(topBar.modelCategories.flatMap { $0.models.map(\.id) })
+
+        XCTAssertFalse(topBar.modelIsLocked)
+        XCTAssertTrue(listedIDs.contains(TrustedRouterDefaults.confidentialModel))
+        XCTAssertTrue(listedIDs.contains(confidentialTierModel.id))
+        XCTAssertFalse(listedIDs.contains(ordinaryModel.id))
+        XCTAssertTrue(listedIDs.allSatisfy {
+            TrustedRouterDefaults.isConfidentialEligible($0, catalog: model.root.modelCatalog)
+        })
     }
 
     func testCatalogRefreshRepinsAConfidentialThreadWhoseModelLostEligibility() throws {

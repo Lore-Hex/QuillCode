@@ -114,10 +114,10 @@ def _nonnegative_integer(value: Any, label: str) -> int:
     return integer
 
 
-def _load_attempt(report_path: Path) -> PerformanceAttempt:
+def _load_attempt(report_path: Path, expected_app_name: str) -> PerformanceAttempt:
     report = load_report(report_path)
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
-    require(report.get("appName") == PERFORMANCE_PRODUCT, f"{report_path} has the wrong app identity")
+    require(report.get("appName") == expected_app_name, f"{report_path} has the wrong app identity")
     memory_pressure = report.get("memoryPressure")
     require(isinstance(memory_pressure, dict), f"{report_path} is missing memory-pressure evidence")
     require(
@@ -346,7 +346,12 @@ def write_performance_manifest(
         DEFAULT_MAX_IDLE_RESIDENT_MEMORY_GROWTH_BYTES
     ),
     max_idle_thread_growth: int = DEFAULT_MAX_IDLE_THREAD_GROWTH,
+    expected_app_name: str = PERFORMANCE_PRODUCT,
 ) -> None:
+    require(
+        isinstance(expected_app_name, str) and bool(expected_app_name.strip()),
+        "expected app name must not be empty",
+    )
     max_launch = _finite_number(
         max_launch_ready_milliseconds,
         "maximum launch-ready milliseconds",
@@ -392,7 +397,7 @@ def write_performance_manifest(
     )
     require(report_paths, "at least one packaged performance report is required")
 
-    attempts = [_load_attempt(path) for path in report_paths]
+    attempts = [_load_attempt(path, expected_app_name) for path in report_paths]
     required_passing_attempts = len(attempts) // 2 + 1
     passing_attempts = sum(
         attempt.launch_ready_milliseconds <= max_launch for attempt in attempts
@@ -527,7 +532,7 @@ def write_performance_manifest(
     manifest = {
         "schemaVersion": PERFORMANCE_SCHEMA_VERSION,
         "ok": True,
-        "product": PERFORMANCE_PRODUCT,
+        "product": expected_app_name,
         "workload": PERFORMANCE_WORKLOAD,
         "measurement": INITIAL_MEASUREMENT,
         "memoryMeasurement": MEMORY_MEASUREMENT,
@@ -695,7 +700,7 @@ def write_performance_manifest(
         manifest_file.write("\n")
 
     print(
-        "Quill Cowork packaged performance passed: "
+        f"{expected_app_name} packaged performance passed: "
         f"{launch_ready:.2f}ms median launch-ready, "
         f"{manifest['residentMemoryMiB']:.2f} MiB initial and "
         f"{manifest['postInteractionResidentMemoryMiB']:.2f} MiB post-interaction "

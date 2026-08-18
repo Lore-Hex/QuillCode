@@ -2,24 +2,30 @@ import AppKit
 import ApplicationServices
 import Foundation
 import QuillCodeApp
+import QuillCodeCore
 
 @MainActor
 enum QuillCodeDesktopAccessibilityInteractionVerifier {
     private static let composerInputIdentifier = "quillcode-composer-input"
     private static let composerSmokeText = "QuillCode new chat smoke"
     private static let modelPickerSearchIdentifier = "quillcode-model-picker-search"
-    private static let modelPickerSearchSmokeText = "Prometheus"
-    private static let prometheusOptionIdentifier = "quillcode-model-option-trustedrouter/fusion"
     private static let searchInputIdentifier = "quillcode-search-input"
     private static let searchSmokeText = "QuillCode search smoke"
-    private static let settingsSurfaceContract = DismissibleSurfaceContract(
-        contractID: "command.settings",
-        name: "Settings",
-        titleIdentifier: "quillcode-settings-title",
-        requiredControlIdentifier: "quillcode-settings-api-base-url",
-        requiredControlDescription: "Account API field",
-        closeIdentifier: "quillcode-settings-close"
-    )
+    private static var settingsSurfaceContract: DismissibleSurfaceContract {
+        let requiresConfidentialRouting = QuillCodeProduct.distribution.requiresConfidentialRouting
+        return DismissibleSurfaceContract(
+            contractID: "command.settings",
+            name: "Settings",
+            titleIdentifier: "quillcode-settings-title",
+            requiredControlIdentifier: settingsRequiredControlIdentifier(
+                requiresConfidentialRouting: requiresConfidentialRouting
+            ),
+            requiredControlDescription: requiresConfidentialRouting
+                ? "confidential jurisdiction control"
+                : "Account API field",
+            closeIdentifier: "quillcode-settings-close"
+        )
+    }
     private static let developerKeySettingsSurfaceContract = DismissibleSurfaceContract(
         contractID: "onboarding.developer-key",
         name: "Developer override settings",
@@ -126,7 +132,7 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     static func verifyNewChatComposerTextEntry(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        await verifyReversibleTextEntry(
+        return await verifyReversibleTextEntry(
             inputIdentifier: composerInputIdentifier,
             smokeText: composerSmokeText,
             successEvidence: "created exactly one selected chat and \(composerInputIdentifier) focused with reversible AXValue text entry",
@@ -156,24 +162,44 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     static func verifyModelPickerSearch(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        await verifyReversibleTextEntry(
+        let expectation = modelPickerSmokeExpectation(
+            requiresConfidentialRouting: QuillCodeProduct.distribution.requiresConfidentialRouting
+        )
+        return await verifyReversibleTextEntry(
             inputIdentifier: modelPickerSearchIdentifier,
-            smokeText: modelPickerSearchSmokeText,
-            successEvidence: "\(modelPickerSearchIdentifier) focused, accepted reversible AXValue text entry, and surfaced the Prometheus 1.0 model option",
+            smokeText: expectation.searchText,
+            successEvidence: "\(modelPickerSearchIdentifier) focused, accepted reversible AXValue text entry, and surfaced the \(expectation.optionLabel) model option",
             missingFocusIssue: "composer.model-picker did not expose a focused \(modelPickerSearchIdentifier) field",
             rejectedValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) rejected AXValue",
             retainedValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) did not retain AXValue text entry",
             clearValueIssue: "composer.model-picker \(modelPickerSearchIdentifier) could not restore its empty value",
-            requiredElementIdentifier: prometheusOptionIdentifier,
-            requiredElementLabelFragment: "Prometheus 1.0",
-            missingRequiredElementIssue: "composer.model-picker search did not surface the Prometheus 1.0 model option",
+            requiredElementIdentifier: expectation.optionIdentifier,
+            requiredElementLabelFragment: expectation.optionLabel,
+            missingRequiredElementIssue: "composer.model-picker search did not surface the \(expectation.optionLabel) model option",
             contentView: contentView
         )
+    }
+
+    static func modelPickerSmokeExpectation(
+        requiresConfidentialRouting: Bool
+    ) -> ModelPickerSmokeExpectation {
+        requiresConfidentialRouting
+            ? ModelPickerSmokeExpectation(
+                searchText: "Confidential",
+                optionIdentifier: "quillcode-model-option-trustedrouter/confidential",
+                optionLabel: TrustedRouterDefaults.confidentialModelDisplayName
+            )
+            : ModelPickerSmokeExpectation(
+                searchText: "Prometheus",
+                optionIdentifier: "quillcode-model-option-trustedrouter/fusion",
+                optionLabel: TrustedRouterDefaults.prometheusModelDisplayName
+            )
     }
 
     static func verifySettingsDismissal(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        let accountControlIdentifier = settingsSurfaceContract.requiredControlIdentifier
         let verification = await verifyDismissibleSurface(
             settingsSurfaceContract,
             contentView: contentView,
@@ -200,7 +226,7 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
                     in: contentView
                 ),
                     QuillCodeDesktopAccessibilityTree.performPress(on: accountButton) == .success,
-                    await waitForElement("quillcode-settings-api-base-url", in: contentView) != nil
+                    await waitForElement(accountControlIdentifier, in: contentView) != nil
                 else {
                     return .init(
                         evidence: "Settings could not return from General to Account",
@@ -216,6 +242,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
                 + "; switched to General, rendered its notifications control, and returned to Account",
             validationIssue: nil
         )
+    }
+
+    static func settingsRequiredControlIdentifier(
+        requiresConfidentialRouting: Bool
+    ) -> String {
+        requiresConfidentialRouting
+            ? "quillcode-settings-confidential-jurisdiction"
+            : "quillcode-settings-api-base-url"
     }
 
     static func verifyDeveloperKeySettingsDismissal(
@@ -574,4 +608,10 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         let requiredControlDescription: String
         let closeIdentifier: String
     }
+}
+
+struct ModelPickerSmokeExpectation: Equatable {
+    var searchText: String
+    var optionIdentifier: String
+    var optionLabel: String
 }

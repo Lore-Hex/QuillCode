@@ -1,6 +1,23 @@
 import Foundation
 import QuillCodeCore
 
+enum WorkspaceModelCatalogRestriction: Sendable, Hashable {
+    case unrestricted
+    case e2e
+    case confidential
+
+    func allows(_ modelID: String, catalog: [ModelInfo]) -> Bool {
+        switch self {
+        case .unrestricted:
+            true
+        case .e2e:
+            TrustedRouterDefaults.isE2EEligible(modelID, catalog: catalog)
+        case .confidential:
+            TrustedRouterDefaults.isConfidentialEligible(modelID, catalog: catalog)
+        }
+    }
+}
+
 struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
     var catalog: [ModelInfo]
     var selectedModelID: String
@@ -16,7 +33,7 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
         favoriteModelIDs: [String],
         recentModelIDs: [String],
         recentLimit: Int = 4,
-        restrictToE2EEligible: Bool = false
+        restriction: WorkspaceModelCatalogRestriction = .unrestricted
     ) {
         // The restriction must run AFTER normalization: normalizedModelCatalog merges the bundled
         // recommended set back in, so a pre-filtered input would quietly regrow non-eligible models.
@@ -24,9 +41,7 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
         // entry for ids missing from the catalog, which would otherwise smuggle a non-E2E model
         // into a confidential picker under "Recent".
         let normalized = TrustedRouterDefaults.normalizedModelCatalog(catalog)
-        let eligible: (String) -> Bool = { id in
-            !restrictToE2EEligible || TrustedRouterDefaults.isE2EEligible(id, catalog: normalized)
-        }
+        let eligible: (String) -> Bool = { restriction.allows($0, catalog: normalized) }
         self.catalog = normalized.filter { eligible($0.id) }
         self.selectedModelID = TrustedRouterDefaults.canonicalModelID(selectedModelID)
         self.defaultModelID = TrustedRouterDefaults.normalizedDefaultModelID(defaultModelID)
@@ -37,7 +52,7 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
     }
 
     /// Whether the selected model may be synthesized back into the list when the catalog lacks it.
-    /// Under the E2E restriction a selected model that LOST eligibility (a live-catalog refresh
+    /// Under a privacy restriction a selected model that LOST eligibility (a live-catalog refresh
     /// dropped its Confidential tier) must NOT be re-admitted as a phantom "Current" row — the
     /// picker would offer a model the setModel gate then refuses.
     private let selectedModelIsAdmissible: Bool
