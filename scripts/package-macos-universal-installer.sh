@@ -240,8 +240,10 @@ fi
 
 "$ROOT_DIR/scripts/create-macos-disk-image.sh" \
   --app "$UNIVERSAL_APP" \
+  --volume-name "$PRODUCT_NAME" \
   --output "$OUTPUT_PATH"
 "$ROOT_DIR/scripts/packaged-macos-relocation-smoke.sh" \
+  --product-name "$PRODUCT_NAME" \
   --dmg "$OUTPUT_PATH" \
   --expected-architecture "$(uname -m)"
 
