@@ -569,7 +569,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "codesign",
             "notarytool submit",
             "scripts/create-macos-disk-image.sh",
-            "scripts/packaged-macos-relocation-smoke.sh"
+            "scripts/packaged-macos-relocation-smoke.sh",
+            "--volume-name \"$PRODUCT_NAME\"",
+            "--product-name \"$PRODUCT_NAME\""
         ])
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
