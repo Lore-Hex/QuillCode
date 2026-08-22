@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lore-Hex/trusted-router-swift.git",
       "state" : {
-        "revision" : "3655851b4fef87256b5203b62c5e5eef45ae0615",
-        "version" : "0.6.1"
+        "revision" : "fa261f29be1fbeaa7bcb765729d5be7b6f5f4512",
+        "version" : "0.7.0"
       }
     },
     {
