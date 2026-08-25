@@ -109,7 +109,10 @@ while IFS= read -r keychain_line; do
   keychain_line="${keychain_line%"${keychain_line##*[![:space:]]}"}"
   keychain_line="${keychain_line#\"}"
   keychain_line="${keychain_line%\"}"
-  if [[ -n "$keychain_line" ]]; then
+  # Only keep entries that are real keychain files. security silently drops
+  # paths it cannot open when writing, so passing a bogus entry through would
+  # let the written list collapse to just this temporary keychain.
+  if [[ -n "$keychain_line" && -f "$keychain_line" ]]; then
     EXISTING_KEYCHAINS+=("$keychain_line")
   fi
 done <<< "$KEYCHAIN_LIST_OUTPUT"

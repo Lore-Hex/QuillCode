@@ -171,6 +171,11 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         environment["SIGNING_TEST_SECURITY_LOG"] = securityLogURL.path
         environment["SIGNING_TEST_IMPORT_FAILS"] = importFails ? "true" : "false"
         environment["SIGNING_TEST_LIST_KEYCHAINS_FAILS"] = listKeychainsFails ? "true" : "false"
+        // A real file on disk: the script only keeps search-list entries that
+        // exist, so a fictional path would make these assertions vacuous.
+        let existingKeychain = temporaryDirectory.appendingPathComponent("login.keychain-db")
+        try Data().write(to: existingKeychain)
+        environment["SIGNING_TEST_EXISTING_KEYCHAIN"] = existingKeychain.path
         environment["SIGNING_TEST_IDENTITY_LINE"] = identityLine
         for key in Self.credentialKeys {
             environment[key] = ""
@@ -248,7 +253,7 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
               if [[ "${SIGNING_TEST_LIST_KEYCHAINS_FAILS:-false}" == "true" ]]; then
                 exit 1
               fi
-              printf '    "%s"\n' "/Users/runner/Library/Keychains/login.keychain-db"
+              printf '    "%s"\n' "${SIGNING_TEST_EXISTING_KEYCHAIN:?}"
             fi
             ;;
           set-keychain-settings|unlock-keychain|set-key-partition-list)
