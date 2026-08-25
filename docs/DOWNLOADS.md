@@ -403,9 +403,11 @@ The reminder record contains public release identity only, never project or acco
 
 ## Tester Install Notes
 
-The macOS tester app is ad-hoc signed but not notarized yet. Testers may need to
-right-click **Open** the first time. Computer Use still requires normal macOS
-Screen Recording and Accessibility permissions.
+The macOS tester app is ad-hoc signed but not notarized yet, so Gatekeeper blocks
+the first launch. Testers launch it once, then open **System Settings → Privacy &
+Security** and choose **Open Anyway**; Control-clicking **Open** no longer works on
+macOS 15 and later. Computer Use still requires normal macOS Screen Recording and
+Accessibility permissions.
 
 Tester builds support the same user-initiated update and rollback flow. A stable
 tag cannot publish a macOS app unless Developer ID signing and Apple notarization

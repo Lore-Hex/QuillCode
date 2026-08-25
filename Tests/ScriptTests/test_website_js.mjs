@@ -167,7 +167,7 @@ assert.equal(tester.document.documentElement.dataset.version, "0.1.0");
 assert.equal(tester.document.documentElement.dataset.build, "772");
 assert.ok(tester.labels.every(({ textContent }) => textContent === "0.1.0 (772) · Updated Aug 13, 2026"));
 assert.ok(tester.releaseKinds.every(({ textContent }) => textContent === "Free tester build"));
-assert.ok(tester.guidance.every(({ textContent }) => textContent.includes("Control-click")));
+assert.ok(tester.guidance.every(({ textContent }) => textContent.includes("Open Anyway")));
 assert.ok(tester.downloadLinks.every(({ href }) => href === testerInstallerURL));
 assert.ok(tester.releaseLinks.every(({ href }) => href === testerReleaseURL));
 

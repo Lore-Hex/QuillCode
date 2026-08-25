@@ -11,6 +11,13 @@ HDIUTIL_BIN="${QUILLCODE_HDIUTIL_BIN:-hdiutil}"
 DITTO_BIN="${QUILLCODE_DITTO_BIN:-ditto}"
 CODESIGN_BIN="${QUILLCODE_CODESIGN_BIN:-codesign}"
 PLIST_BUDDY_BIN="${QUILLCODE_PLIST_BUDDY_BIN:-/usr/libexec/PlistBuddy}"
+XCRUN_BIN="${QUILLCODE_XCRUN_BIN:-xcrun}"
+SPCTL_BIN="${QUILLCODE_SPCTL_BIN:-spctl}"
+SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
+SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
+NOTARY_KEY_ID="${QUILLCODE_MACOS_NOTARY_KEY_ID:-}"
+NOTARY_ISSUER_ID="${QUILLCODE_MACOS_NOTARY_ISSUER_ID:-}"
+NOTARY_KEY_PATH="${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}"
 WORK_ROOT=""
 MOUNT_POINT=""
 MOUNTED=false
@@ -100,6 +107,46 @@ mkdir -p "$STAGING_DIR"
 ln -s /Applications "$STAGING_DIR/Applications"
 touch "$STAGING_DIR/.metadata_never_index"
 
+# A stapled app inside an unsigned disk image still makes macOS warn about the
+# disk image itself, so the container Gatekeeper actually evaluates on download
+# gets the same Developer ID signature and notarization ticket as the app.
+sign_and_notarize_disk_image() {
+  local image_path="$1"
+  if [[ -z "$SIGNING_IDENTITY" ]]; then
+    return 0
+  fi
+
+  local codesign_arguments=(--force --timestamp --sign "$SIGNING_IDENTITY")
+  if [[ -n "$SIGNING_KEYCHAIN" ]]; then
+    codesign_arguments+=(--keychain "$SIGNING_KEYCHAIN")
+  fi
+  echo "==> Signing disk image with the Developer ID identity"
+  "$CODESIGN_BIN" "${codesign_arguments[@]}" "$image_path"
+  "$CODESIGN_BIN" --verify --strict --verbose=2 "$image_path"
+
+  if [[ -z "$NOTARY_KEY_ID" && -z "$NOTARY_ISSUER_ID" && -z "$NOTARY_KEY_PATH" ]]; then
+    return 0
+  fi
+  if [[ -z "$NOTARY_KEY_ID" || -z "$NOTARY_ISSUER_ID" || -z "$NOTARY_KEY_PATH" ]]; then
+    echo "Disk-image notarization credentials must be configured together." >&2
+    return 2
+  fi
+  if [[ ! -f "$NOTARY_KEY_PATH" || -L "$NOTARY_KEY_PATH" ]]; then
+    echo "Notarization private key does not exist: $NOTARY_KEY_PATH" >&2
+    return 2
+  fi
+
+  echo "==> Notarizing disk image"
+  "$XCRUN_BIN" notarytool submit "$image_path" \
+    --key "$NOTARY_KEY_PATH" \
+    --key-id "$NOTARY_KEY_ID" \
+    --issuer "$NOTARY_ISSUER_ID" \
+    --wait
+  "$XCRUN_BIN" stapler staple "$image_path"
+  "$XCRUN_BIN" stapler validate "$image_path"
+  "$SPCTL_BIN" --assess --type open --context context:primary-signature --verbose=2 "$image_path"
+}
+
 run_image_operation() {
   local stage="$1"
   shift
@@ -169,6 +216,7 @@ for ((ATTEMPT = 1; ATTEMPT <= MAX_ATTEMPTS; ATTEMPT += 1)); do
     echo "Disk image candidate is empty: $CANDIDATE_PATH" >&2
     exit 1
   fi
+  sign_and_notarize_disk_image "$CANDIDATE_PATH"
   mv -f "$CANDIDATE_PATH" "$OUTPUT_PATH"
   echo "Disk image ready after $ATTEMPT attempt(s): $OUTPUT_PATH"
   exit 0

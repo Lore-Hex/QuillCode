@@ -94,6 +94,9 @@ fi
 if [[ -n "$SIGNING_IDENTITY" && -z "$SIGNING_TEAM_IDENTIFIER" ]]; then
   fail "QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER is required for Developer ID signing." 2
 fi
+if [[ -n "$SIGNING_IDENTITY" && ( -z "$NOTARY_KEY_ID" || -z "$NOTARY_ISSUER_ID" || -z "$NOTARY_KEY_PATH" ) ]]; then
+  fail "Developer ID signing requires notarization; Gatekeeper blocks a signed but unnotarized download." 2
+fi
 
 OUTPUT_DIRECTORY="$(dirname "$OUTPUT_PATH")"
 mkdir -p "$OUTPUT_DIRECTORY"

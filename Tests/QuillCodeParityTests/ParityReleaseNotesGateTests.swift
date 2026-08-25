@@ -34,7 +34,7 @@ final class ParityReleaseNotesGateTests: QuillCodeParityTestCase {
             "Quill-Cowork-macOS-arm64.dmg",
             "Quill-Cowork-macOS-x86_64.dmg",
             "Drag **Quill Cowork.app** onto **Applications**",
-            "Control-click **Quill Cowork**, choose **Open**",
+            "choose **Open Anyway**",
             "checks this tester channel automatically",
             "the previous build is restored",
             "Machine-readable update manifest",
@@ -77,7 +77,7 @@ final class ParityReleaseNotesGateTests: QuillCodeParityTestCase {
             "Signing: Developer ID, notarized (team `ABCDE12345`)",
             "latest-stable-build.json"
         ])
-        Self.assertSource(notes, excludes: "Control-click")
+        Self.assertSource(notes, excludes: "Open Anyway")
     }
 
     func testReleaseNotesRejectBuildMetadataFromAnotherCommit() throws {
