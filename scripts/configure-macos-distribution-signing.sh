@@ -91,6 +91,21 @@ security set-key-partition-list \
   -s \
   -k "$KEYCHAIN_PASSWORD" \
   "$KEYCHAIN_PATH"
+# codesign resolves --keychain against the search list, not the path alone, so
+# an imported identity that find-identity reports is still unusable until its
+# keychain joins the list: signing fails with "The specified item could not be
+# found in the keychain". Prepend ours and keep the runner's existing entries.
+EXISTING_KEYCHAINS=()
+while IFS= read -r keychain_line; do
+  keychain_line="${keychain_line#"${keychain_line%%[![:space:]]*}"}"
+  keychain_line="${keychain_line%"${keychain_line##*[![:space:]]}"}"
+  keychain_line="${keychain_line#\"}"
+  keychain_line="${keychain_line%\"}"
+  if [[ -n "$keychain_line" ]]; then
+    EXISTING_KEYCHAINS+=("$keychain_line")
+  fi
+done < <(security list-keychains -d user)
+security list-keychains -d user -s "$KEYCHAIN_PATH" ${EXISTING_KEYCHAINS[@]+"${EXISTING_KEYCHAINS[@]}"}
 IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 IDENTITY_LINE=""
 while IFS= read -r line; do

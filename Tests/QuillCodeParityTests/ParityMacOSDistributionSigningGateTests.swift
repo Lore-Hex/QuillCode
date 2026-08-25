@@ -61,6 +61,14 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(result.notaryKeyPermissions, 0o600)
         XCTAssertTrue(result.securityLog.contains("create-keychain"))
         XCTAssertTrue(result.securityLog.contains("find-identity"))
+        XCTAssertTrue(
+            result.securityLog.contains("list-keychains -d user -s"),
+            "the signing keychain must join the search list or codesign cannot find the identity"
+        )
+        XCTAssertTrue(
+            result.securityLog.contains("login.keychain-db"),
+            "the runner's existing keychains must be preserved in the search list"
+        )
         XCTAssertFalse(result.securityLog.contains("delete-keychain"))
         XCTAssertTrue(result.signingRootExists)
     }
@@ -216,6 +224,12 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
             ;;
           delete-keychain)
             rm -f "${@: -1}"
+            ;;
+          list-keychains)
+            # Reading returns the runner's existing list; writing (-s) is a no-op.
+            if [[ "$*" != *" -s "* ]]; then
+              printf '    "%s"\n' "/Users/runner/Library/Keychains/login.keychain-db"
+            fi
             ;;
           set-keychain-settings|unlock-keychain|set-key-partition-list)
             ;;
