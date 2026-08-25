@@ -95,6 +95,14 @@ security set-key-partition-list \
 # an imported identity that find-identity reports is still unusable until its
 # keychain joins the list: signing fails with "The specified item could not be
 # found in the keychain". Prepend ours and keep the runner's existing entries.
+# Read through a command substitution, not a process substitution: bash does
+# not propagate a process-substitution failure through set -e, so a transient
+# read failure would silently yield an empty list and the write below would
+# replace the runner's whole search list with just this temporary keychain.
+if ! KEYCHAIN_LIST_OUTPUT="$(security list-keychains -d user)"; then
+  echo "Could not read the keychain search list; refusing to replace it." >&2
+  exit 2
+fi
 EXISTING_KEYCHAINS=()
 while IFS= read -r keychain_line; do
   keychain_line="${keychain_line#"${keychain_line%%[![:space:]]*}"}"
@@ -104,8 +112,12 @@ while IFS= read -r keychain_line; do
   if [[ -n "$keychain_line" ]]; then
     EXISTING_KEYCHAINS+=("$keychain_line")
   fi
-done < <(security list-keychains -d user)
-security list-keychains -d user -s "$KEYCHAIN_PATH" ${EXISTING_KEYCHAINS[@]+"${EXISTING_KEYCHAINS[@]}"}
+done <<< "$KEYCHAIN_LIST_OUTPUT"
+if [[ ${#EXISTING_KEYCHAINS[@]} -eq 0 ]]; then
+  echo "The keychain search list came back empty; refusing to replace it." >&2
+  exit 2
+fi
+security list-keychains -d user -s "$KEYCHAIN_PATH" "${EXISTING_KEYCHAINS[@]}"
 IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 IDENTITY_LINE=""
 while IFS= read -r line; do

@@ -103,6 +103,21 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(result.signingRootExists)
     }
 
+    func testUnreadableSearchListNeverReplacesTheRunnersKeychains() throws {
+        let result = try runSigningConfiguration(
+            overrides: validCredentials,
+            listKeychainsFails: true
+        )
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(result.output.contains("refusing to replace it"), result.output)
+        // The whole point: a failed read must not narrow the search list to
+        // just this temporary keychain, which cleanup then deletes.
+        XCTAssertFalse(result.securityLog.contains("list-keychains -d user -s"), result.securityLog)
+        XCTAssertTrue(result.exportedEnvironment.isEmpty)
+        XCTAssertFalse(result.signingRootExists)
+    }
+
     private struct SigningResult {
         var exitCode: Int32
         var output: String
@@ -118,6 +133,7 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
     private func runSigningConfiguration(
         overrides: [String: String] = [:],
         importFails: Bool = false,
+        listKeychainsFails: Bool = false,
         identityLine: String = #"1) ABCDEF "Developer ID Application: Quill Cowork (ABCDE12345)""#
     ) throws -> SigningResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
@@ -154,6 +170,7 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         environment["GITHUB_ENV"] = githubEnvironmentURL.path
         environment["SIGNING_TEST_SECURITY_LOG"] = securityLogURL.path
         environment["SIGNING_TEST_IMPORT_FAILS"] = importFails ? "true" : "false"
+        environment["SIGNING_TEST_LIST_KEYCHAINS_FAILS"] = listKeychainsFails ? "true" : "false"
         environment["SIGNING_TEST_IDENTITY_LINE"] = identityLine
         for key in Self.credentialKeys {
             environment[key] = ""
@@ -228,6 +245,9 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
           list-keychains)
             # Reading returns the runner's existing list; writing (-s) is a no-op.
             if [[ "$*" != *" -s "* ]]; then
+              if [[ "${SIGNING_TEST_LIST_KEYCHAINS_FAILS:-false}" == "true" ]]; then
+                exit 1
+              fi
               printf '    "%s"\n' "/Users/runner/Library/Keychains/login.keychain-db"
             fi
             ;;
