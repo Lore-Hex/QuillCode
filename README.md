@@ -48,8 +48,9 @@ The current desktop build requires **macOS 14 or later** and supports Apple sili
 
 1. [Download the latest Quill Cowork disk image](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-universal.dmg). The same installer runs natively on Apple silicon and Intel Macs.
 2. Open the disk image and drag **Quill Cowork.app** onto **Applications**, then eject it.
-3. For the current tester build, right-click the app and choose **Open** on first launch if macOS
-   blocks it. Tester builds are ad-hoc code-signed but are not Apple-notarized yet.
+3. Tester builds are ad-hoc code-signed but are not Apple-notarized yet, so macOS blocks the
+   first launch. Launch the app once, then open **System Settings → Privacy & Security** and
+   choose **Open Anyway**. Control-clicking **Open** no longer works on macOS 15 and later.
 4. Sign in with TrustedRouter from the welcome screen, or add a developer key in **Settings**.
 
 The [Apple silicon ZIP](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)

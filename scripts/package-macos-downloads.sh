@@ -98,6 +98,10 @@ if [[ "$UPDATE_CHANNEL" == "stable" ]]; then
     exit 2
   fi
 fi
+if [[ -n "$SIGNING_IDENTITY" && ( -z "$NOTARY_KEY_ID" || -z "$NOTARY_ISSUER_ID" || -z "$NOTARY_KEY_PATH" ) ]]; then
+  echo "Developer ID signing requires notarization; Gatekeeper blocks a signed but unnotarized download." >&2
+  exit 2
+fi
 
 cd "$ROOT_DIR"
 rm -rf "$DIST_DIR"

@@ -174,7 +174,9 @@ def build_release_notes(arguments: argparse.Namespace, values: dict[str, str]) -
         signing_alert = (
             "> [!IMPORTANT]\n"
             "> This tester build is ad-hoc signed and not Apple-notarized. After dragging it to "
-            "Applications, Control-click **Quill Cowork**, choose **Open**, then confirm."
+            "Applications, launch **Quill Cowork** once, then open **System Settings → Privacy & "
+            "Security** and choose **Open Anyway**. Control-clicking **Open** no longer works on "
+            "macOS 15 and later."
         )
         signing_summary = "Ad-hoc; not notarized"
 

@@ -91,7 +91,7 @@
       installerURL: installer.browser_download_url,
       installGuidance: isStable
         ? "One notarized installer runs natively on Apple silicon and Intel Macs. Move Quill Cowork to Applications, then open it normally."
-        : "One installer runs natively on Apple silicon and Intel Macs. After moving the app to Applications, Control-click it and choose Open on first launch. The tester channel is not Apple-notarized yet.",
+        : "One installer runs natively on Apple silicon and Intel Macs. The tester channel is not Apple-notarized yet, so after moving the app to Applications, launch it once, then open System Settings → Privacy & Security and choose Open Anyway.",
       label: `${releaseIdentity} · Updated ${updatedAt.toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
