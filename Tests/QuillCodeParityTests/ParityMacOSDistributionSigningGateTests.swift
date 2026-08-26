@@ -61,6 +61,14 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(result.notaryKeyPermissions, 0o600)
         XCTAssertTrue(result.securityLog.contains("create-keychain"))
         XCTAssertTrue(result.securityLog.contains("find-identity"))
+        XCTAssertTrue(
+            result.securityLog.contains("list-keychains -d user -s"),
+            "the signing keychain must join the search list or codesign cannot find the identity"
+        )
+        XCTAssertTrue(
+            result.securityLog.contains("login.keychain-db"),
+            "the runner's existing keychains must be preserved in the search list"
+        )
         XCTAssertFalse(result.securityLog.contains("delete-keychain"))
         XCTAssertTrue(result.signingRootExists)
     }
@@ -95,6 +103,43 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(result.signingRootExists)
     }
 
+    func testUnreadableSearchListNeverReplacesTheRunnersKeychains() throws {
+        let result = try runSigningConfiguration(
+            overrides: validCredentials,
+            listKeychainsFails: true
+        )
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(result.output.contains("refusing to replace it"), result.output)
+        // The whole point: a failed read must not narrow the search list to
+        // just this temporary keychain, which cleanup then deletes.
+        XCTAssertFalse(result.securityLog.contains("list-keychains -d user -s"), result.securityLog)
+        XCTAssertTrue(result.exportedEnvironment.isEmpty)
+        XCTAssertFalse(result.signingRootExists)
+    }
+
+    func testSilentlyDroppedKeychainsFailRatherThanStrandingTheRunner() throws {
+        // security omits arguments it cannot open and still reports success,
+        // so the written list can be shorter than requested. If every prior
+        // entry vanishes, cleanup would leave the runner with no login
+        // keychain at all -- fail instead.
+        let result = try runSigningConfiguration(
+            overrides: validCredentials,
+            dropsExistingKeychain: true
+        )
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(result.output.contains("pre-existing keychain"), result.output)
+        // The stub drops that entry on the restore write too, so the script
+        // must report the failure honestly rather than claim success.
+        XCTAssertTrue(
+            result.output.contains("could not fully restore"),
+            "an unrestorable list must be reported, not silently accepted: \(result.output)"
+        )
+        XCTAssertTrue(result.exportedEnvironment.isEmpty)
+        XCTAssertFalse(result.signingRootExists)
+    }
+
     private struct SigningResult {
         var exitCode: Int32
         var output: String
@@ -110,6 +155,8 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
     private func runSigningConfiguration(
         overrides: [String: String] = [:],
         importFails: Bool = false,
+        listKeychainsFails: Bool = false,
+        dropsExistingKeychain: Bool = false,
         identityLine: String = #"1) ABCDEF "Developer ID Application: Quill Cowork (ABCDE12345)""#
     ) throws -> SigningResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
@@ -146,6 +193,17 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         environment["GITHUB_ENV"] = githubEnvironmentURL.path
         environment["SIGNING_TEST_SECURITY_LOG"] = securityLogURL.path
         environment["SIGNING_TEST_IMPORT_FAILS"] = importFails ? "true" : "false"
+        environment["SIGNING_TEST_LIST_KEYCHAINS_FAILS"] = listKeychainsFails ? "true" : "false"
+        // A real file on disk: the script only keeps search-list entries that
+        // exist, so a fictional path would make these assertions vacuous.
+        let existingKeychain = temporaryDirectory.appendingPathComponent("login.keychain-db")
+        try Data().write(to: existingKeychain)
+        environment["SIGNING_TEST_EXISTING_KEYCHAIN"] = existingKeychain.path
+        environment["SIGNING_TEST_KEYCHAIN_LIST_STATE"] =
+            temporaryDirectory.appendingPathComponent("keychain-list.state").path
+        if dropsExistingKeychain {
+            environment["SIGNING_TEST_UNOPENABLE"] = existingKeychain.path
+        }
         environment["SIGNING_TEST_IDENTITY_LINE"] = identityLine
         for key in Self.credentialKeys {
             environment[key] = ""
@@ -216,6 +274,34 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
             ;;
           delete-keychain)
             rm -f "${@: -1}"
+            ;;
+          list-keychains)
+            state="${SIGNING_TEST_KEYCHAIN_LIST_STATE:?}"
+            if [[ "$*" == *" -s "* ]]; then
+              # Model the real write: record the arguments, but drop any entry
+              # named in SIGNING_TEST_UNOPENABLE, the way security omits
+              # arguments it cannot open as a keychain.
+              : > "$state"
+              touch "$state.written"   # distinguish "written empty" from "never written"
+              shift 4   # past: list-keychains -d user -s
+              for candidate in "$@"; do
+                if [[ -n "${SIGNING_TEST_UNOPENABLE:-}" && "$candidate" == "$SIGNING_TEST_UNOPENABLE" ]]; then
+                  continue
+                fi
+                printf '    "%s"\n' "$candidate" >> "$state"
+              done
+            else
+              if [[ "${SIGNING_TEST_LIST_KEYCHAINS_FAILS:-false}" == "true" ]]; then
+                exit 1
+              fi
+              if [[ -f "$state.written" ]]; then
+                # An empty list after a write is a real, observable outcome --
+                # not a reason to fall back to the default.
+                cat "$state"
+              else
+                printf '    "%s"\n' "${SIGNING_TEST_EXISTING_KEYCHAIN:?}"
+              fi
+            fi
             ;;
           set-keychain-settings|unlock-keychain|set-key-partition-list)
             ;;
