@@ -129,7 +129,13 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         )
 
         XCTAssertEqual(result.exitCode, 2, result.output)
-        XCTAssertTrue(result.output.contains("dropped every pre-existing keychain"), result.output)
+        XCTAssertTrue(result.output.contains("pre-existing keychain"), result.output)
+        // The stub drops that entry on the restore write too, so the script
+        // must report the failure honestly rather than claim success.
+        XCTAssertTrue(
+            result.output.contains("could not fully restore"),
+            "an unrestorable list must be reported, not silently accepted: \(result.output)"
+        )
         XCTAssertTrue(result.exportedEnvironment.isEmpty)
         XCTAssertFalse(result.signingRootExists)
     }
@@ -276,6 +282,7 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
               # named in SIGNING_TEST_UNOPENABLE, the way security omits
               # arguments it cannot open as a keychain.
               : > "$state"
+              touch "$state.written"   # distinguish "written empty" from "never written"
               shift 4   # past: list-keychains -d user -s
               for candidate in "$@"; do
                 if [[ -n "${SIGNING_TEST_UNOPENABLE:-}" && "$candidate" == "$SIGNING_TEST_UNOPENABLE" ]]; then
@@ -287,7 +294,9 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
               if [[ "${SIGNING_TEST_LIST_KEYCHAINS_FAILS:-false}" == "true" ]]; then
                 exit 1
               fi
-              if [[ -s "$state" ]]; then
+              if [[ -f "$state.written" ]]; then
+                # An empty list after a write is a real, observable outcome --
+                # not a reason to fall back to the default.
                 cat "$state"
               else
                 printf '    "%s"\n' "${SIGNING_TEST_EXISTING_KEYCHAIN:?}"

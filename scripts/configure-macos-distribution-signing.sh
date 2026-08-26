@@ -103,19 +103,30 @@ if ! KEYCHAIN_LIST_OUTPUT="$(security list-keychains -d user)"; then
   echo "Could not read the keychain search list; refusing to replace it." >&2
   exit 2
 fi
+# One parse for both the initial read and the read-back, so the comparison
+# below is against exactly the same normalisation.
+parse_keychain_list() {
+  local line
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    line="${line#\"}"
+    line="${line%\"}"
+    if [[ -n "$line" ]]; then
+      printf '%s\n' "$line"
+    fi
+  done
+}
+
 EXISTING_KEYCHAINS=()
 while IFS= read -r keychain_line; do
-  keychain_line="${keychain_line#"${keychain_line%%[![:space:]]*}"}"
-  keychain_line="${keychain_line%"${keychain_line##*[![:space:]]}"}"
-  keychain_line="${keychain_line#\"}"
-  keychain_line="${keychain_line%\"}"
   # Only keep entries that are real keychain files. security silently drops
   # paths it cannot open when writing, so passing a bogus entry through would
   # let the written list collapse to just this temporary keychain.
-  if [[ -n "$keychain_line" && -f "$keychain_line" ]]; then
+  if [[ -f "$keychain_line" ]]; then
     EXISTING_KEYCHAINS+=("$keychain_line")
   fi
-done <<< "$KEYCHAIN_LIST_OUTPUT"
+done < <(parse_keychain_list <<< "$KEYCHAIN_LIST_OUTPUT")
 if [[ ${#EXISTING_KEYCHAINS[@]} -eq 0 ]]; then
   echo "The keychain search list came back empty; refusing to replace it." >&2
   exit 2
@@ -127,21 +138,54 @@ security list-keychains -d user -s "$KEYCHAIN_PATH" "${EXISTING_KEYCHAINS[@]}"
 # Verify the result instead of trusting it: our keychain must be present, and
 # at least one pre-existing entry must have survived, or the runner is left
 # without its login keychain once cleanup removes ours.
-RESULTING_LIST="$(security list-keychains -d user)"
-if ! grep -qF "$KEYCHAIN_PATH" <<< "$RESULTING_LIST"; then
-  echo "The signing keychain did not survive the search-list write." >&2
+# Restore the list we found and report whether that actually worked. If an
+# entry was unopenable it will be dropped again -- that keychain was already
+# broken before this script ran -- but the operator needs to know either way.
+abandon_search_list_change() {
+  echo "$1" >&2
+  security list-keychains -d user -s "${EXISTING_KEYCHAINS[@]}" >/dev/null 2>&1 || true
+  local restored=0 entry
+  while IFS= read -r entry; do
+    for existing_keychain in "${EXISTING_KEYCHAINS[@]}"; do
+      [[ "$entry" == "$existing_keychain" ]] && restored=$((restored + 1))
+    done
+  done < <(security list-keychains -d user 2>/dev/null | parse_keychain_list)
+  if [[ "$restored" -eq ${#EXISTING_KEYCHAINS[@]} ]]; then
+    echo "Restored the original keychain search list." >&2
+  else
+    echo "WARNING: could not fully restore the keychain search list; $restored of ${#EXISTING_KEYCHAINS[@]} entries are present." >&2
+  fi
   exit 2
+}
+
+if ! RESULTING_LIST="$(security list-keychains -d user)"; then
+  abandon_search_list_change "Could not read back the keychain search list after writing it."
+fi
+RESULTING_KEYCHAINS=()
+while IFS= read -r keychain_line; do
+  RESULTING_KEYCHAINS+=("$keychain_line")
+done < <(parse_keychain_list <<< "$RESULTING_LIST")
+
+contains_entry() {
+  local needle="$1" candidate
+  shift
+  for candidate in "$@"; do
+    [[ "$candidate" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+if ! contains_entry "$KEYCHAIN_PATH" ${RESULTING_KEYCHAINS[@]+"${RESULTING_KEYCHAINS[@]}"}; then
+  abandon_search_list_change "The signing keychain did not survive the search-list write."
 fi
 SURVIVING_KEYCHAINS=0
 for existing_keychain in "${EXISTING_KEYCHAINS[@]}"; do
-  if grep -qF "$existing_keychain" <<< "$RESULTING_LIST"; then
+  if contains_entry "$existing_keychain" ${RESULTING_KEYCHAINS[@]+"${RESULTING_KEYCHAINS[@]}"}; then
     SURVIVING_KEYCHAINS=$((SURVIVING_KEYCHAINS + 1))
   fi
 done
-if [[ "$SURVIVING_KEYCHAINS" -eq 0 ]]; then
-  echo "The search-list write dropped every pre-existing keychain; restoring." >&2
-  security list-keychains -d user -s "${EXISTING_KEYCHAINS[@]}" >/dev/null 2>&1 || true
-  exit 2
+if [[ "$SURVIVING_KEYCHAINS" -ne ${#EXISTING_KEYCHAINS[@]} ]]; then
+  abandon_search_list_change "The search-list write dropped $(( ${#EXISTING_KEYCHAINS[@]} - SURVIVING_KEYCHAINS )) of ${#EXISTING_KEYCHAINS[@]} pre-existing keychain(s)."
 fi
 IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 IDENTITY_LINE=""
