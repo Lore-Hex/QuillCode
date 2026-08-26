@@ -127,8 +127,9 @@ struct QuillCodeDesktopUpdateTransaction: Codable, Equatable, Sendable {
               QuillCodeDesktopSemanticVersion(expectedVersion) != nil,
               UInt64(expectedBuild) != nil,
               QuillCodeDesktopBuildMetadata.isCanonicalCommit(expectedCommit),
-              URL(fileURLWithPath: helperPath).standardizedFileURL
-                .deletingLastPathComponent().path == workspace.path,
+              QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(
+                forHelperAt: URL(fileURLWithPath: helperPath).standardizedFileURL
+              ).path == workspace.path,
               URL(fileURLWithPath: handshakePath).standardizedFileURL
                 .deletingLastPathComponent().path == workspace.path,
               URL(fileURLWithPath: logPath).standardizedFileURL
