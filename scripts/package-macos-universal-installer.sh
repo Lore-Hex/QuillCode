@@ -160,6 +160,7 @@ bundle_inventory() {
     cd "$app_bundle"
     find Contents \
       -path 'Contents/_CodeSignature' -prune -o \
+      -path 'Contents/CodeResources' -prune -o \
       -path "$EXECUTABLE_RELATIVE_PATH" -prune -o \
       -path 'Contents/Helpers/quill-code-process-supervisor' -prune -o \
       -print | LC_ALL=C sort
@@ -185,7 +186,7 @@ done < "$ARM64_INVENTORY"
 
 UNIVERSAL_APP="$UNIVERSAL_ROOT/$APP_NAME"
 "$DITTO_BIN" "$ARM64_APP" "$UNIVERSAL_APP"
-rm -rf "$UNIVERSAL_APP/Contents/_CodeSignature"
+rm -rf "$UNIVERSAL_APP/Contents/_CodeSignature" "$UNIVERSAL_APP/Contents/CodeResources"
 UNIVERSAL_EXECUTABLE="$UNIVERSAL_APP/$EXECUTABLE_RELATIVE_PATH"
 MERGED_EXECUTABLE="$WORK_DIRECTORY/$PRODUCT_NAME"
 "$LIPO_BIN" -create \
