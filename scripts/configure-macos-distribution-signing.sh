@@ -121,6 +121,28 @@ if [[ ${#EXISTING_KEYCHAINS[@]} -eq 0 ]]; then
   exit 2
 fi
 security list-keychains -d user -s "$KEYCHAIN_PATH" "${EXISTING_KEYCHAINS[@]}"
+
+# security silently drops any argument it cannot open as a keychain, so the
+# write can succeed while quietly producing a shorter list than requested.
+# Verify the result instead of trusting it: our keychain must be present, and
+# at least one pre-existing entry must have survived, or the runner is left
+# without its login keychain once cleanup removes ours.
+RESULTING_LIST="$(security list-keychains -d user)"
+if ! grep -qF "$KEYCHAIN_PATH" <<< "$RESULTING_LIST"; then
+  echo "The signing keychain did not survive the search-list write." >&2
+  exit 2
+fi
+SURVIVING_KEYCHAINS=0
+for existing_keychain in "${EXISTING_KEYCHAINS[@]}"; do
+  if grep -qF "$existing_keychain" <<< "$RESULTING_LIST"; then
+    SURVIVING_KEYCHAINS=$((SURVIVING_KEYCHAINS + 1))
+  fi
+done
+if [[ "$SURVIVING_KEYCHAINS" -eq 0 ]]; then
+  echo "The search-list write dropped every pre-existing keychain; restoring." >&2
+  security list-keychains -d user -s "${EXISTING_KEYCHAINS[@]}" >/dev/null 2>&1 || true
+  exit 2
+fi
 IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
 IDENTITY_LINE=""
 while IFS= read -r line; do

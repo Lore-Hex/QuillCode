@@ -118,6 +118,22 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(result.signingRootExists)
     }
 
+    func testSilentlyDroppedKeychainsFailRatherThanStrandingTheRunner() throws {
+        // security omits arguments it cannot open and still reports success,
+        // so the written list can be shorter than requested. If every prior
+        // entry vanishes, cleanup would leave the runner with no login
+        // keychain at all -- fail instead.
+        let result = try runSigningConfiguration(
+            overrides: validCredentials,
+            dropsExistingKeychain: true
+        )
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(result.output.contains("dropped every pre-existing keychain"), result.output)
+        XCTAssertTrue(result.exportedEnvironment.isEmpty)
+        XCTAssertFalse(result.signingRootExists)
+    }
+
     private struct SigningResult {
         var exitCode: Int32
         var output: String
@@ -134,6 +150,7 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         overrides: [String: String] = [:],
         importFails: Bool = false,
         listKeychainsFails: Bool = false,
+        dropsExistingKeychain: Bool = false,
         identityLine: String = #"1) ABCDEF "Developer ID Application: Quill Cowork (ABCDE12345)""#
     ) throws -> SigningResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
@@ -176,6 +193,11 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
         let existingKeychain = temporaryDirectory.appendingPathComponent("login.keychain-db")
         try Data().write(to: existingKeychain)
         environment["SIGNING_TEST_EXISTING_KEYCHAIN"] = existingKeychain.path
+        environment["SIGNING_TEST_KEYCHAIN_LIST_STATE"] =
+            temporaryDirectory.appendingPathComponent("keychain-list.state").path
+        if dropsExistingKeychain {
+            environment["SIGNING_TEST_UNOPENABLE"] = existingKeychain.path
+        }
         environment["SIGNING_TEST_IDENTITY_LINE"] = identityLine
         for key in Self.credentialKeys {
             environment[key] = ""
@@ -248,12 +270,28 @@ final class ParityMacOSDistributionSigningGateTests: QuillCodeParityTestCase {
             rm -f "${@: -1}"
             ;;
           list-keychains)
-            # Reading returns the runner's existing list; writing (-s) is a no-op.
-            if [[ "$*" != *" -s "* ]]; then
+            state="${SIGNING_TEST_KEYCHAIN_LIST_STATE:?}"
+            if [[ "$*" == *" -s "* ]]; then
+              # Model the real write: record the arguments, but drop any entry
+              # named in SIGNING_TEST_UNOPENABLE, the way security omits
+              # arguments it cannot open as a keychain.
+              : > "$state"
+              shift 4   # past: list-keychains -d user -s
+              for candidate in "$@"; do
+                if [[ -n "${SIGNING_TEST_UNOPENABLE:-}" && "$candidate" == "$SIGNING_TEST_UNOPENABLE" ]]; then
+                  continue
+                fi
+                printf '    "%s"\n' "$candidate" >> "$state"
+              done
+            else
               if [[ "${SIGNING_TEST_LIST_KEYCHAINS_FAILS:-false}" == "true" ]]; then
                 exit 1
               fi
-              printf '    "%s"\n' "${SIGNING_TEST_EXISTING_KEYCHAIN:?}"
+              if [[ -s "$state" ]]; then
+                cat "$state"
+              else
+                printf '    "%s"\n' "${SIGNING_TEST_EXISTING_KEYCHAIN:?}"
+              fi
             fi
             ;;
           set-keychain-settings|unlock-keychain|set-key-partition-list)
