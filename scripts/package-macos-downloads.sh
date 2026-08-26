@@ -235,6 +235,13 @@ signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}
 notarized=$NOTARIZED
 INFO
 
+# The published-release verifier requires a cli entry naming the CLI tarball.
+# Only the standard edition ships one, so emit it exactly when it was built
+# rather than writing an empty key the verifier would reject.
+if [[ -n "$CLI_TARBALL" ]]; then
+  printf 'cli=%s\n' "$(basename "$CLI_TARBALL")" >> "$BUILD_INFO"
+fi
+
 (
   cd "$ASSET_DIR"
   CHECKSUM_INPUTS=(
