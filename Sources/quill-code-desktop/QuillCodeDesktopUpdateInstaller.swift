@@ -111,10 +111,32 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             "launch-\(identifier).ack",
             isDirectory: false
         )
-        let helperURL = preparedUpdate.workspaceURL.appendingPathComponent(
-            "QuillCoworkUpdateHelper-\(identifier)",
-            isDirectory: false
-        )
+        // Run the helper from a copy of the whole app bundle. A Developer ID
+        // signature seals Info.plist, so a bare executable copied out of its
+        // bundle fails validation and is SIGKILLed at exec.
+        let runningBundleURL = QuillCodeDesktopUpdateWorkspaceLocator
+            .applicationBundleURL(forExecutableAt: runningExecutableURL)
+        let helperStagingURL: URL
+        let helperURL: URL
+        if let runningBundleURL {
+            helperStagingURL = preparedUpdate.workspaceURL.appendingPathComponent(
+                "QuillCoworkUpdateHelper-\(identifier).app",
+                isDirectory: true
+            )
+            helperURL = helperStagingURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("MacOS", isDirectory: true)
+                .appendingPathComponent(
+                    runningExecutableURL.lastPathComponent,
+                    isDirectory: false
+                )
+        } else {
+            helperStagingURL = preparedUpdate.workspaceURL.appendingPathComponent(
+                "QuillCoworkUpdateHelper-\(identifier)",
+                isDirectory: false
+            )
+            helperURL = helperStagingURL
+        }
         let logURL = preparedUpdate.workspaceURL.appendingPathComponent(
             "install-\(identifier).log",
             isDirectory: false
@@ -132,7 +154,10 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
                 release: preparedUpdate.release,
                 configuration: configuration
             )
-            try fileManager.copyItem(at: runningExecutableURL, to: helperURL)
+            try fileManager.copyItem(
+                at: runningBundleURL ?? runningExecutableURL,
+                to: helperStagingURL
+            )
             try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helperURL.path)
             try fileManager.createDirectory(
                 at: resultURL.deletingLastPathComponent(),
@@ -141,7 +166,7 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             )
         } catch {
             try? fileManager.removeItem(at: incomingURL)
-            try? fileManager.removeItem(at: helperURL)
+            try? fileManager.removeItem(at: helperStagingURL)
             if let updateError = error as? QuillCodeDesktopUpdateError {
                 throw updateError
             }
@@ -170,7 +195,7 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             )
         } catch {
             try? fileManager.removeItem(at: incomingURL)
-            try? fileManager.removeItem(at: helperURL)
+            try? fileManager.removeItem(at: helperStagingURL)
             throw QuillCodeDesktopUpdateError.installationFailed(
                 "the update recovery record could not be created"
             )

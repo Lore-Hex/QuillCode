@@ -124,10 +124,32 @@ struct QuillCodeDesktopApplicationRelocator: QuillCodeDesktopApplicationRelocati
             ".\(QuillCodeProduct.displayName).update-\(identifier).app",
             isDirectory: true
         )
-        let helperURL = workspaceURL.appendingPathComponent(
-            "QuillCoworkInstallHelper-\(identifier)",
-            isDirectory: false
-        )
+        // Run the helper from a copy of the whole app bundle. A Developer ID
+        // signature seals Info.plist, so a bare executable copied out of its
+        // bundle fails validation and is SIGKILLed at exec.
+        let runningBundleURL = QuillCodeDesktopUpdateWorkspaceLocator
+            .applicationBundleURL(forExecutableAt: runningExecutableURL)
+        let helperStagingURL: URL
+        let helperURL: URL
+        if let runningBundleURL {
+            helperStagingURL = workspaceURL.appendingPathComponent(
+                "QuillCoworkInstallHelper-\(identifier).app",
+                isDirectory: true
+            )
+            helperURL = helperStagingURL
+                .appendingPathComponent("Contents", isDirectory: true)
+                .appendingPathComponent("MacOS", isDirectory: true)
+                .appendingPathComponent(
+                    runningExecutableURL.lastPathComponent,
+                    isDirectory: false
+                )
+        } else {
+            helperStagingURL = workspaceURL.appendingPathComponent(
+                "QuillCoworkInstallHelper-\(identifier)",
+                isDirectory: false
+            )
+            helperURL = helperStagingURL
+        }
         let request = QuillCodeDesktopUpdateHelperRequest(
             parentProcessID: ProcessInfo.processInfo.processIdentifier,
             helperURL: helperURL,
@@ -160,7 +182,10 @@ struct QuillCodeDesktopApplicationRelocator: QuillCodeDesktopApplicationRelocati
                 incomingURL,
                 requirement: requirement
             )
-            try fileManager.copyItem(at: runningExecutableURL, to: helperURL)
+            try fileManager.copyItem(
+                at: runningBundleURL ?? runningExecutableURL,
+                to: helperStagingURL
+            )
             try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helperURL.path)
             try fileManager.createDirectory(
                 at: request.resultURL.deletingLastPathComponent(),
@@ -220,6 +245,8 @@ struct QuillCodeDesktopApplicationRelocator: QuillCodeDesktopApplicationRelocati
 
     private static func removeStaging(_ request: QuillCodeDesktopUpdateHelperRequest) {
         try? FileManager.default.removeItem(at: request.incomingApplicationURL)
-        try? FileManager.default.removeItem(at: request.helperURL.deletingLastPathComponent())
+        try? FileManager.default.removeItem(
+            at: QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL)
+        )
     }
 }

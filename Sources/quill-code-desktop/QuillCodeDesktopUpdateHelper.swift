@@ -189,7 +189,7 @@ enum QuillCodeDesktopUpdateHelper {
         let workspace = request.handshakeURL.deletingLastPathComponent().standardizedFileURL
         guard workspace != root,
               workspace.deletingLastPathComponent().standardizedFileURL == root,
-              request.helperURL.deletingLastPathComponent().standardizedFileURL == workspace,
+              QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL) == workspace,
               request.logURL.deletingLastPathComponent().standardizedFileURL == workspace
         else {
             return

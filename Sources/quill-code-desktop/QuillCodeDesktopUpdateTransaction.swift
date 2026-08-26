@@ -32,7 +32,7 @@ struct QuillCodeDesktopUpdateTransaction: Codable, Equatable, Sendable {
             throw recoveryRecordError
         }
 
-        let url = transactionURL(for: request.helperURL.deletingLastPathComponent())
+        let url = transactionURL(for: QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL))
         guard !FileManager.default.fileExists(atPath: url.path) else {
             throw recoveryRecordError
         }
@@ -56,7 +56,7 @@ struct QuillCodeDesktopUpdateTransaction: Codable, Equatable, Sendable {
         cacheRoot: URL
     ) throws {
         do {
-            let workspace = request.helperURL.deletingLastPathComponent().standardizedFileURL
+            let workspace = QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL)
             let transaction = try read(from: transactionURL(for: workspace))
             guard transaction.matches(request, workspace: workspace, cacheRoot: cacheRoot) else {
                 throw recoveryRecordError
@@ -76,7 +76,7 @@ struct QuillCodeDesktopUpdateTransaction: Codable, Equatable, Sendable {
             let incoming = request.incomingApplicationURL.standardizedFileURL
             guard applicationMatchesExpected(incoming, request: request) else { return false }
             try FileManager.default.removeItem(at: incoming)
-            let workspace = request.helperURL.deletingLastPathComponent().standardizedFileURL
+            let workspace = QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL)
             try? FileManager.default.removeItem(at: workspace)
             return true
         } catch {
@@ -175,7 +175,7 @@ struct QuillCodeDesktopUpdateTransaction: Codable, Equatable, Sendable {
             expectedCommit: request.expectedCommit,
             activationMode: request.activationMode
         )
-        let workspace = request.helperURL.deletingLastPathComponent().standardizedFileURL
+        let workspace = QuillCodeDesktopUpdateWorkspaceLocator.workspaceURL(forHelperAt: request.helperURL)
         guard transaction.matches(request, workspace: workspace, cacheRoot: cacheRoot) else {
             throw recoveryRecordError
         }
