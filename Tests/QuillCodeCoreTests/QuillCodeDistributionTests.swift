@@ -55,6 +55,7 @@ final class QuillCodeDistributionTests: XCTestCase {
         let input = AppConfig(
             defaultModel: TrustedRouterDefaults.fastModel,
             apiBaseURL: "https://untrusted.example/v1",
+            authMode: .developerOverride,
             developerOverrideEnabled: true,
             favoriteModels: [
                 TrustedRouterDefaults.fastModel,
@@ -68,8 +69,11 @@ final class QuillCodeDistributionTests: XCTestCase {
         XCTAssertEqual(enforced.defaultModel, TrustedRouterDefaults.confidentialModel)
         XCTAssertEqual(enforced.reviewModel, TrustedRouterDefaults.confidentialModel)
         XCTAssertEqual(enforced.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
-        XCTAssertEqual(enforced.authMode, .oauth)
-        XCTAssertFalse(enforced.developerOverrideEnabled)
+        // Key auth is allowed in the confidential edition: the boundary is routing (the
+        // pinned gateway and models above), not how the credential arrived. Resetting the
+        // mode here used to silently flip a saved API-key selection back to OAuth.
+        XCTAssertEqual(enforced.authMode, .developerOverride)
+        XCTAssertTrue(enforced.developerOverrideEnabled)
         XCTAssertEqual(enforced.favoriteModels, [TrustedRouterDefaults.confidentialModel])
     }
 

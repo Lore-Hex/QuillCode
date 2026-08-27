@@ -61,6 +61,22 @@ final class TrustedRouterControlBaseURLTests: XCTestCase {
         )
     }
 
+    func testTrailingDotHostsStillMapToControlPlane() {
+        // A fully-qualified name with a trailing dot resolves to the same enclave.
+        XCTAssertEqual(
+            TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: "https://api.trustedrouter.com./v1"),
+            TrustedRouterDefaults.defaultControlBaseURL
+        )
+        XCTAssertEqual(
+            TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: "https://api.trustedrouter.com.:443/v1"),
+            TrustedRouterDefaults.defaultControlBaseURL
+        )
+        XCTAssertEqual(
+            TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: "https://api-eu.quillrouter.com./v1"),
+            TrustedRouterDefaults.defaultControlBaseURL
+        )
+    }
+
     func testUnparseableValuesFallBackToControlPlane() {
         XCTAssertEqual(
             TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: "   "),

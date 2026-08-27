@@ -26,8 +26,12 @@ public enum TrustedRouterDefaults {
     /// development gateway, which serves both surfaces itself and passes through unchanged.
     public static func controlBaseURL(forAPIBaseURL apiBaseURL: String) -> String {
         let trimmed = apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let host = URL(string: trimmed)?.host?.lowercased() else {
+        guard var host = URL(string: trimmed)?.host?.lowercased() else {
             return defaultControlBaseURL
+        }
+        // A fully-qualified name with a trailing dot resolves to the same enclave host.
+        while host.hasSuffix(".") {
+            host.removeLast()
         }
         if host == "api.trustedrouter.com" {
             return defaultControlBaseURL
