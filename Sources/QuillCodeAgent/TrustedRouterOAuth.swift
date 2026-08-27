@@ -123,7 +123,7 @@ public struct TrustedRouterOAuthClient: Sendable {
     public var urlSession: URLSession
 
     public init(
-        baseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        baseURL: String = TrustedRouterDefaults.defaultControlBaseURL,
         urlSession: URLSession = .shared
     ) throws {
         guard let url = URL(string: baseURL) else {

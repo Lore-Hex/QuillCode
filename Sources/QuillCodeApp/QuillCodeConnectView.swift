@@ -46,7 +46,7 @@ struct QuillCodeConnectView: View {
             .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 240))
             .quillCodeFormActionTarget(minWidth: 240)
             .accessibilityIdentifier("quillcode-connect-developer-key")
-            .help("Open Developer override settings")
+            .help("Open API key settings")
 
             if let accountURL = URL(string: prompt.accountURL) {
                 Link(destination: accountURL) {

@@ -13,7 +13,30 @@ public enum TrustedRouterDefaults {
     public static let confidentialModel = "trustedrouter/confidential"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
+    /// The control plane, which serves the interactive OAuth pages and key endpoints.
+    /// api.trustedrouter.com is the inference enclave: it answers every request with JSON,
+    /// has no /auth/userinfo route at all, and cannot render the sign-in page -- pointing a
+    /// browser there shows the user a JSON error instead of a sign-in form.
+    public static let defaultControlBaseURL = "https://trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
+
+    /// The base URL OAuth must use for a given inference base URL. The hosted enclave
+    /// hostnames (api.trustedrouter.com and the regional api-*.quillrouter.com) cannot serve
+    /// the browser flow, so they map to the control plane. Any other value is a custom or
+    /// development gateway, which serves both surfaces itself and passes through unchanged.
+    public static func controlBaseURL(forAPIBaseURL apiBaseURL: String) -> String {
+        let trimmed = apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let host = URL(string: trimmed)?.host?.lowercased() else {
+            return defaultControlBaseURL
+        }
+        if host == "api.trustedrouter.com" {
+            return defaultControlBaseURL
+        }
+        if host.hasPrefix("api-") && host.hasSuffix(".quillrouter.com") {
+            return defaultControlBaseURL
+        }
+        return trimmed
+    }
     public static let loopbackCallbackURL = "http://localhost:3000/callback"
     public static let safetyPrimaryModel = "glm-5.2"
     public static let safetyFallbackModel = "kimi-k2.6"

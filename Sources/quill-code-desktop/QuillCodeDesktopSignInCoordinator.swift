@@ -28,7 +28,9 @@ struct QuillCodeDesktopSignInCoordinator {
         status: @escaping @MainActor (_ label: String, _ error: String?) -> Void
     ) async throws -> QuillCodeDesktopSignInResult {
         status("Opening TrustedRouter", nil)
-        let client = try TrustedRouterOAuthClient(baseURL: currentConfig.apiBaseURL)
+        let client = try TrustedRouterOAuthClient(
+            baseURL: TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: currentConfig.apiBaseURL)
+        )
         guard let configuredCallbackURL = URL(
             string: TrustedRouterDefaults.loopbackCallbackURL
         ) else {
