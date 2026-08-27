@@ -218,14 +218,15 @@ struct QuillCodeSettingsView: View {
             .pickerStyle(.segmented)
             .quillCodeSegmentedControlTarget()
             .accessibilityIdentifier("quillcode-settings-confidential-jurisdiction")
-            oauthLoginSection
+            authenticationPicker
+            authenticationDetail
         }
     }
 
     private var authenticationPicker: some View {
         Picker("Authentication", selection: $draft.authMode) {
             Text("TrustedRouter login").tag(TrustedRouterAuthMode.oauth)
-            Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
+            Text("API key").tag(TrustedRouterAuthMode.developerOverride)
         }
         .pickerStyle(.segmented)
         .quillCodeSegmentedControlTarget()
@@ -259,7 +260,7 @@ struct QuillCodeSettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(settings.distribution.requiresConfidentialRouting
                 ? "TrustedRouter login returns through \(QuillCodeProduct.displayName)'s local callback. Routing policy cannot be disabled in this edition."
-                : "OAuth browser login opens TrustedRouter and returns through \(QuillCodeProduct.displayName)'s local callback. Developer keys stay hidden unless you switch modes.")
+                : "OAuth browser login opens TrustedRouter and returns through \(QuillCodeProduct.displayName)'s local callback. Already have a TrustedRouter API key? Switch to API key above and paste it.")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
@@ -274,7 +275,7 @@ struct QuillCodeSettingsView: View {
 
     private var developerOverrideSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Replace API key")
+            Text(settings.hasStoredAPIKey ? "Replace API key" : "TrustedRouter API key")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)

@@ -60,7 +60,7 @@ struct QuillCodeConnectBannerView: View {
             .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 240))
             .quillCodeFormActionTarget(minWidth: 240)
             .accessibilityIdentifier("quillcode-connect-developer-key")
-            .help("Open Developer override settings")
+            .help("Open API key settings")
         }
         .frame(width: 240)
     }

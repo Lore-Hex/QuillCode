@@ -20,7 +20,7 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
     public static let signInButtonTitle = "Sign in with TrustedRouter"
     public static let browserSignInCaption = "Secure sign-in opens in your browser"
     public static let createAccountTitle = "Create a TrustedRouter account"
-    public static let developerKeyTitle = "Use a developer key"
+    public static let developerKeyTitle = "Use an API key"
     public static let returningUserSubtitle =
         "Your saved chats are ready. Connect before starting or resuming model work."
     public static let defaultAccountURL = "https://trustedrouter.com"

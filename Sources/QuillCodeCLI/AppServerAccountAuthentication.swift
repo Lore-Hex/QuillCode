@@ -32,7 +32,9 @@ struct DefaultAppServerAccountLoginStarter: AppServerAccountLoginStarting {
     }
 
     func start(baseURL: String) throws -> AppServerAccountBrowserLogin {
-        let client = try TrustedRouterOAuthClient(baseURL: baseURL)
+        let client = try TrustedRouterOAuthClient(
+            baseURL: TrustedRouterDefaults.controlBaseURL(forAPIBaseURL: baseURL)
+        )
         let callbackURL = try Self.trustedRouterCallbackURL
         let callbackServer = try LoopbackHTTPCallbackServer(callbackURL: callbackURL)
         let authorization = try client.createAuthorization(

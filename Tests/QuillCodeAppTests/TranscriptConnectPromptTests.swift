@@ -20,7 +20,7 @@ final class TranscriptConnectPromptTests: XCTestCase {
         // Guardrails on the surfaced copy so a refactor can't silently blank the hero or the CTA.
         XCTAssertFalse(TranscriptConnectPrompt.title.isEmpty)
         XCTAssertTrue(TranscriptConnectPrompt.signInButtonTitle.contains("TrustedRouter"))
-        XCTAssertEqual(TranscriptConnectPrompt.developerKeyTitle, "Use a developer key")
+        XCTAssertEqual(TranscriptConnectPrompt.developerKeyTitle, "Use an API key")
         XCTAssertFalse(TranscriptConnectPrompt.subtitle.localizedCaseInsensitiveContains("coding"))
         XCTAssertFalse(TranscriptConnectPrompt.browserSignInCaption.contains("localhost"))
         XCTAssertEqual(TranscriptConnectPrompt.steps, ["Connect", "Choose a model", "Start a task"])

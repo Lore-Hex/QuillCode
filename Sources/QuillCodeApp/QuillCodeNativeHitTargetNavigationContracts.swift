@@ -75,7 +75,7 @@ extension QuillCodeNativeHitTargetAudit {
                 "onboarding.developer-key",
                 family: .settings,
                 surface: "Account setup",
-                label: "Use a developer key",
+                label: TranscriptConnectPrompt.developerKeyTitle,
                 kind: .formAction,
                 minWidth: 240,
                 testID: "connect-developer-key"

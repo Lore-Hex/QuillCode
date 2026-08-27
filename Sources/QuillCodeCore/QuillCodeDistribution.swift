@@ -99,8 +99,11 @@ public struct QuillCodeDistribution: Codable, Sendable, Hashable {
         return canonical
     }
 
-    /// Removes settings that could weaken the confidential distribution. Authentication may still
-    /// use a user-scoped OAuth credential, but inference always uses the official attested gateway.
+    /// Removes settings that could weaken the confidential distribution. The boundary is
+    /// routing: inference always uses the official attested gateway and confidential-tier
+    /// models. How the credential arrived -- OAuth sign-in or a pasted API key -- is identity,
+    /// not routing, and request privacy is pinned by edition at runtime either way, so the
+    /// authentication mode is deliberately left alone.
     public func enforcing(_ config: AppConfig) -> AppConfig {
         guard requiresConfidentialRouting else { return config }
         var enforced = config
@@ -109,8 +112,6 @@ public struct QuillCodeDistribution: Codable, Sendable, Hashable {
             catalog: TrustedRouterDefaults.bundledModelCatalog
         )
         enforced.apiBaseURL = TrustedRouterDefaults.defaultAPIBaseURL
-        enforced.authMode = .oauth
-        enforced.developerOverrideEnabled = false
         enforced.favoriteModels = config.favoriteModels.filter {
             allowsModel($0, catalog: TrustedRouterDefaults.bundledModelCatalog)
         }
