@@ -71,6 +71,7 @@ jobs:
           set -euo pipefail
           npm ci --ignore-scripts
           npm run hydrate:model-data
+          npm run build
           npm run check
           ./test.sh
 
