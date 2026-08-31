@@ -49,4 +49,16 @@ final class ParityWorkflowActionVersionGateTests: QuillCodeParityTestCase {
             )
         }
     }
+
+    func testConfidentialCoworkSignerBuildsWorkspaceBeforeTesting() throws {
+        let workflow = try Self.workflowText(named: "sign-tr-confidential-cowork.yml")
+        let buildRange = try XCTUnwrap(workflow.range(of: "npm run build"))
+        let testRange = try XCTUnwrap(workflow.range(of: "./test.sh"))
+
+        XCTAssertLessThan(
+            buildRange.lowerBound,
+            testRange.lowerBound,
+            "The signer must build workspace packages before tests resolve their dist exports"
+        )
+    }
 }
