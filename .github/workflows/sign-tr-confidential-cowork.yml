@@ -1,0 +1,154 @@
+name: Sign TR Confidential Cowork
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact Lore-Hex/trpi branch, tag, or commit to build
+        required: true
+        type: string
+      expected_sha:
+        description: Full source commit SHA that must be checked out
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sign-tr-confidential-cowork-${{ inputs.expected_sha }}
+  cancel-in-progress: false
+
+jobs:
+  sign-and-notarize:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact TR Confidential Cowork source
+        uses: actions/checkout@v7
+        with:
+          repository: Lore-Hex/trpi
+          ref: ${{ inputs.source_ref }}
+          path: trpi
+          persist-credentials: false
+
+      - name: Verify immutable source commit
+        working-directory: trpi
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checked out $actual_sha, expected $EXPECTED_SHA."
+            exit 1
+          fi
+          git fetch --no-tags --depth=1 origin main
+          main_sha="$(git rev-parse FETCH_HEAD)"
+          if [[ "$actual_sha" != "$main_sha" ]]; then
+            echo "::error::Refusing to sign $actual_sha because current TRPI main is $main_sha."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.19.0'
+          cache: npm
+          cache-dependency-path: trpi/package-lock.json
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install test search tools
+        run: brew install fd ripgrep
+
+      - name: Install and verify source
+        working-directory: trpi
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run hydrate:model-data
+          npm run check
+          ./test.sh
+
+      - name: Import Developer ID certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+        run: |
+          set -euo pipefail
+          test -n "$CERTIFICATE_BASE64"
+          test -n "$CERTIFICATE_PASSWORD"
+          test -n "$SIGN_IDENTITY"
+          keychain="$RUNNER_TEMP/tr-confidential-cowork-signing.keychain-db"
+          password="$(openssl rand -hex 24)"
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          printf '%s' "$CERTIFICATE_BASE64" | /usr/bin/base64 -D > "$certificate"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          security default-keychain -d user -s "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain"
+          security find-identity -v -p codesigning "$keychain"
+          security find-identity -v -p codesigning "$keychain" | grep -F "$SIGN_IDENTITY"
+          echo "TR_COWORK_SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
+      - name: Write Apple notary key
+        env:
+          NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$NOTARY_PRIVATE_KEY_BASE64"
+          key_path="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$NOTARY_PRIVATE_KEY_BASE64" | /usr/bin/base64 -D > "$key_path"
+          chmod 600 "$key_path"
+          echo "APPLE_NOTARY_PRIVATE_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Build, sign, and notarize universal app
+        working-directory: trpi
+        env:
+          APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          TR_COWORK_BUILD_NUMBER: ${{ github.run_number }}
+          TR_COWORK_MACOS_OUTPUT_DIR: ${{ runner.temp }}/tr-confidential-cowork-release
+        run: scripts/package-macos-app.sh
+
+      - name: Verify release payload
+        env:
+          RELEASE_DIR: ${{ runner.temp }}/tr-confidential-cowork-release
+        run: |
+          set -euo pipefail
+          dmg="$RELEASE_DIR/TR-Confidential-Cowork-macOS-universal.dmg"
+          test -s "$dmg"
+          test -s "$dmg.sha256"
+          (
+            cd "$RELEASE_DIR"
+            shasum -a 256 -c "$(basename "$dmg.sha256")"
+          )
+          codesign --verify --verbose=2 "$dmg"
+          xcrun stapler validate "$dmg"
+
+      - name: Upload signed release
+        uses: actions/upload-artifact@v7
+        with:
+          name: tr-confidential-cowork-signed-${{ inputs.expected_sha }}
+          path: |
+            ${{ runner.temp }}/tr-confidential-cowork-release/TR-Confidential-Cowork-macOS-universal.dmg
+            ${{ runner.temp }}/tr-confidential-cowork-release/TR-Confidential-Cowork-macOS-universal.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          set +e
+          security default-keychain -d user -s login.keychain-db
+          security delete-keychain "$TR_COWORK_SIGNING_KEYCHAIN"
+          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/AuthKey.p8"
