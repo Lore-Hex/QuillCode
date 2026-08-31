@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out exact TR Confidential Cowork source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: Lore-Hex/trpi
           ref: ${{ inputs.source_ref }}
@@ -45,7 +45,7 @@ jobs:
           fi
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22.19.0'
           cache: npm
@@ -127,7 +127,7 @@ jobs:
           xcrun stapler validate "$dmg"
 
       - name: Upload signed release
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tr-confidential-cowork-signed-${{ inputs.expected_sha }}
           path: |
