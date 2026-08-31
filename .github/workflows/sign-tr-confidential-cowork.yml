@@ -128,7 +128,10 @@ jobs:
           dmg="$RELEASE_DIR/TR-Confidential-Cowork-macOS-universal.dmg"
           test -s "$dmg"
           test -s "$dmg.sha256"
-          shasum -a 256 -c "$dmg.sha256"
+          (
+            cd "$RELEASE_DIR"
+            shasum -a 256 -c "$(basename "$dmg.sha256")"
+          )
           codesign --verify --verbose=2 "$dmg"
           xcrun stapler validate "$dmg"
 
