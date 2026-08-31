@@ -43,6 +43,12 @@ jobs:
             echo "::error::Checked out $actual_sha, expected $EXPECTED_SHA."
             exit 1
           fi
+          git fetch --no-tags --depth=1 origin main
+          main_sha="$(git rev-parse FETCH_HEAD)"
+          if [[ "$actual_sha" != "$main_sha" ]]; then
+            echo "::error::Refusing to sign $actual_sha because current TRPI main is $main_sha."
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
