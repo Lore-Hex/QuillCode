@@ -5,8 +5,7 @@ cd "$GITHUB_WORKSPACE/desktop"
 export CSC_NAME="$SIGN_IDENTITY"
 export CSC_KEYCHAIN="$RUNNER_TEMP/trcc-signing.keychain-db"
 npx --no-install electron-builder --mac dir --universal --publish never \
-  -c.forceCodeSigning=true -c.mac.notarize=false \
-  -c.mac.binaries=Contents/Resources/resources/runtime/tr-cowork
+  --config "$GITHUB_WORKSPACE/signing/scripts/trcc-signing-config.cjs"
 app="$PWD/release/mac-universal/TR Confidential Cowork.app"
 test -d "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
