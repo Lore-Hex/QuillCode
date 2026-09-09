@@ -9,7 +9,7 @@ npx --no-install electron-builder --mac dir --universal --publish never \
 app="$PWD/release/mac-universal/TR Confidential Cowork.app"
 test -d "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
-lipo -verify_arch arm64 x86_64 "$app/Contents/Resources/resources/runtime/tr-cowork"
+lipo "$app/Contents/Resources/resources/runtime/tr-cowork" -verify_arch arm64 x86_64
 "$app/Contents/Resources/resources/runtime/tr-cowork" --version
 notarize() {
   xcrun notarytool submit "$1" --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait

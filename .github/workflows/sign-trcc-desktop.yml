@@ -82,7 +82,7 @@ jobs:
           cp -R "$RUNNER_TEMP/runtime-arm/darwin-arm64" "$target"
           lipo -create "$RUNNER_TEMP/runtime-arm/darwin-arm64/tr-cowork" "$RUNNER_TEMP/runtime-x64/darwin-x64/tr-cowork" -output "$target/tr-cowork"
           cp -R "$RUNNER_TEMP/runtime-x64/darwin-x64/native/darwin/prebuilds/darwin-x64" "$target/native/darwin/prebuilds/"
-          lipo -verify_arch arm64 x86_64 "$target/tr-cowork"
+          lipo "$target/tr-cowork" -verify_arch arm64 x86_64
           "$target/tr-cowork" --version
       - name: Verify desktop
         working-directory: desktop
