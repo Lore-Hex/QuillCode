@@ -2,7 +2,7 @@
 set -euo pipefail
 : "${SIGN_IDENTITY:?}" "${NOTARY_KEY_ID:?}" "${NOTARY_ISSUER_ID:?}" "${DESKTOP_SHA:?}" "${RUNTIME_SHA:?}"
 cd "$GITHUB_WORKSPACE/desktop"
-export CSC_NAME="$SIGN_IDENTITY"
+export CSC_NAME="${SIGN_IDENTITY#Developer ID Application: }"
 export CSC_KEYCHAIN="$RUNNER_TEMP/trcc-signing.keychain-db"
 npx --no-install electron-builder --mac dir --universal --publish never \
   --config "$GITHUB_WORKSPACE/signing/scripts/trcc-signing-config.cjs"
