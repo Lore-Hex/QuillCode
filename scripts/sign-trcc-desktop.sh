@@ -2,14 +2,22 @@
 set -euo pipefail
 : "${SIGN_IDENTITY:?}" "${NOTARY_KEY_ID:?}" "${NOTARY_ISSUER_ID:?}" "${DESKTOP_SHA:?}" "${RUNTIME_SHA:?}"
 cd "$GITHUB_WORKSPACE/desktop"
-export CSC_NAME="$SIGN_IDENTITY"
+export CSC_NAME="${SIGN_IDENTITY#Developer ID Application: }"
 export CSC_KEYCHAIN="$RUNNER_TEMP/trcc-signing.keychain-db"
 npx --no-install electron-builder --mac dir --universal --publish never \
   --config "$GITHUB_WORKSPACE/signing/scripts/trcc-signing-config.cjs"
 app="$PWD/release/mac-universal/TR Confidential Cowork.app"
 test -d "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
-lipo -verify_arch arm64 x86_64 "$app/Contents/Resources/resources/runtime/tr-cowork"
+lipo "$app/Contents/Resources/resources/runtime/tr-cowork" -verify_arch arm64 x86_64
+for arch in arm64 x64; do
+  macho_arch="$arch"
+  [[ "$arch" != x64 ]] || macho_arch=x86_64
+  lipo "$app/Contents/Resources/resources/runtime/native/darwin/prebuilds/darwin-$arch/darwin-platform.node" -verify_arch "$macho_arch"
+  for helper in pty.node spawn-helper; do
+    lipo "$app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-$arch/$helper" -verify_arch "$macho_arch"
+  done
+done
 "$app/Contents/Resources/resources/runtime/tr-cowork" --version
 notarize() {
   xcrun notarytool submit "$1" --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
