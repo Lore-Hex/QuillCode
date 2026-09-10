@@ -13,7 +13,7 @@ lipo "$app/Contents/Resources/resources/runtime/tr-cowork" -verify_arch arm64 x8
 for arch in arm64 x64; do
   macho_arch="$arch"
   [[ "$arch" != x64 ]] || macho_arch=x86_64
-  lipo "$app/Contents/Resources/resources/runtime/native/darwin/prebuilds/darwin-$arch/darwin-modifiers.node" -verify_arch "$macho_arch"
+  lipo "$app/Contents/Resources/resources/runtime/native/darwin/prebuilds/darwin-$arch/darwin-platform.node" -verify_arch "$macho_arch"
   for helper in pty.node spawn-helper; do
     lipo "$app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-$arch/$helper" -verify_arch "$macho_arch"
   done
