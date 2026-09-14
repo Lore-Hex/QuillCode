@@ -57,7 +57,9 @@ jobs:
         run: |
           set -euo pipefail
           bun typecheck
-          bun test src/main/confidential-policy.test.ts src/main/confidential-bridge.test.ts src/main/confidential-network.test.ts src/main/credential-vault.test.ts src/main/trustedrouter-sign-in.test.ts
+          find src/main -name '*.test.ts' ! -name 'draft-store.test.ts' -print0 | xargs -0 bun test
+          bun test electron-builder.config.test.ts
+          node scripts/draft-store-smoke.mjs
           cd ../opencode
           bun typecheck
       - name: Build production desktop
