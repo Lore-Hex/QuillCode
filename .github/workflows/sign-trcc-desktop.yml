@@ -4,11 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       desktop_sha:
-        description: Full current Lore-Hex/confidential-cowork-desktop main SHA
-        required: true
-        type: string
-      runtime_sha:
-        description: Full current Lore-Hex/trpi main SHA
+        description: Full tested Lore-Hex/confidential-cowork-desktop confidential-desktop SHA
         required: true
         type: string
 
@@ -16,12 +12,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: sign-trcc-desktop
+  group: sign-trusted-cowork
   cancel-in-progress: false
 
 jobs:
   sign:
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -34,68 +34,42 @@ jobs:
           ref: ${{ inputs.desktop_sha }}
           persist-credentials: false
           path: desktop
-      - uses: actions/checkout@v7
-        with:
-          repository: Lore-Hex/trpi
-          ref: ${{ inputs.runtime_sha }}
-          persist-credentials: false
-          path: trpi
-      - name: Verify both immutable sources are current main
+      - name: Verify immutable reviewed source
         env:
           DESKTOP_SHA: ${{ inputs.desktop_sha }}
-          RUNTIME_SHA: ${{ inputs.runtime_sha }}
         run: |
           set -euo pipefail
           [[ "$DESKTOP_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$RUNTIME_SHA" =~ ^[0-9a-f]{40}$ ]]
-          for repo in desktop trpi; do
-            expected="$DESKTOP_SHA"
-            [[ "$repo" != trpi ]] || expected="$RUNTIME_SHA"
-            test "$(git -C "$repo" rev-parse HEAD)" = "$expected"
-            git -C "$repo" fetch --no-tags --depth=1 origin main
-            test "$(git -C "$repo" rev-parse FETCH_HEAD)" = "$expected"
-          done
+          test "$(git -C desktop rev-parse HEAD)" = "$DESKTOP_SHA"
+          git -C desktop fetch --no-tags --depth=1 origin confidential-desktop
+          test "$(git -C desktop rev-parse FETCH_HEAD)" = "$DESKTOP_SHA"
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      - run: brew install fd ripgrep
-      - name: Verify runtime
-        working-directory: trpi
-        run: |
-          set -euo pipefail
-          npm ci --ignore-scripts
-          npm run hydrate:model-data
-          npm run build:offline
-          npm run check
-          ./test.sh
-      - name: Build both runtime architectures
-        working-directory: trpi
-        run: |
-          set -euo pipefail
-          scripts/build-binaries.sh --skip-install --skip-build --offline-model-data --platform darwin-arm64 --out "$RUNNER_TEMP/runtime-arm"
-          scripts/build-binaries.sh --skip-install --skip-build --offline-model-data --platform darwin-x64 --out "$RUNNER_TEMP/runtime-x64"
-          target="$GITHUB_WORKSPACE/desktop/resources/runtime"
-          test ! -e "$target"
-          cp -R "$RUNNER_TEMP/runtime-arm/darwin-arm64" "$target"
-          lipo -create "$RUNNER_TEMP/runtime-arm/darwin-arm64/tr-cowork" "$RUNNER_TEMP/runtime-x64/darwin-x64/tr-cowork" -output "$target/tr-cowork"
-          cp -R "$RUNNER_TEMP/runtime-x64/darwin-x64/native/darwin/prebuilds/darwin-x64" "$target/native/darwin/prebuilds/"
-          lipo "$target/tr-cowork" -verify_arch arm64 x86_64
-          "$target/tr-cowork" --version
-      - name: Verify desktop
+      - name: Install dependencies
         working-directory: desktop
+        run: bun install --frozen-lockfile
+      - name: Verify desktop privacy and runtime
+        working-directory: desktop/packages/desktop
         run: |
           set -euo pipefail
-          npm ci --ignore-scripts
-          node node_modules/electron/install.js
-          npx --no-install electron-builder install-app-deps
-          npm run typecheck
-          npm run lint
-          find src resources -name '*.test.ts' -not -path 'resources/runtime/*' -print0 | xargs -0 node --import tsx --test --test-concurrency=1
-          npm run build
-          node scripts/cowork-desktop-smoke.mjs
+          bun typecheck
+          bun test src/main/confidential-policy.test.ts src/main/confidential-bridge.test.ts src/main/confidential-network.test.ts src/main/credential-vault.test.ts src/main/trustedrouter-sign-in.test.ts
+          cd ../opencode
+          bun typecheck
+      - name: Build production desktop
+        working-directory: desktop/packages/desktop
+        env:
+          OPENCODE_CHANNEL: prod
+        run: |
+          set -euo pipefail
+          bun run build
+          bun build scripts/process-smoke.ts --target=node --outfile="$RUNNER_TEMP/process-smoke.mjs"
+          node "$RUNNER_TEMP/process-smoke.mjs"
+          ./node_modules/.bin/electron scripts/process-smoke-electron.cjs "$RUNNER_TEMP/process-smoke.mjs"
       - name: Import signing credentials
         env:
           CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
@@ -122,21 +96,20 @@ jobs:
           security find-identity -v -p codesigning "$keychain" | grep -F "$SIGN_IDENTITY"
           printf '%s' "$NOTARY_PRIVATE_KEY_BASE64" | /usr/bin/base64 -D > "$RUNNER_TEMP/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/AuthKey.p8"
-      - name: Sign and notarize graphical app and DMG
+      - name: Sign and notarize Trusted Cowork
         env:
           SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
           NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           DESKTOP_SHA: ${{ inputs.desktop_sha }}
-          RUNTIME_SHA: ${{ inputs.runtime_sha }}
-        run: bash signing/scripts/sign-trcc-desktop.sh
+        run: bash signing/scripts/sign-trusted-cowork.sh
       - uses: actions/upload-artifact@v7
         with:
-          name: trcc-desktop-signed-${{ inputs.desktop_sha }}
+          name: trusted-cowork-signed-${{ matrix.runner }}-${{ inputs.desktop_sha }}
           path: |
-            desktop/release/TR-Confidential-Cowork-Desktop-universal.dmg
-            desktop/release/TR-Confidential-Cowork-Desktop-universal.dmg.sha256
-            desktop/release/source-provenance.json
+            desktop/packages/desktop/dist/Trusted-Cowork-*.dmg
+            desktop/packages/desktop/dist/Trusted-Cowork-*.sha256
+            desktop/packages/desktop/dist/source-provenance.json
           if-no-files-found: error
           retention-days: 3
       - name: Remove signing material
