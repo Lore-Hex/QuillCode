@@ -1,0 +1,123 @@
+name: Sign TRCC Desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      desktop_sha:
+        description: Full tested Lore-Hex/confidential-cowork-desktop confidential-desktop SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sign-trusted-cowork
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          path: signing
+      - uses: actions/checkout@v7
+        with:
+          repository: Lore-Hex/confidential-cowork-desktop
+          ref: ${{ inputs.desktop_sha }}
+          persist-credentials: false
+          path: desktop
+      - name: Verify immutable reviewed source
+        env:
+          DESKTOP_SHA: ${{ inputs.desktop_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$DESKTOP_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git -C desktop rev-parse HEAD)" = "$DESKTOP_SHA"
+          git -C desktop fetch --no-tags --depth=1 origin confidential-desktop
+          test "$(git -C desktop rev-parse FETCH_HEAD)" = "$DESKTOP_SHA"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install dependencies
+        working-directory: desktop
+        run: bun install --frozen-lockfile
+      - name: Verify desktop privacy and runtime
+        working-directory: desktop/packages/desktop
+        run: |
+          set -euo pipefail
+          bun typecheck
+          find src/main -name '*.test.ts' ! -name 'draft-store.test.ts' -print0 | xargs -0 bun test
+          bun test electron-builder.config.test.ts
+          node scripts/draft-store-smoke.mjs
+          cd ../opencode
+          bun typecheck
+      - name: Build production desktop
+        working-directory: desktop/packages/desktop
+        env:
+          OPENCODE_CHANNEL: prod
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -euo pipefail
+          bun run build
+          bun build scripts/process-smoke.ts --target=node --outfile="$RUNNER_TEMP/process-smoke.mjs"
+          node "$RUNNER_TEMP/process-smoke.mjs"
+          ./node_modules/.bin/electron scripts/process-smoke-electron.cjs "$RUNNER_TEMP/process-smoke.mjs"
+      - name: Import signing credentials
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$CERTIFICATE_BASE64"
+          test -n "$CERTIFICATE_PASSWORD"
+          test -n "$SIGN_IDENTITY"
+          test -n "$NOTARY_PRIVATE_KEY_BASE64"
+          keychain="$RUNNER_TEMP/trcc-signing.keychain-db"
+          password="$(openssl rand -hex 24)"
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          printf '%s' "$CERTIFICATE_BASE64" | /usr/bin/base64 -D > "$certificate"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          security default-keychain -d user -s "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain"
+          security find-identity -v -p codesigning "$keychain" | grep -F "$SIGN_IDENTITY"
+          printf '%s' "$NOTARY_PRIVATE_KEY_BASE64" | /usr/bin/base64 -D > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/AuthKey.p8"
+      - name: Sign and notarize Trusted Cowork
+        env:
+          SIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          DESKTOP_SHA: ${{ inputs.desktop_sha }}
+        run: bash signing/scripts/sign-trusted-cowork.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trusted-cowork-signed-${{ matrix.runner }}-${{ inputs.desktop_sha }}
+          path: |
+            desktop/packages/desktop/dist/Trusted-Cowork-*.dmg
+            desktop/packages/desktop/dist/Trusted-Cowork-*.sha256
+            desktop/packages/desktop/dist/source-provenance.json
+          if-no-files-found: error
+          retention-days: 3
+      - name: Remove signing material
+        if: always()
+        run: |
+          security default-keychain -d user -s login.keychain-db || true
+          security delete-keychain "$RUNNER_TEMP/trcc-signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/AuthKey.p8"
