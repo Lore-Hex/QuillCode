@@ -66,6 +66,7 @@ jobs:
         working-directory: desktop/packages/desktop
         env:
           OPENCODE_CHANNEL: prod
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           set -euo pipefail
           bun run build
