@@ -48,7 +48,7 @@ jobs:
           node-version: '24'
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
       - name: Install dependencies
         working-directory: desktop
         run: bun install --frozen-lockfile
@@ -57,11 +57,10 @@ jobs:
         run: |
           set -euo pipefail
           bun typecheck
-          find src/main -name '*.test.ts' ! -name 'draft-store.test.ts' -print0 | xargs -0 bun test
-          bun test electron-builder.config.test.ts
-          node scripts/draft-store-smoke.mjs
-          cd ../opencode
+          bun test src/main electron-builder.config.test.ts --timeout 30000
+          cd ../core
           bun typecheck
+          bun run script/test.ts test/config/confidential.test.ts
       - name: Build production desktop
         working-directory: desktop/packages/desktop
         env:
@@ -69,10 +68,12 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
           set -euo pipefail
+          export OPENCODE_VERSION="$(node -p 'require("./package.json").version')"
+          export OPENCODE_CLI_DIST="$GITHUB_WORKSPACE/desktop/packages/cli/dist"
+          (cd ../cli && bun run script/build.ts --single --skip-install --skip-web-ui)
           bun run build
-          bun build scripts/process-smoke.ts --target=node --outfile="$RUNNER_TEMP/process-smoke.mjs"
-          node "$RUNNER_TEMP/process-smoke.mjs"
-          ./node_modules/.bin/electron scripts/process-smoke-electron.cjs "$RUNNER_TEMP/process-smoke.mjs"
+          bun scripts/confidential-runtime-smoke.ts
+          bun scripts/confidential-desktop-smoke.ts
       - name: Import signing credentials
         env:
           CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
