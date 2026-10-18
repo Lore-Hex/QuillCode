@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           export OPENCODE_VERSION="$(node -p 'require("./package.json").version')"
           export OPENCODE_CLI_DIST="$GITHUB_WORKSPACE/desktop/packages/cli/dist"
-          (cd ../cli && bun run script/build.ts --single --skip-install --skip-web-ui)
+          (cd ../cli && bun run script/build.ts --single --baseline --skip-install --skip-web-ui)
           bun run build
           bun scripts/confidential-runtime-smoke.ts
           bun scripts/confidential-desktop-smoke.ts
